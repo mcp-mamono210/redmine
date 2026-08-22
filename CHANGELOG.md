@@ -14,11 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a shared MCP tool error result builder.
 - Added unit coverage for RedmineClient-to-MCP error mapping and API-key sanitization.
 - Added MCP stdio E2E coverage for invalid Redmine credentials.
+- Added a shared registration entry point for read-only MCP tools.
+- Added unit coverage for the extracted Current User tool handler and shared error handling.
 
 ### Changed
 
 - Replaced per-tool raw Error message handling with a shared sanitized MCP error mapper.
 - Limited MCP-visible errors to stable application-level information instead of exposing RedmineClient implementation details.
+- Refactored MCP tool registration into dedicated read-only tool modules.
+- Moved `redmine_get_current_user` out of the server composition root while preserving its existing MCP contract.
+- Set v0.1.0 as the next development release target for the read-only MCP tool surface.
 
 ## [0.0.1] - 2026-08-22
 

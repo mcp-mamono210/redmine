@@ -15,7 +15,8 @@ src/
 │   ├── register-tools.ts
 │   └── tools/
 │       ├── current-user.ts
-│       └── issues.ts
+│       ├── issues.ts
+│       └── projects.ts
 ├── redmine/
 │   └── ...
 └── server.ts
@@ -95,6 +96,54 @@ The response preserves Redmine pagination information:
 
 `redmine_list_issues` is intended for structured filtering. Free-text discovery will be provided by `redmine_search`.
 
+### `redmine_get_project`
+
+Retrieves detailed project metadata when the Redmine project ID or identifier is known.
+
+Input by identifier:
+
+```json
+{
+  "project_id": "mcp-test"
+}
+```
+
+A positive numeric project ID is also accepted.
+
+The response includes project metadata available through the Redmine Project API, including:
+
+```text
+trackers
+issue categories
+issue custom fields
+```
+
+Project versions and memberships are not aggregated by this tool.
+
+### `redmine_list_projects`
+
+Lists projects visible to the configured Redmine user using pagination.
+
+Supported parameters:
+
+```text
+offset
+limit
+```
+
+Both parameters are optional. `limit` is constrained to 1-100.
+
+Example:
+
+```json
+{
+  "offset": 0,
+  "limit": 25
+}
+```
+
+Use `redmine_list_projects` to discover a project ID or identifier, then call `redmine_get_project` when detailed metadata is required.
+
 ## Error model
 
 Errors are separated into three layers:
@@ -170,7 +219,7 @@ Run MCP E2E tests with the deterministic Redmine test environment and required e
 npm run test:e2e
 ```
 
-The Current User and Issue E2E tests include API-key leak regression coverage.
+The Current User, Issue, and Project E2E tests include API-key leak regression coverage.
 
 ## License
 

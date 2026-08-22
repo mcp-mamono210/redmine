@@ -29,12 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added searchable issue descriptions for read-only search tests.
 - Added a deterministic issue journal for issue-detail tests.
 - Added a deterministic issue relation for relation retrieval tests.
+- Added a local Redmine reset workflow that rebuilds the Docker test environment from a clean PostgreSQL volume.
 
 ### Changed
 
 - Expanded the `MCP Read Only` role configuration while keeping it free of write permissions.
 - Clarified the boundary between Redmine configuration and representative test data.
 - Expanded the synthetic test fixture while keeping it independent of production Redmine data.
+- Documented the local Redmine lifecycle for start, seed, reset, and stop operations.
 
 ## [0.0.1] - 2026-08-22
 

@@ -17,16 +17,8 @@ jobs:
           command: npm run typecheck
 
       - run:
-          name: Start Docker Redmine
-          command: npm run redmine:start
-
-      - run:
-          name: Wait for Redmine
-          command: bash docker/scripts/wait-for-redmine.sh
-
-      - run:
-          name: Seed Redmine
-          command: npm run redmine:seed
+          name: Reset Redmine test environment
+          command: npm run redmine:reset
 
       - run:
           name: Run RedmineClient integration test
@@ -41,6 +33,17 @@ jobs:
             export REDMINE_URL="http://localhost:3000"
             export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
             npm run test:e2e
+
+      - run:
+          name: Verify repeatable Redmine reset
+          command: npm run redmine:reset
+
+      - run:
+          name: Run integration test after second reset
+          command: |
+            export REDMINE_URL="http://localhost:3000"
+            export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
+            npm run test:integration
 
       - run:
           name: Stop Docker Redmine

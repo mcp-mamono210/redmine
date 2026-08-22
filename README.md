@@ -4,6 +4,64 @@ Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (M
 
 The project is progressing toward `v0.1.0`, which expands the initial walking skeleton into a read-only MCP server.
 
+## Local Redmine lifecycle
+
+The Docker Redmine test environment provides four lifecycle commands.
+
+Start the existing environment while preserving the PostgreSQL volume:
+
+```bash
+npm run redmine:start
+```
+
+Apply the current configuration and representative test-data seeds to the existing database:
+
+```bash
+npm run redmine:seed
+```
+
+Rebuild the environment from a clean PostgreSQL volume:
+
+```bash
+npm run redmine:reset
+```
+
+Stop the environment while preserving the PostgreSQL volume:
+
+```bash
+npm run redmine:stop
+```
+
+`redmine:reset` is destructive for the disposable local test environment. It removes the Docker Compose volumes before rebuilding Redmine and PostgreSQL.
+
+It does not use global Docker cleanup commands such as `docker volume prune` or `docker system prune`.
+
+## Reset workflow
+
+`npm run redmine:reset` performs the following sequence:
+
+```text
+Stop Redmine and PostgreSQL
+↓
+Remove Docker Compose volumes
+↓
+Start Redmine and PostgreSQL
+↓
+Wait for Redmine readiness
+↓
+Apply Configuration Seed
+↓
+Apply Representative Test Data Seed
+```
+
+The reset implementation is located at:
+
+```text
+docker/scripts/reset-redmine.sh
+```
+
+The script reuses the existing project commands instead of duplicating seed logic.
+
 ## Configuration seed
 
 Redmine configuration is managed as code in:
@@ -13,6 +71,17 @@ docker/seed/config.rb
 ```
 
 The configuration seed reproduces Redmine behavior and constraints required by MCP integration tests. It does not copy production data.
+
+The current configuration includes:
+
+- REST API enabled
+- Default language
+- Trackers
+- Issue statuses
+- `MCP Read Only` role
+- Deterministic workflow transitions
+- `release_tag` issue custom field
+- Issue priorities
 
 ## Representative test data
 
@@ -30,7 +99,7 @@ The seed creates deterministic data for read-only integration and MCP E2E tests:
 - Read-only memberships
 - `v0.1.0` and `v0.2.0` versions
 - Issues covering multiple trackers and statuses
-- Low, Normal, and High priorities
+- Multiple priorities
 - Assigned and unassigned issues
 - `release_tag` values and an unset value
 - Searchable issue descriptions
@@ -39,18 +108,6 @@ The seed creates deterministic data for read-only integration and MCP E2E tests:
 - Deterministic test-only API token
 
 The data is synthetic and is not copied or anonymized from production Redmine.
-
-Run the data seed independently with:
-
-```bash
-npm run redmine:seed:data
-```
-
-Apply both configuration and data seeds with:
-
-```bash
-npm run redmine:seed
-```
 
 ## Configuration and test data boundary
 
@@ -97,7 +154,13 @@ Version name
 Custom field name
 ```
 
-Repeated seed execution is intended to converge without creating duplicate projects, versions, issues, journals, relations, or API tokens.
+When seed behavior becomes difficult to reconcile with an existing database state, use:
+
+```bash
+npm run redmine:reset
+```
+
+to rebuild from a known-good clean database.
 
 ## Test credentials
 

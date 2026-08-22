@@ -14,7 +14,8 @@ src/
 │   ├── errors.ts
 │   ├── register-tools.ts
 │   └── tools/
-│       └── current-user.ts
+│       ├── current-user.ts
+│       └── issues.ts
 ├── redmine/
 │   └── ...
 └── server.ts
@@ -27,15 +28,72 @@ Responsibilities are separated as follows:
 - `src/mcp/tools/` contains individual MCP tool definitions and handlers.
 - `src/mcp/errors.ts` contains shared MCP application error mapping.
 
-Future read-only tools use `snake_case` for external MCP parameters while the internal TypeScript `RedmineClient` API continues to use `camelCase`.
+External MCP parameters use `snake_case` while the internal TypeScript `RedmineClient` API uses `camelCase`.
 
-## Current tool
+## Current tools
 
 ### `redmine_get_current_user`
 
 Retrieves the Redmine user associated with the configured API key.
 
 Use this tool to verify Redmine authentication and determine the identity and internal user ID used by the MCP server. It does not search for arbitrary Redmine users.
+
+### `redmine_get_issue`
+
+Retrieves detailed information for a Redmine issue when its numeric issue ID is known.
+
+Input:
+
+```json
+{
+  "issue_id": 123
+}
+```
+
+The response includes journals and issue relations when available.
+
+### `redmine_list_issues`
+
+Lists Redmine issues using structured filters and pagination.
+
+Supported parameters:
+
+```text
+project_id
+tracker_id
+status_id
+assigned_to_id
+fixed_version_id
+subject
+offset
+limit
+sort
+```
+
+All parameters are optional. `limit` is constrained to 1-100.
+
+Example:
+
+```json
+{
+  "project_id": "mcp-test",
+  "status_id": "open",
+  "limit": 25
+}
+```
+
+The response preserves Redmine pagination information:
+
+```json
+{
+  "items": [],
+  "totalCount": 0,
+  "offset": 0,
+  "limit": 25
+}
+```
+
+`redmine_list_issues` is intended for structured filtering. Free-text discovery will be provided by `redmine_search`.
 
 ## Error model
 
@@ -79,9 +137,9 @@ Raw Redmine response bodies, stack traces, causes, and API keys are not returned
 
 ```json
 {
-  "code": "authentication_failed",
-  "message": "Redmine authentication failed.",
-  "status": 401
+  "code": "not_found",
+  "message": "The requested Redmine resource was not found.",
+  "status": 404
 }
 ```
 
@@ -112,7 +170,7 @@ Run MCP E2E tests with the deterministic Redmine test environment and required e
 npm run test:e2e
 ```
 
-The Current User E2E API-key leak regression remains part of the quality gate.
+The Current User and Issue E2E tests include API-key leak regression coverage.
 
 ## License
 

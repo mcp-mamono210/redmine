@@ -2,282 +2,120 @@
 
 Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (MCP) server for Redmine.
 
-Version `0.0.1` provides the initial walking skeleton and proves the complete path from an MCP client to a Docker Redmine instance.
+The project is progressing toward `v0.1.0`, which expands the initial walking skeleton into a read-only MCP server.
 
-## v0.0.1 scope
+## Configuration seed
 
-The first release verifies the following path:
-
-```text
-MCP Client
-    ↓
-stdio
-    ↓
-Redmine MCP Server
-    ↓
-redmine_get_current_user
-    ↓
-RedmineClient
-    ↓
-Docker Redmine
-    ↓
-PostgreSQL
-    ↓
-mcp-test
-```
-
-The release intentionally exposes only one MCP tool:
+Redmine configuration is managed as code in:
 
 ```text
-redmine_get_current_user
+docker/seed/config.rb
 ```
 
-## Requirements
+The configuration seed reproduces Redmine behavior and constraints required by MCP integration tests. It does not copy production data.
 
-- Node.js 20 or later
-- npm
-- Docker
-- Docker Compose
+The current configuration includes:
 
-## Install dependencies
-
-This repository does not use a committed `package-lock.json`.
-
-Install dependencies with:
-
-```bash
-npm install --no-package-lock
-```
-
-CircleCI uses the same installation policy.
-
-## Build
-
-```bash
-npm run build
-```
-
-The compiled MCP server entry point is:
-
-```text
-dist/src/index.js
-```
-
-Run it with:
-
-```bash
-npm start
-```
-
-## Type check
-
-```bash
-npm run typecheck
-```
-
-## Docker Redmine
-
-Start Redmine and PostgreSQL:
-
-```bash
-npm run redmine:start
-```
-
-Wait until Redmine is ready:
-
-```bash
-bash docker/scripts/wait-for-redmine.sh
-```
-
-Apply configuration and test-data seeds:
-
-```bash
-npm run redmine:seed
-```
-
-Stop the environment:
-
-```bash
-npm run redmine:stop
-```
-
-## Seeded test environment
-
-The local and CI test environment contains:
-
-- Redmine REST API enabled
+- REST API enabled
+- Default language
+- Trackers
+  - Bug
+  - Feature
+  - Task
+- Issue statuses
+  - New
+  - In Progress
+  - Resolved
+  - Closed
 - `MCP Read Only` role
-- `mcp-test` user
-- `MCP Test Project`
-- Project membership
-- Deterministic test-only API token
+- Deterministic workflow transitions
+- `release_tag` issue custom field
+- Issue priorities
+  - Low
+  - Normal
+  - High
 
-The test connection uses:
+Run the configuration seed with:
+
+```bash
+npm run redmine:seed:config
+```
+
+## Configuration and test data boundary
+
+Configuration defines Redmine behavior and constraints:
 
 ```text
-REDMINE_URL=http://localhost:3000
-REDMINE_API_KEY=0123456789abcdef0123456789abcdef01234567
+Settings
+Trackers
+Issue statuses
+Roles
+Workflow transitions
+Workflow permissions
+Issue custom fields
+Enumerations
 ```
 
-The API token above is valid only for the disposable local and CI test environment. Never reuse it in production.
-
-## Redmine client integration test
-
-Prepare Redmine:
-
-```bash
-npm run redmine:start
-bash docker/scripts/wait-for-redmine.sh
-npm run redmine:seed
-```
-
-Then run:
-
-```bash
-export REDMINE_URL="http://localhost:3000"
-export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
-
-npm run test:integration
-```
-
-The integration test verifies:
+Test data represents operational objects:
 
 ```text
-RedmineClient
-    ↓
-GET /users/current.json
-    ↓
-Docker Redmine
-    ↓
-mcp-test
+Users
+Projects
+Versions
+Memberships
+Issues
+Journals
+Relations
+API tokens
 ```
 
-## MCP server
+Projects and issues must not be added to `config.rb`.
 
-The MCP server uses stdio transport.
+## Workflow configuration
 
-Build and start it with:
-
-```bash
-npm run build
-
-REDMINE_URL="http://localhost:3000" \
-REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567" \
-node dist/src/index.js
-```
-
-`stdout` is reserved exclusively for MCP protocol traffic. Diagnostic output must use `stderr`.
-
-## `redmine_get_current_user`
-
-`redmine_get_current_user` retrieves the Redmine user associated with the configured API key.
-
-Use it to:
-
-- Verify Redmine authentication.
-- Determine which Redmine identity the MCP server is using.
-- Obtain the current user's internal Redmine ID.
-
-It does not search for arbitrary Redmine users.
-
-## MCP E2E test
-
-Prepare Redmine first:
-
-```bash
-npm run redmine:start
-bash docker/scripts/wait-for-redmine.sh
-npm run redmine:seed
-```
-
-Then run:
-
-```bash
-export REDMINE_URL="http://localhost:3000"
-export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
-
-npm run test:e2e
-```
-
-The E2E test verifies both `tools/list` and `tools/call` over stdio.
-
-## Walking-skeleton verification
-
-With Docker Redmine already started and seeded:
-
-```bash
-export REDMINE_URL="http://localhost:3000"
-export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
-
-npm run test:walking-skeleton
-```
-
-## CircleCI
-
-The CircleCI walking-skeleton workflow verifies:
+The `MCP Read Only` role uses the following deterministic workflow for each seeded tracker:
 
 ```text
-dependency installation
+New
 ↓
-typecheck
+In Progress
 ↓
-Docker PostgreSQL / Redmine
+Resolved
 ↓
-Redmine readiness
-↓
-configuration seed
-↓
-test-data seed
-↓
-RedmineClient integration test
-↓
-MCP stdio E2E
-↓
-build
+Closed
 ```
 
-The dependency-install step uses:
+## Issue custom field
 
-```bash
-npm install --no-package-lock
-```
-
-## Project structure
+The configuration seed creates:
 
 ```text
-.
-├── .circleci/
-│   └── config.yml
-├── docker/
-│   ├── compose.yml
-│   ├── scripts/
-│   │   └── wait-for-redmine.sh
-│   └── seed/
-│       ├── config.rb
-│       └── data.rb
-├── docs/
-│   └── adr/
-├── src/
-│   ├── index.ts
-│   ├── server.ts
-│   └── redmine/
-│       └── client.ts
-├── tests/
-│   ├── integration/
-│   │   └── redmine-client.test.ts
-│   └── e2e/
-│       └── get-current-user.test.ts
-├── .env.example
-├── package.json
-├── tsconfig.json
-├── README.md
-├── CHANGELOG.md
-└── LICENSE
+release_tag
 ```
 
-## Next milestone
+It is a string field intended for release identifiers such as:
 
-The next milestone is `v0.1.0`, which expands the read-only MCP implementation with representative Redmine configuration and data, formal response validation, and Issue / Project / Search tools.
+```text
+v0.0.1
+v0.1.0
+v1.0.0
+```
+
+## Issue priorities
+
+The configuration seed ensures:
+
+```text
+Low
+Normal
+High
+```
+
+`Normal` is configured as the default priority.
+
+## Next phase
+
+The next phase expands representative test data with projects, versions, issues, journals, relations, and custom-field values.
 
 ## License
 

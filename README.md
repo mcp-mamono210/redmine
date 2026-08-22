@@ -183,6 +183,42 @@ Use `redmine_search` when the resource ID is unknown. Search results are summari
 
 Use `redmine_list_issues` instead when structured issue filters such as project, tracker, status, assignee, or fixed version are already known.
 
+## Read-only workflows
+
+The v0.1.0 read-only tool surface is designed around discovery followed by detailed retrieval.
+
+Free-text issue discovery:
+
+```text
+redmine_search
+↓
+discover an issue ID
+↓
+redmine_get_issue
+```
+
+Structured issue discovery:
+
+```text
+redmine_list_issues
+↓
+select an issue ID
+↓
+redmine_get_issue
+```
+
+Project discovery:
+
+```text
+redmine_list_projects
+↓
+select a project identifier
+↓
+redmine_get_project
+```
+
+Project-scoped search is available by passing `project_id` to `redmine_search`.
+
 ## Error model
 
 Errors are separated into three layers:
@@ -258,7 +294,20 @@ Run MCP E2E tests with the deterministic Redmine test environment and required e
 npm run test:e2e
 ```
 
-The Current User, Issue, Project, and Search E2E tests include API-key leak regression coverage.
+The read-only E2E suite fixes the v0.1.0 public tool contract at these six tools:
+
+```text
+redmine_get_current_user
+redmine_get_issue
+redmine_list_issues
+redmine_get_project
+redmine_list_projects
+redmine_search
+```
+
+The suite verifies Current User, Issue, Project, global Search, project-scoped Search, Search-to-Issue, structured Issue-list-to-detail, and Project-list-to-detail workflows over stdio.
+
+The deterministic Docker Redmine seed is used to discover resource IDs during tests instead of depending on fixed seeded database IDs. API-key leak regression coverage remains part of the E2E quality gate.
 
 ## License
 

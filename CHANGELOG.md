@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Project MCP tool input validation, unit coverage, and stdio end-to-end coverage.
 - Added `redmine_search` for global and project-scoped Redmine discovery.
 - Added Search MCP tool input validation, unit coverage, and stdio end-to-end coverage.
+- Added end-to-end workflow coverage across all read-only MCP tools.
+- Added Search-to-Issue, Issue-list-to-detail, and Project-list-to-detail MCP workflow regression coverage.
+- Added a stable six-tool `tools/list` contract for the v0.1.0 read-only surface.
 
 ### Changed
 

@@ -1,196 +1,129 @@
 # Redmine MCP Server
 
-A Model Context Protocol (MCP) server for interacting with Redmine.
+Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (MCP) server for Redmine.
 
-This project is implemented in TypeScript using the official MCP TypeScript SDK.
-
-## Status
-
-This project is currently in the initial development stage.
-
-The first release, `v0.0.1`, establishes the walking skeleton for the Redmine MCP Server.
-
-The target end-to-end flow is:
-
-```text
-MCP Client
-    ↓
-stdio
-    ↓
-Redmine MCP Server
-    ↓
-Redmine Client
-    ↓
-Redmine REST API
-    ↓
-Redmine
-    ↓
-PostgreSQL
-```
+The project is currently in the `v0.0.1` walking-skeleton stage.
 
 ## Requirements
 
 - Node.js 20 or later
 - npm
-- Docker Engine
-- Docker Compose v2
-- Bash
-- curl
+- Docker
+- Docker Compose
 
-## Installation
-
-Install Node.js dependencies with:
-
-```bash
-npm ci
-```
-
-If `package-lock.json` does not exist yet, run the following once:
+## Install dependencies
 
 ```bash
 npm install
 ```
 
-## Build
+After `package-lock.json` has been generated and committed, use:
 
-Build the TypeScript sources with:
+```bash
+npm ci
+```
+
+## Build
 
 ```bash
 npm run build
 ```
 
-Compiled files are written to:
-
-```text
-dist/
-```
-
-## Type Check
-
-Run TypeScript type checking without emitting JavaScript:
+## Type check
 
 ```bash
 npm run typecheck
 ```
 
-## Run
+## Docker Redmine
 
-After building the project, run the entry point with:
+The local test environment uses pinned Redmine and PostgreSQL container images.
 
-```bash
-node dist/index.js
-```
-
-At this stage, the MCP transport and MCP tools are not implemented yet, so the process exits after creating the server instance.
-
-## Docker Redmine Development Environment
-
-The local test environment uses pinned Redmine and PostgreSQL Docker images.
-
-Default versions:
-
-```text
-Redmine:    6.1.3
-PostgreSQL: 17.10
-```
-
-The Docker environment is intended only for local development and automated testing. It does not contain production credentials or production Redmine data.
-
-### Environment Variables
-
-The Compose configuration has development-safe defaults. To override them, copy the example environment file:
-
-```bash
-cp .env.example .env
-```
-
-`.env` is ignored by Git.
-
-### Start Redmine
-
-Start PostgreSQL and Redmine and wait until the Redmine HTTP endpoint is ready:
+Start the environment:
 
 ```bash
 npm run redmine:start
 ```
 
-The default URL is:
+Redmine is available at:
 
 ```text
 http://localhost:3000
 ```
 
-The PostgreSQL container must pass its health check before the Redmine container starts.
-
-### Wait for Redmine
-
-To run only the HTTP readiness check:
-
-```bash
-npm run redmine:wait
-```
-
-The following environment variables control the readiness check:
-
-```text
-REDMINE_URL
-REDMINE_PORT
-REDMINE_WAIT_TIMEOUT
-REDMINE_WAIT_INTERVAL
-```
-
-### Stop Redmine
-
-Stop the containers while preserving Docker volumes:
+Stop the environment:
 
 ```bash
 npm run redmine:stop
 ```
 
-The database and Redmine file volumes are intentionally preserved at this phase. A deterministic reset command will be added with the seed/reset workflow in a later phase.
+## Configuration seed
 
-### Run Rails Runner
+Redmine configuration is managed separately from test data.
 
-Verify that Rails Runner can execute inside the Redmine container:
+Configuration contains application behavior and constraints such as:
+
+- Settings
+- Trackers
+- Issue statuses
+- Roles
+- Workflow transitions
+- Workflow permissions
+- Custom fields
+- Enumerations
+
+Test data contains operational objects such as:
+
+- Users
+- Projects
+- Versions
+- Memberships
+- Issues
+- Journals
+- Relations
+- API tokens
+
+Phase 3 provides the minimal configuration seed required for the walking skeleton.
+
+Run it after Redmine has started:
 
 ```bash
-docker compose -f docker/compose.yml exec redmine \
-  bin/rails runner 'puts Redmine::VERSION.to_s'
+npm run redmine:seed:config
 ```
 
-This execution path will be used by later phases to create deterministic Redmine configuration and test data.
+The seed currently performs the following actions:
 
-## Docker Structure
+- Enables the Redmine REST API.
+- Ensures that the `MCP Read Only` role exists.
+- Restricts that role to the minimum permissions required by the walking skeleton.
 
-```text
-docker/
-├── compose.yml
-└── scripts/
-    └── wait-for-redmine.sh
+The seed is executed with `rails runner` inside the Redmine container.
+
+Equivalent command:
+
+```bash
+docker compose -f docker/compose.yml exec -T redmine \
+  bin/rails runner /seed/config.rb
 ```
 
-`docker/compose.yml` defines:
+The `docker/seed` directory is mounted read-only into the Redmine container at `/seed`.
 
-- a PostgreSQL service with a persistent named volume and health check
-- a Redmine service connected to PostgreSQL
-- a persistent Redmine files volume
-- a configurable host port for Redmine
-
-## Project Structure
+## Current project structure
 
 ```text
 .
 ├── docker/
 │   ├── compose.yml
-│   └── scripts/
-│       └── wait-for-redmine.sh
+│   ├── scripts/
+│   │   └── wait-for-redmine.sh
+│   └── seed/
+│       └── config.rb
+├── docs/
+│   └── adr/
 ├── src/
 │   ├── index.ts
 │   └── server.ts
 ├── tests/
-├── docs/
-│   └── adr/
-├── .env.example
 ├── package.json
 ├── package-lock.json
 ├── tsconfig.json
@@ -199,17 +132,17 @@ docker/
 └── LICENSE
 ```
 
-## Development Roadmap
+## Walking skeleton roadmap
 
-The `v0.0.1` walking skeleton consists of the following phases:
+The `v0.0.1` walking skeleton consists of:
 
 1. Minimal TypeScript project
-2. Docker-based Redmine and PostgreSQL environment
-3. Minimal Redmine configuration seed
-4. Minimal test data seed
+2. Docker Redmine / PostgreSQL
+3. Minimal configuration seed
+4. Minimal test-data seed
 5. Minimal Redmine client
-6. `redmine_get_current_user` and MCP end-to-end test
+6. `redmine_get_current_user` and MCP E2E
 
 ## License
 
-MIT License
+MIT

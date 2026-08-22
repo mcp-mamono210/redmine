@@ -11,9 +11,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/index.js",
-    "redmine:start": "docker compose -f docker/compose.yml up -d && bash docker/scripts/wait-for-redmine.sh",
-    "redmine:wait": "bash docker/scripts/wait-for-redmine.sh",
-    "redmine:stop": "docker compose -f docker/compose.yml down"
+    "redmine:start": "docker compose -f docker/compose.yml up -d",
+    "redmine:stop": "docker compose -f docker/compose.yml down",
+    "redmine:seed:config": "docker compose -f docker/compose.yml exec -T redmine bin/rails runner /seed/config.rb"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",

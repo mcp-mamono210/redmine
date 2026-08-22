@@ -1,0 +1,98 @@
+export interface RedmineNamedResource {
+  id: number;
+  name: string;
+}
+
+export interface RedmineUser {
+  id: number;
+  login: string;
+  firstname: string;
+  lastname: string;
+  mail?: string;
+}
+
+export interface RedmineCustomField {
+  id: number;
+  name: string;
+  value: string | string[];
+}
+
+export interface RedmineJournalDetail {
+  property: string;
+  name: string;
+  oldValue?: string;
+  newValue?: string;
+}
+
+export interface RedmineJournal {
+  id: number;
+  user: RedmineNamedResource;
+  notes: string;
+  createdOn: string;
+  details: RedmineJournalDetail[];
+}
+
+export interface RedmineIssueRelation {
+  id: number;
+  issueId: number;
+  issueToId: number;
+  relationType: string;
+  delay?: number;
+}
+
+export interface RedmineIssue {
+  id: number;
+  project: RedmineNamedResource;
+  tracker: RedmineNamedResource;
+  status: RedmineNamedResource & { isClosed?: boolean };
+  priority: RedmineNamedResource;
+  author: RedmineNamedResource;
+  assignedTo?: RedmineNamedResource;
+  fixedVersion?: RedmineNamedResource;
+  subject: string;
+  description?: string;
+  startDate?: string;
+  dueDate?: string;
+  doneRatio?: number;
+  isPrivate?: boolean;
+  estimatedHours?: number;
+  customFields: RedmineCustomField[];
+  createdOn?: string;
+  updatedOn?: string;
+  closedOn?: string;
+  journals?: RedmineJournal[];
+  relations?: RedmineIssueRelation[];
+  allowedStatuses?: RedmineNamedResource[];
+}
+
+export type RedmineIssueSummary = Omit<
+  RedmineIssue,
+  "journals" | "relations" | "allowedStatuses"
+>;
+
+export interface RedminePaginatedResponse<T> {
+  items: T[];
+  totalCount: number;
+  offset: number;
+  limit: number;
+}
+
+export type RedmineIssueInclude =
+  | "journals"
+  | "relations"
+  | "watchers"
+  | "children"
+  | "attachments"
+  | "allowed_statuses";
+
+export interface RedmineListIssuesParams {
+  projectId?: string | number;
+  trackerId?: string | number;
+  statusId?: string | number;
+  assignedToId?: string | number;
+  fixedVersionId?: string | number;
+  subject?: string;
+  offset?: number;
+  limit?: number;
+  sort?: string;
+}

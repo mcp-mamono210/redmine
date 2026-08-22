@@ -2,129 +2,67 @@
 
 Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (MCP) server for Redmine.
 
-The project is progressing toward `v0.1.0`, which expands the initial walking skeleton into a read-only MCP server.
+## RedmineClient
 
-## TypeScript quality checks
-
-The TypeScript quality baseline consists of ESLint, the TypeScript compiler, builds, Vitest, Docker Redmine integration tests, and MCP E2E tests.
-
-Run ESLint:
-
-```bash
-npm run lint
-```
-
-Run the TypeScript compiler without emitting files:
-
-```bash
-npm run typecheck
-```
-
-Run lint and type checking together:
-
-```bash
-npm run check
-```
-
-Build the project:
-
-```bash
-npm run build
-```
-
-ESLint uses type-aware `typescript-eslint` rules for both production and test code.
-
-The lint target includes:
+The read-only RedmineClient currently provides:
 
 ```text
-src/**/*.ts
-tests/**/*.ts
+getCurrentUser
+getIssue
+listIssues
 ```
 
-Generated output and installed dependencies are excluded:
+Existing current-user support is preserved while the Issue API is added.
 
-```text
-dist/
-node_modules/
-```
+External Redmine JSON enters the application as `unknown` and is validated with Zod before it is exposed as typed TypeScript data.
 
-External JSON and API responses should enter application code as `unknown` and be validated or normalized before being treated as typed internal data.
+## Issue API
 
-Explicit `any`, unsafe typed operations, floating promises, misused promises, and unused variables are rejected by the quality gate.
+The Issue API supports:
 
-## TypeScript compiler baseline
+- Issue detail retrieval
+- Issue listing
+- Project filtering
+- Tracker filtering
+- Status filtering
+- Assignee filtering
+- Fixed-version filtering
+- Subject filtering
+- Pagination
+- Sorting
+- Custom fields
+- Journals
+- Relations
+- Allowed statuses
 
-The project keeps `strict` mode enabled and additionally enables:
+Redmine REST snake_case fields are normalized to camelCase at the client boundary.
 
-```text
-noUncheckedIndexedAccess
-noImplicitReturns
-noFallthroughCasesInSwitch
-noUnusedLocals
-noUnusedParameters
-```
+## Integration tests
 
-`exactOptionalPropertyTypes` is intentionally deferred until the Redmine response model and Zod schemas are established.
-
-`skipLibCheck` remains enabled so the project quality gate focuses on application and test code rather than third-party declaration files.
-
-## CircleCI quality gate
-
-CircleCI verifies the following sequence:
-
-```text
-Dependency installation
-↓
-ESLint
-↓
-TypeScript typecheck
-↓
-TypeScript build
-↓
-Redmine reset
-↓
-RedmineClient integration test
-↓
-MCP stdio E2E
-↓
-Second Redmine reset
-↓
-Integration verification
-```
-
-A lint, typecheck, build, integration, or E2E failure fails the workflow.
-
-## Local Redmine lifecycle
-
-Start the existing environment while preserving the PostgreSQL volume:
-
-```bash
-npm run redmine:start
-```
-
-Apply configuration and representative test-data seeds:
-
-```bash
-npm run redmine:seed
-```
-
-Rebuild the environment from a clean PostgreSQL volume:
+Prepare a clean representative Redmine environment:
 
 ```bash
 npm run redmine:reset
 ```
 
-Stop the environment while preserving the PostgreSQL volume:
+Then run:
 
 ```bash
-npm run redmine:stop
+export REDMINE_URL="http://localhost:3000"
+export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
+
+npm run test:integration
 ```
 
-`redmine:reset` is destructive for the disposable local test environment.
+The integration tests cover the existing current-user contract and the Issue API contract.
 
-## Next phase
+## Quality checks
 
-The next phase formalizes Redmine response types and the RedmineClient error model before implementing the read-only Issue, Project, and Search MCP tools.
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
 ## License
 

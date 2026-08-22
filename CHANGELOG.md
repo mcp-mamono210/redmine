@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `redmine_get_project` for retrieving detailed Redmine project metadata.
 - Added `redmine_list_projects` with pagination.
 - Added Project MCP tool input validation, unit coverage, and stdio end-to-end coverage.
+- Added `redmine_search` for global and project-scoped Redmine discovery.
+- Added Search MCP tool input validation, unit coverage, and stdio end-to-end coverage.
 
 ### Changed
 
@@ -32,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Set v0.1.0 as the next development release target for the read-only MCP tool surface.
 - Extended the read-only tool registry with Issue tools while preserving the existing Current User contract.
 - Extended the read-only tool registry with Project tools while preserving existing Current User and Issue tool contracts.
+- Extended the read-only tool registry with Search while preserving existing Current User, Issue, and Project tool contracts.
 
 ## [0.0.1] - 2026-08-22
 

@@ -16,7 +16,8 @@ src/
 │   └── tools/
 │       ├── current-user.ts
 │       ├── issues.ts
-│       └── projects.ts
+│       ├── projects.ts
+│       └── search.ts
 ├── redmine/
 │   └── ...
 └── server.ts
@@ -94,7 +95,7 @@ The response preserves Redmine pagination information:
 }
 ```
 
-`redmine_list_issues` is intended for structured filtering. Free-text discovery will be provided by `redmine_search`.
+`redmine_list_issues` is intended for structured filtering. Use `redmine_search` for free-text discovery.
 
 ### `redmine_get_project`
 
@@ -143,6 +144,44 @@ Example:
 ```
 
 Use `redmine_list_projects` to discover a project ID or identifier, then call `redmine_get_project` when detailed metadata is required.
+
+### `redmine_search`
+
+Searches Redmine by free text for resource discovery.
+
+Supported parameters:
+
+```text
+query
+project_id
+offset
+limit
+```
+
+`query` is required. `project_id`, `offset`, and `limit` are optional. `limit` is constrained to 1-100.
+
+Global search example:
+
+```json
+{
+  "query": "authentication",
+  "limit": 25
+}
+```
+
+Project-scoped search example:
+
+```json
+{
+  "query": "authentication",
+  "project_id": "mcp-test",
+  "limit": 25
+}
+```
+
+Use `redmine_search` when the resource ID is unknown. Search results are summaries; after discovering an issue ID, call `redmine_get_issue` for complete issue details.
+
+Use `redmine_list_issues` instead when structured issue filters such as project, tracker, status, assignee, or fixed version are already known.
 
 ## Error model
 
@@ -219,7 +258,7 @@ Run MCP E2E tests with the deterministic Redmine test environment and required e
 npm run test:e2e
 ```
 
-The Current User, Issue, and Project E2E tests include API-key leak regression coverage.
+The Current User, Issue, Project, and Search E2E tests include API-key leak regression coverage.
 
 ## License
 

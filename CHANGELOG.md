@@ -9,15 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added deterministic RedmineClient unit tests for HTTP, network, timeout, invalid JSON, empty response, and schema validation failures.
-- Added explicit regression coverage preventing Redmine API keys from appearing in client error messages.
-- Added real Redmine integration coverage for HTTP 401 and 404 error contracts.
-- Added injectable `fetchImpl` support for deterministic RedmineClient tests.
+- Added a unified MCP application error model for RedmineClient failures.
+- Added stable MCP error codes for authentication, permissions, missing resources, invalid requests, backend availability, invalid backend responses, and unexpected internal failures.
+- Added a shared MCP tool error result builder.
+- Added unit coverage for RedmineClient-to-MCP error mapping and API-key sanitization.
+- Added MCP stdio E2E coverage for invalid Redmine credentials.
 
 ### Changed
 
-- Documented the RedmineClient error boundary between network, HTTP, and invalid-response failures.
-- Kept raw HTTP response bodies out of client error messages while preserving Redmine `errors[]` messages when available.
+- Replaced per-tool raw Error message handling with a shared sanitized MCP error mapper.
+- Limited MCP-visible errors to stable application-level information instead of exposing RedmineClient implementation details.
 
 ## [0.0.1] - 2026-08-22
 

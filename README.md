@@ -2,9 +2,21 @@
 
 Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (MCP) server for Redmine.
 
-## RedmineClient error model
+## Error model
 
-RedmineClient separates failures into three main categories:
+Errors are separated into three layers:
+
+```text
+Redmine failure
+↓
+RedmineClient typed error
+↓
+MCP application error
+↓
+sanitized MCP tool result
+```
+
+RedmineClient continues to use:
 
 ```text
 RedmineNetworkError
@@ -12,59 +24,60 @@ RedmineHttpError
 RedmineResponseError
 ```
 
-`RedmineNetworkError` represents failures that occur before a valid HTTP response is received, including connection failures and request timeouts.
+The MCP layer maps these failures to stable application error codes:
 
-`RedmineHttpError` represents non-success HTTP responses and preserves the HTTP status, method, request path, and Redmine `errors[]` messages when available.
-
-`RedmineResponseError` represents successful HTTP responses that cannot be safely consumed, including empty bodies, invalid JSON, and schema validation failures.
-
-API keys are never included in RedmineClient error messages.
-
-## Error regression tests
-
-Deterministic unit tests cover:
-
-- HTTP 403 and 5xx responses
-- Redmine `errors[]` extraction
-- Empty response bodies
-- Invalid JSON
-- Zod schema mismatches
-- Network failures
-- Request timeouts
-- API-key leak regression
-
-Real Docker Redmine integration tests cover:
-
-- HTTP 401 with an invalid API key
-- HTTP 404 for a missing issue
-- Current-user API-key sanitization
-- Search URL API-key regression
-
-Run unit tests with the existing Vitest dependency:
-
-```bash
-npx vitest run tests/unit
+```text
+authentication_failed
+permission_denied
+not_found
+invalid_request
+backend_unavailable
+invalid_backend_response
+internal_error
 ```
 
-Run integration tests after resetting Redmine:
+The MCP response exposes only a stable error code, a sanitized message, and an HTTP status when appropriate.
 
-```bash
-npm run redmine:reset
-npm run test:integration
+Raw Redmine response bodies, stack traces, causes, and API keys are not returned to MCP clients.
+
+## Example error
+
+```json
+{
+  "code": "authentication_failed",
+  "message": "Redmine authentication failed.",
+  "status": 401
+}
 ```
 
-Run the complete existing quality gates:
+## Error mapping
+
+```text
+401                     -> authentication_failed
+403                     -> permission_denied
+404                     -> not_found
+other 4xx               -> invalid_request
+5xx                     -> backend_unavailable
+network / timeout       -> backend_unavailable
+invalid JSON / schema   -> invalid_backend_response
+unexpected error        -> internal_error
+```
+
+## Tests
+
+Unit tests verify the mapping and sanitization contract.
 
 ```bash
-npm run lint
-npm run typecheck
-npm run build
+npm run test:unit
+```
+
+MCP E2E tests verify that an invalid Redmine API key produces a sanitized error over stdio.
+
+```bash
 npm run test:e2e
 ```
 
-## Testability
-
-`RedmineClientOptions` accepts an optional `fetchImpl` dependency. Production code uses the global `fetch` implementation by default. Tests can inject deterministic HTTP behavior without changing the Docker Redmine environment.
+The existing Current User E2E API-key leak regression remains part of the quality gate.
 
 ## License
 

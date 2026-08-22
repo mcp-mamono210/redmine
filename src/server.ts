@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
 
+import { toToolErrorResult } from "./mcp/errors.js";
 import type { RedmineClient } from "./redmine/client.js";
 
 export function createServer(redmineClient: RedmineClient): McpServer {
@@ -25,24 +26,13 @@ export function createServer(redmineClient: RedmineClient): McpServer {
         return {
           content: [
             {
-              type: "text",
+              type: "text" as const,
               text: JSON.stringify(user),
             },
           ],
         };
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown Redmine error";
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: message,
-            },
-          ],
-          isError: true,
-        };
+        return toToolErrorResult(error);
       }
     },
   );

@@ -10,7 +10,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "redmine:start": "docker compose -f docker/compose.yml up -d && bash docker/scripts/wait-for-redmine.sh",
+    "redmine:wait": "bash docker/scripts/wait-for-redmine.sh",
+    "redmine:stop": "docker compose -f docker/compose.yml down"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",

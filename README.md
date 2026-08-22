@@ -37,9 +37,7 @@ npm run typecheck
 
 ## Docker Redmine
 
-The local test environment uses pinned Redmine and PostgreSQL container images.
-
-Start the environment:
+Start the local Redmine and PostgreSQL environment:
 
 ```bash
 npm run redmine:start
@@ -57,98 +55,84 @@ Stop the environment:
 npm run redmine:stop
 ```
 
-## Configuration seed
+## Seed Redmine
 
-Redmine configuration is managed separately from test data.
-
-Configuration contains application behavior and constraints such as:
-
-- Settings
-- Trackers
-- Issue statuses
-- Roles
-- Workflow transitions
-- Workflow permissions
-- Custom fields
-- Enumerations
-
-Run the configuration seed with:
-
-```bash
-npm run redmine:seed:config
-```
-
-The current configuration seed:
-
-- Enables the Redmine REST API.
-- Ensures that the `MCP Read Only` role exists.
-
-## Test data seed
-
-Test data contains operational objects used by integration and MCP E2E tests.
-
-Run the test data seed with:
-
-```bash
-npm run redmine:seed:data
-```
-
-The current test data seed creates or ensures:
-
-- User: `mcp-test`
-- Project: `MCP Test Project` (`mcp-test`)
-- Membership using the `MCP Read Only` role
-- A deterministic API token for the local/CI Docker test environment
-
-The deterministic API token is:
-
-```text
-0123456789abcdef0123456789abcdef01234567
-```
-
-This token is intentionally fixed so local development and CI can use the same credentials.
-
-It is valid only for the seeded test Redmine environment and must never be reused in production.
-
-## Run all seeds
-
-Configuration must be applied before test data.
-
-Run both seeds in the correct order with:
+Apply both the configuration seed and the test-data seed:
 
 ```bash
 npm run redmine:seed
 ```
 
-This executes:
+This creates the minimum environment required by the walking skeleton, including:
+
+- REST API enabled
+- `MCP Read Only` role
+- `mcp-test` user
+- `MCP Test Project`
+- Project membership
+- Deterministic test API token
+
+## Redmine client
+
+Phase 5 adds the initial `RedmineClient`.
+
+The client currently supports HTTP GET requests only.
+
+It:
+
+- Reads the Redmine base URL and API key from environment variables.
+- Sends the API key in the `X-Redmine-API-Key` header.
+- Sends `Accept: application/json`.
+- Uses the Node.js built-in `fetch`.
+- Rejects non-success HTTP responses.
+- Does not include the API key in error messages.
+- Provides `getCurrentUser()` for `GET /users/current.json`.
+
+The following environment variables are required:
 
 ```text
-config.rb
-↓
-data.rb
+REDMINE_URL=http://localhost:3000
+REDMINE_API_KEY=<test-only-api-key>
 ```
 
-## Verify REST API authentication
+The API key used in local and CI tests must be the deterministic test key created by the Phase 4 seed. Do not use a production or administrator API key.
 
-After starting and seeding Redmine:
+## Integration test
+
+The integration test talks directly to the Docker Redmine instance.
+
+Prepare the environment first:
 
 ```bash
-curl \
-  -H "X-Redmine-API-Key: 0123456789abcdef0123456789abcdef01234567" \
-  http://localhost:3000/users/current.json
+npm run redmine:start
+npm run redmine:seed
 ```
 
-The response should identify the current user as `mcp-test`.
-
-## Environment variables
-
-Copy `.env.example` to `.env` if local overrides are required.
+Then load the test environment variables and run:
 
 ```bash
-cp .env.example .env
+npm run test:integration
 ```
 
-The example credentials are test-only values. Do not place production Redmine credentials in the repository.
+The integration test verifies:
+
+```text
+RedmineClient
+    ↓
+GET /users/current.json
+    ↓
+Docker Redmine
+    ↓
+mcp-test
+```
+
+The expected current user is:
+
+```text
+mcp-test
+```
+
+This is a Redmine REST API integration test. It does not pass through MCP yet.
 
 ## Current project structure
 
@@ -165,8 +149,12 @@ The example credentials are test-only values. Do not place production Redmine cr
 │   └── adr/
 ├── src/
 │   ├── index.ts
-│   └── server.ts
+│   ├── server.ts
+│   └── redmine/
+│       └── client.ts
 ├── tests/
+│   └── integration/
+│       └── redmine-client.test.ts
 ├── .env.example
 ├── package.json
 ├── package-lock.json

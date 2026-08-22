@@ -26,3 +26,7 @@ and this project adheres to Semantic Versioning.
 - Added a deterministic API token for the Docker test environment.
 - Added npm scripts for running the test data seed and all Redmine seeds.
 - Added example Redmine connection settings for local and CI testing.
+- Added the initial Redmine REST API client.
+- Added API key authentication using the `X-Redmine-API-Key` header.
+- Added support for retrieving the current Redmine user.
+- Added an integration test against the Docker Redmine environment.

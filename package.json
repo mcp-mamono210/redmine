@@ -11,6 +11,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/index.js",
+    "test:integration": "vitest run tests/integration",
     "redmine:start": "docker compose -f docker/compose.yml up -d",
     "redmine:stop": "docker compose -f docker/compose.yml down",
     "redmine:seed:config": "docker compose -f docker/compose.yml exec -T redmine bin/rails runner /seed/config.rb",
@@ -22,6 +23,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "3.2.4"
   }
 }

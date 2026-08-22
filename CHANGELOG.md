@@ -30,3 +30,9 @@ and this project adheres to Semantic Versioning.
 - Added API key authentication using the `X-Redmine-API-Key` header.
 - Added support for retrieving the current Redmine user.
 - Added an integration test against the Docker Redmine environment.
+- Added the stdio MCP transport.
+- Added the `redmine_get_current_user` MCP tool.
+- Added the MCP client SDK for end-to-end testing.
+- Added MCP end-to-end testing against the Docker Redmine environment.
+- Added walking-skeleton verification through the MCP protocol.
+- Added the CircleCI walking-skeleton workflow.

@@ -10,8 +10,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "test:integration": "vitest run tests/integration",
+    "test:e2e": "npm run build && vitest run tests/e2e",
+    "test:walking-skeleton": "npm run typecheck && npm run test:integration && npm run test:e2e",
     "redmine:start": "docker compose -f docker/compose.yml up -d",
     "redmine:stop": "docker compose -f docker/compose.yml down",
     "redmine:seed:config": "docker compose -f docker/compose.yml exec -T redmine bin/rails runner /seed/config.rb",
@@ -23,6 +25,8 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@types/node": "24.3.0",
     "typescript": "7.0.2",
     "vitest": "3.2.4"
   }

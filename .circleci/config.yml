@@ -1,0 +1,53 @@
+version: 2.1
+
+jobs:
+  walking-skeleton:
+    machine:
+      image: ubuntu-2404:current
+
+    steps:
+      - checkout
+
+      - run:
+          name: Install Node.js dependencies
+          command: npm install --no-package-lock
+
+      - run:
+          name: Type check
+          command: npm run typecheck
+
+      - run:
+          name: Start Docker Redmine
+          command: npm run redmine:start
+
+      - run:
+          name: Wait for Redmine
+          command: bash docker/scripts/wait-for-redmine.sh
+
+      - run:
+          name: Seed Redmine
+          command: npm run redmine:seed
+
+      - run:
+          name: Run RedmineClient integration test
+          command: |
+            export REDMINE_URL="http://localhost:3000"
+            export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
+            npm run test:integration
+
+      - run:
+          name: Run MCP E2E test
+          command: |
+            export REDMINE_URL="http://localhost:3000"
+            export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
+            npm run test:e2e
+
+      - run:
+          name: Stop Docker Redmine
+          command: npm run redmine:stop
+          when: always
+
+workflows:
+  test:
+    jobs:
+      - walking-skeleton

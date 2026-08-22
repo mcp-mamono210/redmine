@@ -28,16 +28,23 @@ project.name = MCP_TEST_PROJECT_NAME
 project.is_public = false
 project.save!
 
-membership = Member.find_or_initialize_by(project: project, user_id: user.id)
+membership = Member.find_or_initialize_by(
+  project: project,
+  user_id: user.id
+)
 membership.role_ids = [role.id]
 membership.save!
 
 Token.where(user: user, action: "api").delete_all
-Token.create!(
+
+api_token = Token.create!(
   user: user,
-  action: "api",
-  value: MCP_TEST_API_KEY
+  action: "api"
 )
+
+# Redmine generates a random token value in a before_create callback.
+# Override it after creation to keep the Docker test environment deterministic.
+api_token.update_column(:value, MCP_TEST_API_KEY)
 
 puts "Test user ensured: #{user.login}"
 puts "Test project ensured: #{project.identifier}"

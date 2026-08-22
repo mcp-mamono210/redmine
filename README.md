@@ -2,7 +2,35 @@
 
 Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (MCP) server for Redmine.
 
-The project is currently in the `v0.0.1` walking-skeleton stage.
+Version `0.0.1` provides the initial walking skeleton and proves the complete path from an MCP client to a Docker Redmine instance.
+
+## v0.0.1 scope
+
+The first release verifies the following path:
+
+```text
+MCP Client
+    ↓
+stdio
+    ↓
+Redmine MCP Server
+    ↓
+redmine_get_current_user
+    ↓
+RedmineClient
+    ↓
+Docker Redmine
+    ↓
+PostgreSQL
+    ↓
+mcp-test
+```
+
+The release intentionally exposes only one MCP tool:
+
+```text
+redmine_get_current_user
+```
 
 ## Requirements
 
@@ -13,20 +41,32 @@ The project is currently in the `v0.0.1` walking-skeleton stage.
 
 ## Install dependencies
 
-```bash
-npm install
-```
+This repository does not use a committed `package-lock.json`.
 
-After `package-lock.json` has been generated and committed, use:
+Install dependencies with:
 
 ```bash
-npm ci
+npm install --no-package-lock
 ```
+
+CircleCI uses the same installation policy.
 
 ## Build
 
 ```bash
 npm run build
+```
+
+The compiled MCP server entry point is:
+
+```text
+dist/src/index.js
+```
+
+Run it with:
+
+```bash
+npm start
 ```
 
 ## Type check
@@ -61,37 +101,46 @@ Stop the environment:
 npm run redmine:stop
 ```
 
-## Test environment
+## Seeded test environment
 
-The seeded environment contains:
+The local and CI test environment contains:
 
-- REST API enabled
+- Redmine REST API enabled
 - `MCP Read Only` role
 - `mcp-test` user
 - `MCP Test Project`
 - Project membership
 - Deterministic test-only API token
 
-The local MCP server expects:
+The test connection uses:
 
 ```text
 REDMINE_URL=http://localhost:3000
 REDMINE_API_KEY=0123456789abcdef0123456789abcdef01234567
 ```
 
-The API token above is intentionally fixed for the disposable local/CI test Redmine only. Never reuse it in production.
+The API token above is valid only for the disposable local and CI test environment. Never reuse it in production.
 
 ## Redmine client integration test
 
-Run:
+Prepare Redmine:
+
+```bash
+npm run redmine:start
+bash docker/scripts/wait-for-redmine.sh
+npm run redmine:seed
+```
+
+Then run:
 
 ```bash
 export REDMINE_URL="http://localhost:3000"
 export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
+
 npm run test:integration
 ```
 
-This verifies:
+The integration test verifies:
 
 ```text
 RedmineClient
@@ -105,9 +154,9 @@ mcp-test
 
 ## MCP server
 
-The server is exposed over stdio.
+The MCP server uses stdio transport.
 
-Build and run it with:
+Build and start it with:
 
 ```bash
 npm run build
@@ -121,25 +170,17 @@ node dist/src/index.js
 
 ## `redmine_get_current_user`
 
-The walking skeleton exposes one MCP tool:
-
-```text
-redmine_get_current_user
-```
-
-It retrieves the Redmine user associated with the configured API key.
+`redmine_get_current_user` retrieves the Redmine user associated with the configured API key.
 
 Use it to:
 
 - Verify Redmine authentication.
-- Determine the Redmine identity used by this MCP server.
+- Determine which Redmine identity the MCP server is using.
 - Obtain the current user's internal Redmine ID.
 
 It does not search for arbitrary Redmine users.
 
 ## MCP E2E test
-
-The E2E test launches the compiled MCP server as a child process and communicates with it over stdio.
 
 Prepare Redmine first:
 
@@ -154,28 +195,11 @@ Then run:
 ```bash
 export REDMINE_URL="http://localhost:3000"
 export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
+
 npm run test:e2e
 ```
 
-The E2E path is:
-
-```text
-MCP Client
-    ↓
-stdio
-    ↓
-Redmine MCP Server
-    ↓
-redmine_get_current_user
-    ↓
-RedmineClient
-    ↓
-Docker Redmine
-    ↓
-mcp-test
-```
-
-The test verifies both `tools/list` and `tools/call`.
+The E2E test verifies both `tools/list` and `tools/call` over stdio.
 
 ## Walking-skeleton verification
 
@@ -184,29 +208,38 @@ With Docker Redmine already started and seeded:
 ```bash
 export REDMINE_URL="http://localhost:3000"
 export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
+
 npm run test:walking-skeleton
 ```
 
 ## CircleCI
 
-The walking-skeleton workflow uses the CircleCI machine executor so Docker Compose, mounted seed files, and container execution behave like the local environment.
-
-The CI workflow performs:
+The CircleCI walking-skeleton workflow verifies:
 
 ```text
-npm ci
+dependency installation
 ↓
 typecheck
 ↓
-Docker Redmine / PostgreSQL
+Docker PostgreSQL / Redmine
 ↓
-Redmine readiness check
+Redmine readiness
 ↓
-configuration + test-data seed
+configuration seed
+↓
+test-data seed
 ↓
 RedmineClient integration test
 ↓
 MCP stdio E2E
+↓
+build
+```
+
+The dependency-install step uses:
+
+```bash
+npm install --no-package-lock
 ```
 
 ## Project structure
@@ -236,25 +269,15 @@ MCP stdio E2E
 │       └── get-current-user.test.ts
 ├── .env.example
 ├── package.json
-├── package-lock.json
 ├── tsconfig.json
 ├── README.md
 ├── CHANGELOG.md
 └── LICENSE
 ```
 
-## Walking skeleton roadmap
+## Next milestone
 
-The `v0.0.1` walking skeleton consists of:
-
-1. Minimal TypeScript project
-2. Docker Redmine / PostgreSQL
-3. Minimal configuration seed
-4. Minimal test-data seed
-5. Minimal Redmine client
-6. `redmine_get_current_user` and MCP E2E
-
-Phase 6 completes the walking skeleton.
+The next milestone is `v0.1.0`, which expands the read-only MCP implementation with representative Redmine configuration and data, formal response validation, and Issue / Project / Search tools.
 
 ## License
 

@@ -19,11 +19,7 @@ function normalizeCurrentUser(response: unknown): CurrentUserResponse["user"] {
 
   const user = (response as CurrentUserResponse).user;
 
-  if (
-    !user ||
-    typeof user.id !== "number" ||
-    typeof user.login !== "string"
-  ) {
+  if (!user || typeof user.id !== "number" || typeof user.login !== "string") {
     throw new Error("Redmine returned an invalid current-user response");
   }
 

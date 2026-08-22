@@ -72,41 +72,83 @@ Configuration contains application behavior and constraints such as:
 - Custom fields
 - Enumerations
 
-Test data contains operational objects such as:
-
-- Users
-- Projects
-- Versions
-- Memberships
-- Issues
-- Journals
-- Relations
-- API tokens
-
-Phase 3 provides the minimal configuration seed required for the walking skeleton.
-
-Run it after Redmine has started:
+Run the configuration seed with:
 
 ```bash
 npm run redmine:seed:config
 ```
 
-The seed currently performs the following actions:
+The current configuration seed:
 
 - Enables the Redmine REST API.
 - Ensures that the `MCP Read Only` role exists.
-- Restricts that role to the minimum permissions required by the walking skeleton.
 
-The seed is executed with `rails runner` inside the Redmine container.
+## Test data seed
 
-Equivalent command:
+Test data contains operational objects used by integration and MCP E2E tests.
+
+Run the test data seed with:
 
 ```bash
-docker compose -f docker/compose.yml exec -T redmine \
-  bin/rails runner /seed/config.rb
+npm run redmine:seed:data
 ```
 
-The `docker/seed` directory is mounted read-only into the Redmine container at `/seed`.
+The current test data seed creates or ensures:
+
+- User: `mcp-test`
+- Project: `MCP Test Project` (`mcp-test`)
+- Membership using the `MCP Read Only` role
+- A deterministic API token for the local/CI Docker test environment
+
+The deterministic API token is:
+
+```text
+0123456789abcdef0123456789abcdef01234567
+```
+
+This token is intentionally fixed so local development and CI can use the same credentials.
+
+It is valid only for the seeded test Redmine environment and must never be reused in production.
+
+## Run all seeds
+
+Configuration must be applied before test data.
+
+Run both seeds in the correct order with:
+
+```bash
+npm run redmine:seed
+```
+
+This executes:
+
+```text
+config.rb
+↓
+data.rb
+```
+
+## Verify REST API authentication
+
+After starting and seeding Redmine:
+
+```bash
+curl \
+  -H "X-Redmine-API-Key: 0123456789abcdef0123456789abcdef01234567" \
+  http://localhost:3000/users/current.json
+```
+
+The response should identify the current user as `mcp-test`.
+
+## Environment variables
+
+Copy `.env.example` to `.env` if local overrides are required.
+
+```bash
+cp .env.example .env
+```
+
+The example credentials are test-only values. Do not place production Redmine credentials in the repository.
 
 ## Current project structure
 
@@ -117,13 +159,15 @@ The `docker/seed` directory is mounted read-only into the Redmine container at `
 │   ├── scripts/
 │   │   └── wait-for-redmine.sh
 │   └── seed/
-│       └── config.rb
+│       ├── config.rb
+│       └── data.rb
 ├── docs/
 │   └── adr/
 ├── src/
 │   ├── index.ts
 │   └── server.ts
 ├── tests/
+├── .env.example
 ├── package.json
 ├── package-lock.json
 ├── tsconfig.json

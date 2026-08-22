@@ -20,3 +20,9 @@ and this project adheres to Semantic Versioning.
 - Enabled the Redmine REST API through the configuration seed.
 - Added the `MCP Read Only` role configuration.
 - Added an npm script for running the Redmine configuration seed.
+- Added the initial Redmine test data seed.
+- Added the `mcp-test` user and MCP test project.
+- Added the MCP read-only project membership.
+- Added a deterministic API token for the Docker test environment.
+- Added npm scripts for running the test data seed and all Redmine seeds.
+- Added example Redmine connection settings for local and CI testing.

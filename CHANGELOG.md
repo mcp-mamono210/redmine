@@ -9,19 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added typed Redmine issue detail and issue list response models.
-- Added Zod validation for Redmine Issue API responses.
-- Added RedmineClient support for issue retrieval and issue listing.
-- Added Issue API filtering for project, tracker, status, assignee, fixed version, and subject.
-- Added normalized pagination metadata for issue lists.
-- Added support for issue journals, relations, custom fields, and allowed statuses.
-- Added Issue API integration coverage against representative Docker Redmine data.
-- Added 404 regression coverage for missing issues.
+- Added typed Redmine project detail and project list response models.
+- Added RedmineClient support for project detail and project listing.
+- Added support for project trackers and issue custom field metadata.
+- Added typed Redmine version responses and project version listing.
+- Added typed Redmine membership responses and project membership listing.
+- Added Project API pagination support.
+- Added Project API integration coverage against representative Docker Redmine data.
+- Added typed 404 regression coverage for missing projects.
 
 ### Changed
 
-- Preserved the existing typed current-user RedmineClient contract while adding Issue API support.
-- Normalized Redmine Issue API snake_case response fields to camelCase internal TypeScript models.
+- Preserved the existing Current User and Issue API contracts while extending RedmineClient with Project API operations.
+- Normalized Redmine Project, Version, and Membership REST response fields to camelCase internal TypeScript models.
 
 ## [0.0.1] - 2026-08-22
 

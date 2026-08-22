@@ -70,6 +70,57 @@ export type RedmineIssueSummary = Omit<
   "journals" | "relations" | "allowedStatuses"
 >;
 
+export interface RedmineIssueCustomFieldMetadata {
+  id: number;
+  name: string;
+  fieldFormat?: string;
+  isRequired?: boolean;
+}
+
+export interface RedmineProject {
+  id: number;
+  name: string;
+  identifier: string;
+  description?: string;
+  status?: number;
+  isPublic?: boolean;
+  parent?: RedmineNamedResource;
+  createdOn?: string;
+  updatedOn?: string;
+  trackers?: RedmineNamedResource[];
+  issueCategories?: RedmineNamedResource[];
+  issueCustomFields?: RedmineIssueCustomFieldMetadata[];
+}
+
+export type RedmineProjectSummary = Omit<
+  RedmineProject,
+  "trackers" | "issueCategories" | "issueCustomFields"
+>;
+
+export interface RedmineVersion {
+  id: number;
+  project: RedmineNamedResource;
+  name: string;
+  description?: string;
+  status: string;
+  dueDate?: string;
+  sharing?: string;
+  createdOn?: string;
+  updatedOn?: string;
+}
+
+export interface RedmineMembershipRole extends RedmineNamedResource {
+  inherited?: boolean;
+}
+
+export interface RedmineMembership {
+  id: number;
+  project: RedmineNamedResource;
+  user?: RedmineNamedResource;
+  group?: RedmineNamedResource;
+  roles: RedmineMembershipRole[];
+}
+
 export interface RedminePaginatedResponse<T> {
   items: T[];
   totalCount: number;
@@ -95,4 +146,19 @@ export interface RedmineListIssuesParams {
   offset?: number;
   limit?: number;
   sort?: string;
+}
+
+export type RedmineProjectInclude =
+  | "trackers"
+  | "issue_categories"
+  | "issue_custom_fields";
+
+export interface RedmineListProjectsParams {
+  offset?: number;
+  limit?: number;
+}
+
+export interface RedmineListMembershipsParams {
+  offset?: number;
+  limit?: number;
 }

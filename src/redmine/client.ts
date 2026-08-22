@@ -9,15 +9,29 @@ import {
   currentUserResponseSchema,
   issueResponseSchema,
   issuesResponseSchema,
+  membershipsResponseSchema,
+  projectResponseSchema,
+  projectsResponseSchema,
+  versionsResponseSchema,
   type RawIssue,
+  type RawMembership,
+  type RawProject,
+  type RawVersion,
 } from "./schemas.js";
 import type {
   RedmineIssue,
   RedmineIssueInclude,
   RedmineIssueSummary,
   RedmineListIssuesParams,
+  RedmineListMembershipsParams,
+  RedmineListProjectsParams,
+  RedmineMembership,
   RedminePaginatedResponse,
+  RedmineProject,
+  RedmineProjectInclude,
+  RedmineProjectSummary,
   RedmineUser,
+  RedmineVersion,
 } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -88,6 +102,56 @@ function normalizeIssue(raw: RawIssue): RedmineIssue {
       delay: compactOptional(relation.delay),
     })),
     allowedStatuses: raw.allowed_statuses,
+  };
+}
+
+function normalizeProject(raw: RawProject): RedmineProject {
+  return {
+    id: raw.id,
+    name: raw.name,
+    identifier: raw.identifier,
+    description: compactOptional(raw.description),
+    status: raw.status,
+    isPublic: raw.is_public,
+    parent: raw.parent,
+    createdOn: raw.created_on,
+    updatedOn: raw.updated_on,
+    trackers: raw.trackers,
+    issueCategories: raw.issue_categories,
+    issueCustomFields: raw.issue_custom_fields?.map((field) => ({
+      id: field.id,
+      name: field.name,
+      fieldFormat: field.field_format,
+      isRequired: field.is_required,
+    })),
+  };
+}
+
+function normalizeVersion(raw: RawVersion): RedmineVersion {
+  return {
+    id: raw.id,
+    project: raw.project,
+    name: raw.name,
+    description: compactOptional(raw.description),
+    status: raw.status,
+    dueDate: compactOptional(raw.due_date),
+    sharing: raw.sharing,
+    createdOn: raw.created_on,
+    updatedOn: raw.updated_on,
+  };
+}
+
+function normalizeMembership(raw: RawMembership): RedmineMembership {
+  return {
+    id: raw.id,
+    project: raw.project,
+    user: raw.user,
+    group: raw.group,
+    roles: raw.roles.map((role) => ({
+      id: role.id,
+      name: role.name,
+      inherited: role.inherited,
+    })),
   };
 }
 
@@ -171,6 +235,70 @@ export class RedmineClient {
 
     return {
       items: parsed.issues.map(normalizeIssue),
+      totalCount: parsed.total_count,
+      offset: parsed.offset,
+      limit: parsed.limit,
+    };
+  }
+
+  async getProject(
+    projectId: string | number,
+    options?: { include?: readonly RedmineProjectInclude[] },
+  ): Promise<RedmineProject> {
+    const path = `/projects/${encodePathSegment(projectId)}.json`;
+    const data = await this.requestJson(path, {
+      include: options?.include,
+    });
+    const parsed = this.parse(projectResponseSchema, data, `GET ${path}`);
+
+    return normalizeProject(parsed.project);
+  }
+
+  async listProjects(
+    params: RedmineListProjectsParams = {},
+  ): Promise<RedminePaginatedResponse<RedmineProjectSummary>> {
+    const data = await this.requestJson("/projects.json", {
+      offset: params.offset,
+      limit: params.limit,
+    });
+
+    const parsed = this.parse(
+      projectsResponseSchema,
+      data,
+      "GET /projects.json",
+    );
+
+    return {
+      items: parsed.projects.map(normalizeProject),
+      totalCount: parsed.total_count,
+      offset: parsed.offset,
+      limit: parsed.limit,
+    };
+  }
+
+  async listProjectVersions(
+    projectId: string | number,
+  ): Promise<RedmineVersion[]> {
+    const path = `/projects/${encodePathSegment(projectId)}/versions.json`;
+    const data = await this.requestJson(path);
+    const parsed = this.parse(versionsResponseSchema, data, `GET ${path}`);
+
+    return parsed.versions.map(normalizeVersion);
+  }
+
+  async listProjectMemberships(
+    projectId: string | number,
+    params: RedmineListMembershipsParams = {},
+  ): Promise<RedminePaginatedResponse<RedmineMembership>> {
+    const path = `/projects/${encodePathSegment(projectId)}/memberships.json`;
+    const data = await this.requestJson(path, {
+      offset: params.offset,
+      limit: params.limit,
+    });
+    const parsed = this.parse(membershipsResponseSchema, data, `GET ${path}`);
+
+    return {
+      items: parsed.memberships.map(normalizeMembership),
       totalCount: parsed.total_count,
       offset: parsed.offset,
       limit: parsed.limit,

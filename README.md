@@ -10,32 +10,29 @@ The read-only RedmineClient currently provides:
 getCurrentUser
 getIssue
 listIssues
+getProject
+listProjects
+listProjectVersions
+listProjectMemberships
 ```
-
-Existing current-user support is preserved while the Issue API is added.
 
 External Redmine JSON enters the application as `unknown` and is validated with Zod before it is exposed as typed TypeScript data.
 
-## Issue API
+## Project API
 
-The Issue API supports:
+The Project API supports:
 
-- Issue detail retrieval
-- Issue listing
-- Project filtering
-- Tracker filtering
-- Status filtering
-- Assignee filtering
-- Fixed-version filtering
-- Subject filtering
-- Pagination
-- Sorting
-- Custom fields
-- Journals
-- Relations
-- Allowed statuses
+- Project detail retrieval
+- Project listing
+- Project pagination
+- Project trackers
+- Project issue custom field metadata
+- Project versions
+- Project memberships
 
-Redmine REST snake_case fields are normalized to camelCase at the client boundary.
+Project identifiers and numeric project IDs are both supported.
+
+The client does not depend on global admin-only `/users` or `/custom_fields` endpoints for project metadata.
 
 ## Integration tests
 
@@ -54,7 +51,7 @@ export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
 npm run test:integration
 ```
 
-The integration tests cover the existing current-user contract and the Issue API contract.
+The integration tests cover current-user, Issue API, Project API, versions, memberships, pagination, and typed 404 errors.
 
 ## Quality checks
 
@@ -62,6 +59,8 @@ The integration tests cover the existing current-user contract and the Issue API
 npm run lint
 npm run typecheck
 npm run build
+npm run test:integration
+npm run test:e2e
 ```
 
 ## License

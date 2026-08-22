@@ -102,4 +102,92 @@ export const issuesResponseSchema = z
   })
   .passthrough();
 
+const issueCustomFieldMetadataSchema = z
+  .object({
+    id: z.number().int(),
+    name: z.string(),
+    field_format: z.string().optional(),
+    is_required: z.boolean().optional(),
+  })
+  .passthrough();
+
+export const projectSchema = z
+  .object({
+    id: z.number().int(),
+    name: z.string(),
+    identifier: z.string(),
+    description: z.string().nullish(),
+    status: z.number().optional(),
+    is_public: z.boolean().optional(),
+    parent: namedResourceSchema.optional(),
+    created_on: z.string().optional(),
+    updated_on: z.string().optional(),
+    trackers: z.array(namedResourceSchema).optional(),
+    issue_categories: z.array(namedResourceSchema).optional(),
+    issue_custom_fields: z.array(issueCustomFieldMetadataSchema).optional(),
+  })
+  .passthrough();
+
+export const projectResponseSchema = z
+  .object({
+    project: projectSchema,
+  })
+  .passthrough();
+
+export const projectsResponseSchema = z
+  .object({
+    projects: z.array(projectSchema),
+    total_count: z.number().int(),
+    offset: z.number().int(),
+    limit: z.number().int(),
+  })
+  .passthrough();
+
+export const versionSchema = z
+  .object({
+    id: z.number().int(),
+    project: namedResourceSchema,
+    name: z.string(),
+    description: z.string().nullish(),
+    status: z.string(),
+    due_date: z.string().nullish(),
+    sharing: z.string().optional(),
+    created_on: z.string().optional(),
+    updated_on: z.string().optional(),
+  })
+  .passthrough();
+
+export const versionsResponseSchema = z
+  .object({
+    versions: z.array(versionSchema),
+    total_count: z.number().int().optional(),
+  })
+  .passthrough();
+
+const membershipRoleSchema = namedResourceSchema.extend({
+  inherited: z.boolean().optional(),
+});
+
+export const membershipSchema = z
+  .object({
+    id: z.number().int(),
+    project: namedResourceSchema,
+    user: namedResourceSchema.optional(),
+    group: namedResourceSchema.optional(),
+    roles: z.array(membershipRoleSchema),
+  })
+  .passthrough();
+
+export const membershipsResponseSchema = z
+  .object({
+    memberships: z.array(membershipSchema),
+    total_count: z.number().int(),
+    offset: z.number().int(),
+    limit: z.number().int(),
+  })
+  .passthrough();
+
 export type RawIssue = z.infer<typeof issueSchema>;
+export type RawProject = z.infer<typeof projectSchema>;
+export type RawVersion = z.infer<typeof versionSchema>;
+export type RawMembership = z.infer<typeof membershipSchema>;

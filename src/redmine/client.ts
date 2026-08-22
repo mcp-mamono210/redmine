@@ -51,6 +51,7 @@ export interface RedmineClientOptions {
   baseUrl: string;
   apiKey: string;
   timeoutMs?: number;
+  fetchImpl?: typeof fetch;
 }
 
 function compactOptional<T>(value: T | null | undefined): T | undefined {
@@ -178,6 +179,7 @@ export class RedmineClient {
   private readonly baseUrl: URL;
   private readonly apiKey: string;
   private readonly timeoutMs: number;
+  private readonly fetchImpl: typeof fetch;
 
   constructor(options: RedmineClientOptions) {
     if (!options.baseUrl) {
@@ -199,6 +201,7 @@ export class RedmineClient {
     );
     this.apiKey = options.apiKey;
     this.timeoutMs = timeoutMs;
+    this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
   async getCurrentUser(): Promise<RedmineUser> {
@@ -371,7 +374,7 @@ export class RedmineClient {
     let response: Response;
 
     try {
-      response = await fetch(requestUrl, {
+      response = await this.fetchImpl(requestUrl, {
         method,
         headers: {
           Accept: "application/json",

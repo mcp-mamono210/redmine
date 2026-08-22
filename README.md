@@ -2,76 +2,69 @@
 
 Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (MCP) server for Redmine.
 
-## RedmineClient
+## RedmineClient error model
 
-The read-only RedmineClient currently provides:
-
-```text
-getCurrentUser
-getIssue
-listIssues
-getProject
-listProjects
-listProjectVersions
-listProjectMemberships
-search
-```
-
-External Redmine JSON enters the application as `unknown` and is validated with Zod before it is exposed as typed TypeScript data.
-
-## Search API
-
-The Search API supports:
-
-- Global Redmine search
-- Project-scoped search
-- Project identifiers and numeric project IDs
-- Search pagination
-- Typed search results
-- Empty-query validation
-
-Search results are discovery data. When full Issue data is needed, use the search result ID with the Issue API.
-
-Example flow:
+RedmineClient separates failures into three main categories:
 
 ```text
-search()
-↓
-result.id
-↓
-getIssue()
+RedmineNetworkError
+RedmineHttpError
+RedmineResponseError
 ```
 
-The API key is sent only through the `X-Redmine-API-Key` request header and is not added to search URLs.
+`RedmineNetworkError` represents failures that occur before a valid HTTP response is received, including connection failures and request timeouts.
 
-## Integration tests
+`RedmineHttpError` represents non-success HTTP responses and preserves the HTTP status, method, request path, and Redmine `errors[]` messages when available.
 
-Prepare a clean representative Redmine environment:
+`RedmineResponseError` represents successful HTTP responses that cannot be safely consumed, including empty bodies, invalid JSON, and schema validation failures.
+
+API keys are never included in RedmineClient error messages.
+
+## Error regression tests
+
+Deterministic unit tests cover:
+
+- HTTP 403 and 5xx responses
+- Redmine `errors[]` extraction
+- Empty response bodies
+- Invalid JSON
+- Zod schema mismatches
+- Network failures
+- Request timeouts
+- API-key leak regression
+
+Real Docker Redmine integration tests cover:
+
+- HTTP 401 with an invalid API key
+- HTTP 404 for a missing issue
+- Current-user API-key sanitization
+- Search URL API-key regression
+
+Run unit tests with the existing Vitest dependency:
+
+```bash
+npx vitest run tests/unit
+```
+
+Run integration tests after resetting Redmine:
 
 ```bash
 npm run redmine:reset
-```
-
-Then run:
-
-```bash
-export REDMINE_URL="http://localhost:3000"
-export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
-
 npm run test:integration
 ```
 
-Search integration coverage includes global search, project-scoped search, subject and description discovery, pagination, empty queries, missing projects, and API-key leak regression checks.
-
-## Quality checks
+Run the complete existing quality gates:
 
 ```bash
 npm run lint
 npm run typecheck
 npm run build
-npm run test:integration
 npm run test:e2e
 ```
+
+## Testability
+
+`RedmineClientOptions` accepts an optional `fetchImpl` dependency. Production code uses the global `fetch` implementation by default. Tests can inject deterministic HTTP behavior without changing the Docker Redmine environment.
 
 ## License
 

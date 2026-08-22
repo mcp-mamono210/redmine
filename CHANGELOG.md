@@ -9,17 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added typed Redmine search result responses.
-- Added RedmineClient support for global and project-scoped search.
-- Added normalized Search API pagination metadata.
-- Added validation that rejects empty search queries before sending a Redmine request.
-- Added Search API integration coverage for global search, project scope, subject and description discovery, pagination, and missing projects.
-- Added API-key leak regression coverage for search results and errors.
+- Added deterministic RedmineClient unit tests for HTTP, network, timeout, invalid JSON, empty response, and schema validation failures.
+- Added explicit regression coverage preventing Redmine API keys from appearing in client error messages.
+- Added real Redmine integration coverage for HTTP 401 and 404 error contracts.
+- Added injectable `fetchImpl` support for deterministic RedmineClient tests.
 
 ### Changed
 
-- Preserved the existing Current User, Issue API, and Project API contracts while extending RedmineClient with Search API support.
-- Normalized nullable Redmine Search response fields to optional camelCase TypeScript properties.
+- Documented the RedmineClient error boundary between network, HTTP, and invalid-response failures.
+- Kept raw HTTP response bodies out of client error messages while preserving Redmine `errors[]` messages when available.
 
 ## [0.0.1] - 2026-08-22
 

@@ -1,25 +1,20 @@
 {
   "name": "redmine-mcp-server",
   "version": "0.0.1",
-  "description": "Model Context Protocol server for Redmine",
-  "type": "module",
   "private": true,
-  "engines": {
-    "node": ">=20"
-  },
+  "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/index.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "npm run lint && npm run typecheck",
-    "start": "node dist/src/index.js",
+    "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "npm run build && vitest run tests/e2e",
-    "test:walking-skeleton": "npm run typecheck && npm run test:integration && npm run test:e2e",
     "redmine:start": "docker compose -f docker/compose.yml up -d",
     "redmine:stop": "docker compose -f docker/compose.yml down",
-    "redmine:seed:config": "docker compose -f docker/compose.yml exec -T redmine bin/rails runner /seed/config.rb",
-    "redmine:seed:data": "docker compose -f docker/compose.yml exec -T redmine bin/rails runner /seed/data.rb",
+    "redmine:seed:config": "docker compose -f docker/compose.yml exec -T redmine bundle exec rails runner /seed/config.rb",
+    "redmine:seed:data": "docker compose -f docker/compose.yml exec -T redmine bundle exec rails runner /seed/data.rb",
     "redmine:seed": "npm run redmine:seed:config && npm run redmine:seed:data",
     "redmine:reset": "bash docker/scripts/reset-redmine.sh"
   },

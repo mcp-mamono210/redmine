@@ -1,23 +1,27 @@
 version: 2.1
 
 jobs:
-  walking-skeleton:
+  test:
     machine:
       image: ubuntu-2404:current
+
+    environment:
+      REDMINE_URL: http://localhost:3000
+      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
 
     steps:
       - checkout
 
       - run:
           name: Install Node.js dependencies
-          command: npm install --no-package-lock
+          command: npm ci
 
       - run:
-          name: Lint TypeScript
+          name: Run ESLint
           command: npm run lint
 
       - run:
-          name: Type check
+          name: Run TypeScript type check
           command: npm run typecheck
 
       - run:
@@ -25,40 +29,35 @@ jobs:
           command: npm run build
 
       - run:
+          name: Run unit tests
+          command: npm run test:unit
+
+      - run:
           name: Reset Redmine test environment
           command: npm run redmine:reset
 
       - run:
-          name: Run RedmineClient integration test
-          command: |
-            export REDMINE_URL="http://localhost:3000"
-            export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
-            npm run test:integration
+          name: Run RedmineClient integration tests
+          command: npm run test:integration
 
       - run:
-          name: Run MCP E2E test
-          command: |
-            export REDMINE_URL="http://localhost:3000"
-            export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
-            npm run test:e2e
+          name: Run MCP end-to-end tests
+          command: npm run test:e2e
 
       - run:
-          name: Verify repeatable Redmine reset
+          name: Reset Redmine test environment again
           command: npm run redmine:reset
 
       - run:
-          name: Run integration test after second reset
-          command: |
-            export REDMINE_URL="http://localhost:3000"
-            export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
-            npm run test:integration
+          name: Run integration tests after second reset
+          command: npm run test:integration
 
       - run:
-          name: Stop Docker Redmine
+          name: Stop Redmine test environment
           command: npm run redmine:stop
           when: always
 
 workflows:
   test:
     jobs:
-      - walking-skeleton
+      - test

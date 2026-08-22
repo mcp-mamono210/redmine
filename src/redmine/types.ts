@@ -121,6 +121,15 @@ export interface RedmineMembership {
   roles: RedmineMembershipRole[];
 }
 
+export interface RedmineSearchResult {
+  id: number;
+  title: string;
+  type: string;
+  url: string;
+  description?: string;
+  datetime?: string;
+}
+
 export interface RedminePaginatedResponse<T> {
   items: T[];
   totalCount: number;
@@ -159,6 +168,13 @@ export interface RedmineListProjectsParams {
 }
 
 export interface RedmineListMembershipsParams {
+  offset?: number;
+  limit?: number;
+}
+
+export interface RedmineSearchParams {
+  query: string;
+  projectId?: string | number;
   offset?: number;
   limit?: number;
 }

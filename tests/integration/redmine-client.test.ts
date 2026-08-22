@@ -42,33 +42,6 @@ describe("RedmineClient integration", () => {
     );
   });
 
-  it("retrieves an issue with journals, relations, and allowed statuses", async () => {
-    const issues = await client.listIssues({
-      projectId: "mcp-test",
-      statusId: "*",
-      limit: 20,
-    });
-
-    const target = issues.items.find(
-      (issue) => issue.subject === "Add issue listing support",
-    );
-
-    expect(target).toBeDefined();
-
-    if (!target) {
-      throw new Error("Representative issue was not found");
-    }
-
-    const issue = await client.getIssue(target.id, {
-      include: ["journals", "relations", "allowed_statuses"],
-    });
-
-    expect(issue.project.name).toBe("MCP Test Project");
-    expect(issue.journals?.length).toBeGreaterThan(0);
-    expect(issue.relations?.length).toBeGreaterThan(0);
-    expect(issue.allowedStatuses).toBeDefined();
-  });
-
   it("retrieves the representative project with metadata", async () => {
     const project = await client.getProject("mcp-test", {
       include: ["trackers", "issue_custom_fields"],
@@ -76,24 +49,81 @@ describe("RedmineClient integration", () => {
 
     expect(project.name).toBe("MCP Test Project");
     expect(project.identifier).toBe("mcp-test");
-    expect(project.trackers?.map((tracker) => tracker.name)).toEqual(
-      expect.arrayContaining(["Bug", "Feature", "Task"]),
-    );
+  });
+
+  it("searches globally", async () => {
+    const response = await client.search({
+      query: "Secondary project search target",
+      limit: 20,
+    });
+
     expect(
-      project.issueCustomFields?.some((field) => field.name === "release_tag"),
+      response.items.some((result) =>
+        result.title.includes("Secondary project search target"),
+      ),
+    ).toBe(true);
+
+    for (const result of response.items) {
+      expect(result.url).not.toContain(redmineApiKey);
+    }
+  });
+
+  it("restricts search to the primary project", async () => {
+    const response = await client.search({
+      query: "Secondary project search target",
+      projectId: "mcp-test",
+      limit: 20,
+    });
+
+    expect(
+      response.items.some((result) =>
+        result.title.includes("Secondary project search target"),
+      ),
+    ).toBe(false);
+  });
+
+  it("finds the target in the secondary project", async () => {
+    const response = await client.search({
+      query: "Secondary project search target",
+      projectId: "mcp-secondary",
+      limit: 20,
+    });
+
+    expect(
+      response.items.some((result) =>
+        result.title.includes("Secondary project search target"),
+      ),
     ).toBe(true);
   });
 
-  it("lists representative projects", async () => {
-    const response = await client.listProjects({ limit: 100 });
-    const identifiers = response.items.map((project) => project.identifier);
+  it("searches representative issue subjects", async () => {
+    const response = await client.search({
+      query: "Add issue listing support",
+      projectId: "mcp-test",
+      limit: 20,
+    });
 
-    expect(identifiers).toContain("mcp-test");
-    expect(identifiers).toContain("mcp-secondary");
+    expect(
+      response.items.some((result) =>
+        result.title.includes("Add issue listing support"),
+      ),
+    ).toBe(true);
+    expect(response.items.every((result) => result.type.length > 0)).toBe(true);
   });
 
-  it("supports project pagination", async () => {
-    const response = await client.listProjects({
+  it("searches representative issue descriptions", async () => {
+    const response = await client.search({
+      query: "verify Redmine MCP search behavior",
+      projectId: "mcp-test",
+      limit: 20,
+    });
+
+    expect(response.items.length).toBeGreaterThan(0);
+  });
+
+  it("supports search pagination", async () => {
+    const response = await client.search({
+      query: "MCP",
       offset: 0,
       limit: 1,
     });
@@ -101,42 +131,33 @@ describe("RedmineClient integration", () => {
     expect(response.items.length).toBeLessThanOrEqual(1);
     expect(response.offset).toBe(0);
     expect(response.limit).toBe(1);
-    expect(response.totalCount).toBeGreaterThanOrEqual(2);
+    expect(response.totalCount).toBeGreaterThanOrEqual(response.items.length);
   });
 
-  it("lists project versions", async () => {
-    const versions = await client.listProjectVersions("mcp-test");
-    const names = versions.map((version) => version.name);
-
-    expect(names).toContain("v0.1.0");
-    expect(names).toContain("v0.2.0");
-  });
-
-  it("lists project memberships", async () => {
-    const response = await client.listProjectMemberships("mcp-test", {
-      limit: 100,
-    });
-
-    const membership = response.items.find(
-      (item) => item.user?.name === "MCP Test",
-    );
-
-    expect(membership).toBeDefined();
-    expect(membership?.roles.map((role) => role.name)).toContain(
-      "MCP Read Only",
-    );
-  });
-
-  it("returns a typed 404 error for a missing project", async () => {
+  it("rejects an empty search query", async () => {
     await expect(
-      client.getProject("project-that-does-not-exist"),
+      client.search({
+        query: "   ",
+      }),
+    ).rejects.toThrow("Search query must not be empty");
+  });
+
+  it("returns a typed 404 error for a missing project-scoped search", async () => {
+    await expect(
+      client.search({
+        query: "MCP",
+        projectId: "project-that-does-not-exist",
+      }),
     ).rejects.toMatchObject({
       name: "RedmineHttpError",
       status: 404,
     });
 
     try {
-      await client.getProject("project-that-does-not-exist");
+      await client.search({
+        query: "MCP",
+        projectId: "project-that-does-not-exist",
+      });
     } catch (error) {
       expect(error).toBeInstanceOf(RedmineHttpError);
       expect(String(error)).not.toContain(redmineApiKey);

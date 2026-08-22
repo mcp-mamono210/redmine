@@ -9,19 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added typed Redmine project detail and project list response models.
-- Added RedmineClient support for project detail and project listing.
-- Added support for project trackers and issue custom field metadata.
-- Added typed Redmine version responses and project version listing.
-- Added typed Redmine membership responses and project membership listing.
-- Added Project API pagination support.
-- Added Project API integration coverage against representative Docker Redmine data.
-- Added typed 404 regression coverage for missing projects.
+- Added typed Redmine search result responses.
+- Added RedmineClient support for global and project-scoped search.
+- Added normalized Search API pagination metadata.
+- Added validation that rejects empty search queries before sending a Redmine request.
+- Added Search API integration coverage for global search, project scope, subject and description discovery, pagination, and missing projects.
+- Added API-key leak regression coverage for search results and errors.
 
 ### Changed
 
-- Preserved the existing Current User and Issue API contracts while extending RedmineClient with Project API operations.
-- Normalized Redmine Project, Version, and Membership REST response fields to camelCase internal TypeScript models.
+- Preserved the existing Current User, Issue API, and Project API contracts while extending RedmineClient with Search API support.
+- Normalized nullable Redmine Search response fields to optional camelCase TypeScript properties.
 
 ## [0.0.1] - 2026-08-22
 

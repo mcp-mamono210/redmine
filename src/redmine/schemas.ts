@@ -187,7 +187,28 @@ export const membershipsResponseSchema = z
   })
   .passthrough();
 
+export const searchResultSchema = z
+  .object({
+    id: z.number().int(),
+    title: z.string(),
+    type: z.string(),
+    url: z.string(),
+    description: z.string().nullish(),
+    datetime: z.string().nullish(),
+  })
+  .passthrough();
+
+export const searchResponseSchema = z
+  .object({
+    results: z.array(searchResultSchema),
+    total_count: z.number().int(),
+    offset: z.number().int(),
+    limit: z.number().int(),
+  })
+  .passthrough();
+
 export type RawIssue = z.infer<typeof issueSchema>;
 export type RawProject = z.infer<typeof projectSchema>;
 export type RawVersion = z.infer<typeof versionSchema>;
 export type RawMembership = z.infer<typeof membershipSchema>;
+export type RawSearchResult = z.infer<typeof searchResultSchema>;

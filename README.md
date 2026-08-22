@@ -14,25 +14,35 @@ getProject
 listProjects
 listProjectVersions
 listProjectMemberships
+search
 ```
 
 External Redmine JSON enters the application as `unknown` and is validated with Zod before it is exposed as typed TypeScript data.
 
-## Project API
+## Search API
 
-The Project API supports:
+The Search API supports:
 
-- Project detail retrieval
-- Project listing
-- Project pagination
-- Project trackers
-- Project issue custom field metadata
-- Project versions
-- Project memberships
+- Global Redmine search
+- Project-scoped search
+- Project identifiers and numeric project IDs
+- Search pagination
+- Typed search results
+- Empty-query validation
 
-Project identifiers and numeric project IDs are both supported.
+Search results are discovery data. When full Issue data is needed, use the search result ID with the Issue API.
 
-The client does not depend on global admin-only `/users` or `/custom_fields` endpoints for project metadata.
+Example flow:
+
+```text
+search()
+↓
+result.id
+↓
+getIssue()
+```
+
+The API key is sent only through the `X-Redmine-API-Key` request header and is not added to search URLs.
 
 ## Integration tests
 
@@ -51,7 +61,7 @@ export REDMINE_API_KEY="0123456789abcdef0123456789abcdef01234567"
 npm run test:integration
 ```
 
-The integration tests cover current-user, Issue API, Project API, versions, memberships, pagination, and typed 404 errors.
+Search integration coverage includes global search, project-scoped search, subject and description discovery, pagination, empty queries, missing projects, and API-key leak regression checks.
 
 ## Quality checks
 

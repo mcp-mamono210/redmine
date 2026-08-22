@@ -12,10 +12,12 @@ import {
   membershipsResponseSchema,
   projectResponseSchema,
   projectsResponseSchema,
+  searchResponseSchema,
   versionsResponseSchema,
   type RawIssue,
   type RawMembership,
   type RawProject,
+  type RawSearchResult,
   type RawVersion,
 } from "./schemas.js";
 import type {
@@ -30,6 +32,8 @@ import type {
   RedmineProject,
   RedmineProjectInclude,
   RedmineProjectSummary,
+  RedmineSearchParams,
+  RedmineSearchResult,
   RedmineUser,
   RedmineVersion,
 } from "./types.js";
@@ -152,6 +156,17 @@ function normalizeMembership(raw: RawMembership): RedmineMembership {
       name: role.name,
       inherited: role.inherited,
     })),
+  };
+}
+
+function normalizeSearchResult(raw: RawSearchResult): RedmineSearchResult {
+  return {
+    id: raw.id,
+    title: raw.title,
+    type: raw.type,
+    url: raw.url,
+    description: compactOptional(raw.description),
+    datetime: compactOptional(raw.datetime),
   };
 }
 
@@ -299,6 +314,36 @@ export class RedmineClient {
 
     return {
       items: parsed.memberships.map(normalizeMembership),
+      totalCount: parsed.total_count,
+      offset: parsed.offset,
+      limit: parsed.limit,
+    };
+  }
+
+  async search(
+    params: RedmineSearchParams,
+  ): Promise<RedminePaginatedResponse<RedmineSearchResult>> {
+    const query = params.query.trim();
+
+    if (!query) {
+      throw new Error("Search query must not be empty");
+    }
+
+    const path =
+      params.projectId === undefined
+        ? "/search.json"
+        : `/projects/${encodePathSegment(params.projectId)}/search.json`;
+
+    const data = await this.requestJson(path, {
+      q: query,
+      offset: params.offset,
+      limit: params.limit,
+    });
+
+    const parsed = this.parse(searchResponseSchema, data, `GET ${path}`);
+
+    return {
+      items: parsed.results.map(normalizeSearchResult),
       totalCount: parsed.total_count,
       offset: parsed.offset,
       limit: parsed.limit,

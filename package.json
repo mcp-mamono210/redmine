@@ -1,0 +1,22 @@
+{
+  "name": "redmine-mcp-server",
+  "version": "0.0.1",
+  "description": "Model Context Protocol server for Redmine",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

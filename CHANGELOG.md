@@ -24,11 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Low
   - Normal
   - High
+- Expanded deterministic Redmine test data with multiple projects and versions.
+- Added representative issues covering multiple trackers, statuses, priorities, assignee states, and `release_tag` values.
+- Added searchable issue descriptions for read-only search tests.
+- Added a deterministic issue journal for issue-detail tests.
+- Added a deterministic issue relation for relation retrieval tests.
 
 ### Changed
 
 - Expanded the `MCP Read Only` role configuration while keeping it free of write permissions.
 - Clarified the boundary between Redmine configuration and representative test data.
+- Expanded the synthetic test fixture while keeping it independent of production Redmine data.
 
 ## [0.0.1] - 2026-08-22
 
@@ -44,19 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enabled the Redmine REST API through the configuration seed.
 - Added the `MCP Read Only` role.
 - Added the initial Redmine test data seed.
-- Added the `mcp-test` user.
-- Added the `MCP Test Project`.
+- Added the `mcp-test` user and `MCP Test Project`.
 - Added project membership for the MCP test user.
 - Added a deterministic API token for the disposable test environment.
-- Added npm scripts for running configuration and test-data seeds.
 - Added the initial `RedmineClient`.
-- Added Redmine API key authentication using the `X-Redmine-API-Key` header.
-- Added support for `GET /users/current.json`.
-- Added a `RedmineClient` integration test against Docker Redmine.
 - Added the MCP stdio transport.
 - Added the `redmine_get_current_user` MCP tool.
 - Added MCP end-to-end testing over stdio against Docker Redmine.
-- Added a CircleCI walking-skeleton workflow covering Redmine startup, seed, integration testing, build, and MCP E2E testing.
+- Added a CircleCI walking-skeleton workflow.
 
 ### Fixed
 

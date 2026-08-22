@@ -14,31 +14,42 @@ docker/seed/config.rb
 
 The configuration seed reproduces Redmine behavior and constraints required by MCP integration tests. It does not copy production data.
 
-The current configuration includes:
+## Representative test data
 
-- REST API enabled
-- Default language
-- Trackers
-  - Bug
-  - Feature
-  - Task
-- Issue statuses
-  - New
-  - In Progress
-  - Resolved
-  - Closed
-- `MCP Read Only` role
-- Deterministic workflow transitions
-- `release_tag` issue custom field
-- Issue priorities
-  - Low
-  - Normal
-  - High
+Synthetic representative test data is managed in:
 
-Run the configuration seed with:
+```text
+docker/seed/data.rb
+```
+
+The seed creates deterministic data for read-only integration and MCP E2E tests:
+
+- Non-admin `mcp-test` user
+- `MCP Test Project`
+- `MCP Secondary Project`
+- Read-only memberships
+- `v0.1.0` and `v0.2.0` versions
+- Issues covering multiple trackers and statuses
+- Low, Normal, and High priorities
+- Assigned and unassigned issues
+- `release_tag` values and an unset value
+- Searchable issue descriptions
+- An issue journal
+- An issue relation
+- Deterministic test-only API token
+
+The data is synthetic and is not copied or anonymized from production Redmine.
+
+Run the data seed independently with:
 
 ```bash
-npm run redmine:seed:config
+npm run redmine:seed:data
+```
+
+Apply both configuration and data seeds with:
+
+```bash
+npm run redmine:seed
 ```
 
 ## Configuration and test data boundary
@@ -66,56 +77,42 @@ Memberships
 Issues
 Journals
 Relations
+Custom field values
 API tokens
 ```
 
-Projects and issues must not be added to `config.rb`.
+`data.rb` depends on the configuration created by `config.rb`. It must not create missing configuration implicitly.
 
-## Workflow configuration
+## Deterministic fixtures
 
-The `MCP Read Only` role uses the following deterministic workflow for each seeded tracker:
+Tests must not rely on database IDs.
 
-```text
-New
-↓
-In Progress
-↓
-Resolved
-↓
-Closed
-```
-
-## Issue custom field
-
-The configuration seed creates:
+Use stable fixture keys such as:
 
 ```text
-release_tag
+Project identifier
+Issue subject
+User login
+Version name
+Custom field name
 ```
 
-It is a string field intended for release identifiers such as:
+Repeated seed execution is intended to converge without creating duplicate projects, versions, issues, journals, relations, or API tokens.
+
+## Test credentials
+
+The disposable local and CI environment uses:
 
 ```text
-v0.0.1
-v0.1.0
-v1.0.0
+REDMINE_URL=http://localhost:3000
+REDMINE_API_KEY=0123456789abcdef0123456789abcdef01234567
 ```
 
-## Issue priorities
-
-The configuration seed ensures:
-
-```text
-Low
-Normal
-High
-```
-
-`Normal` is configured as the default priority.
+Never reuse this API token in production.
 
 ## Next phase
 
-The next phase expands representative test data with projects, versions, issues, journals, relations, and custom-field values.
+The next phase formalizes the Redmine client response types and error model before implementing the read-only Issue, Project, and Search MCP tools.
 
 ## License
 

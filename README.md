@@ -4,9 +4,97 @@ Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (M
 
 The project is progressing toward `v0.1.0`, which expands the initial walking skeleton into a read-only MCP server.
 
-## Local Redmine lifecycle
+## TypeScript quality checks
 
-The Docker Redmine test environment provides four lifecycle commands.
+The TypeScript quality baseline consists of ESLint, the TypeScript compiler, builds, Vitest, Docker Redmine integration tests, and MCP E2E tests.
+
+Run ESLint:
+
+```bash
+npm run lint
+```
+
+Run the TypeScript compiler without emitting files:
+
+```bash
+npm run typecheck
+```
+
+Run lint and type checking together:
+
+```bash
+npm run check
+```
+
+Build the project:
+
+```bash
+npm run build
+```
+
+ESLint uses type-aware `typescript-eslint` rules for both production and test code.
+
+The lint target includes:
+
+```text
+src/**/*.ts
+tests/**/*.ts
+```
+
+Generated output and installed dependencies are excluded:
+
+```text
+dist/
+node_modules/
+```
+
+External JSON and API responses should enter application code as `unknown` and be validated or normalized before being treated as typed internal data.
+
+Explicit `any`, unsafe typed operations, floating promises, misused promises, and unused variables are rejected by the quality gate.
+
+## TypeScript compiler baseline
+
+The project keeps `strict` mode enabled and additionally enables:
+
+```text
+noUncheckedIndexedAccess
+noImplicitReturns
+noFallthroughCasesInSwitch
+noUnusedLocals
+noUnusedParameters
+```
+
+`exactOptionalPropertyTypes` is intentionally deferred until the Redmine response model and Zod schemas are established.
+
+`skipLibCheck` remains enabled so the project quality gate focuses on application and test code rather than third-party declaration files.
+
+## CircleCI quality gate
+
+CircleCI verifies the following sequence:
+
+```text
+Dependency installation
+↓
+ESLint
+↓
+TypeScript typecheck
+↓
+TypeScript build
+↓
+Redmine reset
+↓
+RedmineClient integration test
+↓
+MCP stdio E2E
+↓
+Second Redmine reset
+↓
+Integration verification
+```
+
+A lint, typecheck, build, integration, or E2E failure fails the workflow.
+
+## Local Redmine lifecycle
 
 Start the existing environment while preserving the PostgreSQL volume:
 
@@ -14,7 +102,7 @@ Start the existing environment while preserving the PostgreSQL volume:
 npm run redmine:start
 ```
 
-Apply the current configuration and representative test-data seeds to the existing database:
+Apply configuration and representative test-data seeds:
 
 ```bash
 npm run redmine:seed
@@ -32,150 +120,11 @@ Stop the environment while preserving the PostgreSQL volume:
 npm run redmine:stop
 ```
 
-`redmine:reset` is destructive for the disposable local test environment. It removes the Docker Compose volumes before rebuilding Redmine and PostgreSQL.
-
-It does not use global Docker cleanup commands such as `docker volume prune` or `docker system prune`.
-
-## Reset workflow
-
-`npm run redmine:reset` performs the following sequence:
-
-```text
-Stop Redmine and PostgreSQL
-↓
-Remove Docker Compose volumes
-↓
-Start Redmine and PostgreSQL
-↓
-Wait for Redmine readiness
-↓
-Apply Configuration Seed
-↓
-Apply Representative Test Data Seed
-```
-
-The reset implementation is located at:
-
-```text
-docker/scripts/reset-redmine.sh
-```
-
-The script reuses the existing project commands instead of duplicating seed logic.
-
-## Configuration seed
-
-Redmine configuration is managed as code in:
-
-```text
-docker/seed/config.rb
-```
-
-The configuration seed reproduces Redmine behavior and constraints required by MCP integration tests. It does not copy production data.
-
-The current configuration includes:
-
-- REST API enabled
-- Default language
-- Trackers
-- Issue statuses
-- `MCP Read Only` role
-- Deterministic workflow transitions
-- `release_tag` issue custom field
-- Issue priorities
-
-## Representative test data
-
-Synthetic representative test data is managed in:
-
-```text
-docker/seed/data.rb
-```
-
-The seed creates deterministic data for read-only integration and MCP E2E tests:
-
-- Non-admin `mcp-test` user
-- `MCP Test Project`
-- `MCP Secondary Project`
-- Read-only memberships
-- `v0.1.0` and `v0.2.0` versions
-- Issues covering multiple trackers and statuses
-- Multiple priorities
-- Assigned and unassigned issues
-- `release_tag` values and an unset value
-- Searchable issue descriptions
-- An issue journal
-- An issue relation
-- Deterministic test-only API token
-
-The data is synthetic and is not copied or anonymized from production Redmine.
-
-## Configuration and test data boundary
-
-Configuration defines Redmine behavior and constraints:
-
-```text
-Settings
-Trackers
-Issue statuses
-Roles
-Workflow transitions
-Workflow permissions
-Issue custom fields
-Enumerations
-```
-
-Test data represents operational objects:
-
-```text
-Users
-Projects
-Versions
-Memberships
-Issues
-Journals
-Relations
-Custom field values
-API tokens
-```
-
-`data.rb` depends on the configuration created by `config.rb`. It must not create missing configuration implicitly.
-
-## Deterministic fixtures
-
-Tests must not rely on database IDs.
-
-Use stable fixture keys such as:
-
-```text
-Project identifier
-Issue subject
-User login
-Version name
-Custom field name
-```
-
-When seed behavior becomes difficult to reconcile with an existing database state, use:
-
-```bash
-npm run redmine:reset
-```
-
-to rebuild from a known-good clean database.
-
-## Test credentials
-
-The disposable local and CI environment uses:
-
-```text
-REDMINE_URL=http://localhost:3000
-REDMINE_API_KEY=0123456789abcdef0123456789abcdef01234567
-```
-
-Never reuse this API token in production.
+`redmine:reset` is destructive for the disposable local test environment.
 
 ## Next phase
 
-The next phase formalizes the Redmine client response types and error model before implementing the read-only Issue, Project, and Search MCP tools.
+The next phase formalizes Redmine response types and the RedmineClient error model before implementing the read-only Issue, Project, and Search MCP tools.
 
 ## License
 

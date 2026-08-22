@@ -9,7 +9,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "npm run lint && npm run typecheck",
     "start": "node dist/src/index.js",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "npm run build && vitest run tests/e2e",
@@ -28,7 +30,9 @@
   "devDependencies": {
     "@modelcontextprotocol/client": "2.0.0",
     "@types/node": "24.3.0",
-    "typescript": "7.0.2",
+    "eslint": "10.8.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.67.0",
     "vitest": "3.2.4"
   }
 }

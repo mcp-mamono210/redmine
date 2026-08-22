@@ -9,34 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Expanded the Redmine configuration seed with deterministic trackers:
-  - Bug
-  - Feature
-  - Task
-- Added deterministic issue statuses:
-  - New
-  - In Progress
-  - Resolved
-  - Closed
-- Added deterministic workflow transitions for the `MCP Read Only` role.
-- Added the `release_tag` issue custom field configuration.
-- Added deterministic issue priority enumerations:
-  - Low
-  - Normal
-  - High
-- Expanded deterministic Redmine test data with multiple projects and versions.
-- Added representative issues covering multiple trackers, statuses, priorities, assignee states, and `release_tag` values.
-- Added searchable issue descriptions for read-only search tests.
-- Added a deterministic issue journal for issue-detail tests.
-- Added a deterministic issue relation for relation retrieval tests.
+- Expanded the Redmine configuration seed with deterministic trackers, statuses, workflows, custom fields, and priorities.
+- Expanded deterministic Redmine test data with representative projects, versions, issues, journals, and relations.
 - Added a local Redmine reset workflow that rebuilds the Docker test environment from a clean PostgreSQL volume.
+- Added ESLint with type-aware TypeScript static analysis.
+- Added a TypeScript quality gate for linting, type checking, and builds.
+- Added an `npm run check` command for local lint and type-check verification.
 
 ### Changed
 
-- Expanded the `MCP Read Only` role configuration while keeping it free of write permissions.
 - Clarified the boundary between Redmine configuration and representative test data.
-- Expanded the synthetic test fixture while keeping it independent of production Redmine data.
 - Documented the local Redmine lifecycle for start, seed, reset, and stop operations.
+- Strengthened TypeScript compiler checks with unchecked-index, return-path, fallthrough, and unused-code validation.
+- Added TypeScript linting and an explicit build step to the CircleCI workflow.
 
 ## [0.0.1] - 2026-08-22
 
@@ -47,13 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added TypeScript build and type-check scripts.
 - Added the Docker Redmine and PostgreSQL test environment.
 - Added Redmine readiness checks for local development and CircleCI.
-- Added npm scripts for starting and stopping the Docker Redmine environment.
-- Added the initial Redmine configuration seed.
-- Enabled the Redmine REST API through the configuration seed.
-- Added the `MCP Read Only` role.
-- Added the initial Redmine test data seed.
+- Added the initial Redmine configuration and test-data seeds.
 - Added the `mcp-test` user and `MCP Test Project`.
-- Added project membership for the MCP test user.
 - Added a deterministic API token for the disposable test environment.
 - Added the initial `RedmineClient`.
 - Added the MCP stdio transport.

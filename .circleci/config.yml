@@ -13,8 +13,16 @@ jobs:
           command: npm install --no-package-lock
 
       - run:
+          name: Lint TypeScript
+          command: npm run lint
+
+      - run:
           name: Type check
           command: npm run typecheck
+
+      - run:
+          name: Build TypeScript
+          command: npm run build
 
       - run:
           name: Reset Redmine test environment

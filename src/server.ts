@@ -6,7 +6,7 @@ import type { RedmineClient } from "./redmine/client.js";
 export function createServer(redmineClient: RedmineClient): McpServer {
   const server = new McpServer({
     name: "redmine-mcp-server",
-    version: "0.0.1",
+    version: "0.1.0",
   });
 
   registerReadOnlyTools(server, redmineClient);

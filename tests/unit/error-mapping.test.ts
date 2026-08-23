@@ -12,7 +12,10 @@ import {
 
 const apiKey = "0123456789abcdef0123456789abcdef01234567";
 
-function httpError(status: number, statusText: string): RedmineHttpError {
+function httpError(
+  status: number,
+  statusText: string,
+): RedmineHttpError {
   return new RedmineHttpError({
     method: "GET",
     path: "/example.json",
@@ -21,7 +24,9 @@ function httpError(status: number, statusText: string): RedmineHttpError {
   });
 }
 
-function validationError(errors: string[] = []): RedmineHttpError {
+function validationError(
+  errors: string[] = [],
+): RedmineHttpError {
   return new RedmineHttpError({
     method: "POST",
     path: "/issues.json",
@@ -33,7 +38,9 @@ function validationError(errors: string[] = []): RedmineHttpError {
 
 describe("MCP error mapping", () => {
   it("maps 401 to authentication_failed", () => {
-    expect(mapToMcpError(httpError(401, "Unauthorized"))).toEqual({
+    expect(
+      mapToMcpError(httpError(401, "Unauthorized")),
+    ).toEqual({
       code: "authentication_failed",
       message: "Redmine authentication failed.",
       status: 401,
@@ -41,7 +48,9 @@ describe("MCP error mapping", () => {
   });
 
   it("maps 403 to permission_denied", () => {
-    expect(mapToMcpError(httpError(403, "Forbidden"))).toEqual({
+    expect(
+      mapToMcpError(httpError(403, "Forbidden")),
+    ).toEqual({
       code: "permission_denied",
       message:
         "The configured Redmine user does not have permission to perform this operation.",
@@ -50,7 +59,9 @@ describe("MCP error mapping", () => {
   });
 
   it("maps 404 to not_found", () => {
-    expect(mapToMcpError(httpError(404, "Not Found"))).toEqual({
+    expect(
+      mapToMcpError(httpError(404, "Not Found")),
+    ).toEqual({
       code: "not_found",
       message: "The requested Redmine resource was not found.",
       status: 404,
@@ -103,7 +114,9 @@ describe("MCP error mapping", () => {
     expect(mapped.details?.errors[0]).toBe(
       "First validation error",
     );
-    expect(mapped.details?.errors).not.toContain("Sixth error");
+    expect(mapped.details?.errors).not.toContain(
+      "Sixth error",
+    );
   });
 
   it("bounds individual validation error message length", () => {
@@ -133,7 +146,7 @@ describe("MCP error mapping", () => {
     ]);
   });
 
-  it("sanitizes credentials in validation details", () => {
+  it("sanitizes common credential patterns in validation details", () => {
     const mapped = mapToMcpError(
       validationError([
         `Invalid value ${apiKey}`,
@@ -148,14 +161,48 @@ describe("MCP error mapping", () => {
 
     expect(serialized).toContain("[REDACTED]");
     expect(serialized).not.toContain(apiKey);
-    expect(serialized).not.toContain("top-secret-token");
+    expect(serialized).not.toContain(
+      "top-secret-token",
+    );
     expect(serialized).not.toContain("hunter2");
     expect(serialized).not.toContain("super-secret");
     expect(serialized).not.toContain("another-secret");
   });
 
+  it("sanitizes the configured REDMINE_API_KEY even when it is not a 40-character token", () => {
+    const previousApiKey = process.env.REDMINE_API_KEY;
+    const configuredApiKey =
+      "configured-redmine-secret-not-hex";
+
+    process.env.REDMINE_API_KEY = configuredApiKey;
+
+    try {
+      const mapped = mapToMcpError(
+        validationError([
+          `Backend rejected ${configuredApiKey}`,
+        ]),
+      );
+
+      const serialized = JSON.stringify(mapped);
+
+      expect(serialized).toContain("[REDACTED]");
+      expect(serialized).not.toContain(
+        configuredApiKey,
+      );
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.REDMINE_API_KEY;
+      } else {
+        process.env.REDMINE_API_KEY =
+          previousApiKey;
+      }
+    }
+  });
+
   it("keeps other 4xx responses mapped to invalid_request", () => {
-    expect(mapToMcpError(httpError(400, "Bad Request"))).toEqual({
+    expect(
+      mapToMcpError(httpError(400, "Bad Request")),
+    ).toEqual({
       code: "invalid_request",
       message: "Redmine rejected the request.",
       status: 400,
@@ -163,54 +210,106 @@ describe("MCP error mapping", () => {
   });
 
   it("maps 5xx responses to backend_unavailable", () => {
-    expect(mapToMcpError(httpError(503, "Service Unavailable"))).toEqual({
+    expect(
+      mapToMcpError(
+        httpError(503, "Service Unavailable"),
+      ),
+    ).toEqual({
       code: "backend_unavailable",
       message: "Redmine is currently unavailable.",
       status: 503,
     });
   });
 
-  it("maps network failures to backend_unavailable", () => {
+  it("maps network failures without exposing raw exception details", () => {
     const error = new RedmineNetworkError(
       `connection failed ${apiKey}`,
       "GET",
-      "/example.json",
+      "/private/path.json",
+      {
+        cause: new Error(
+          `Authorization: Bearer ${apiKey}`,
+        ),
+      },
     );
 
-    expect(mapToMcpError(error)).toEqual({
+    const mapped = mapToMcpError(error);
+
+    expect(mapped).toEqual({
       code: "backend_unavailable",
       message: "Redmine is currently unavailable.",
     });
+
+    const serialized = JSON.stringify(mapped);
+
+    expect(serialized).not.toContain(apiKey);
+    expect(serialized).not.toContain(
+      "/private/path.json",
+    );
+    expect(serialized).not.toContain(
+      "Authorization",
+    );
+    expect(serialized).not.toContain("stack");
   });
 
-  it("maps invalid Redmine responses to invalid_backend_response", () => {
+  it("maps invalid Redmine responses without exposing raw backend details", () => {
     const error = new RedmineResponseError(
-      "GET /example.json",
+      "GET /private/example.json",
       `invalid response ${apiKey}`,
+      {
+        cause: new Error(`raw payload ${apiKey}`),
+      },
     );
 
-    expect(mapToMcpError(error)).toEqual({
+    const mapped = mapToMcpError(error);
+
+    expect(mapped).toEqual({
       code: "invalid_backend_response",
       message: "Redmine returned an invalid response.",
     });
+
+    const serialized = JSON.stringify(mapped);
+
+    expect(serialized).not.toContain(apiKey);
+    expect(serialized).not.toContain(
+      "/private/example.json",
+    );
+    expect(serialized).not.toContain("raw payload");
   });
 
-  it("maps unknown errors to internal_error", () => {
-    expect(mapToMcpError(new Error(`unexpected ${apiKey}`))).toEqual({
+  it("maps unknown errors to internal_error without exposing stack or raw error details", () => {
+    const rawErrorMarker = "sensitive-backend-detail";
+    const mappedError = mapToMcpError(
+      new Error(`${rawErrorMarker} ${apiKey}`),
+    );
+    const mappedUnknown = mapToMcpError(
+      "unknown failure",
+    );
+
+    expect(mappedError).toEqual({
+      code: "internal_error",
+      message: "An unexpected internal error occurred.",
+    });
+    expect(mappedUnknown).toEqual({
       code: "internal_error",
       message: "An unexpected internal error occurred.",
     });
 
-    expect(mapToMcpError("unknown failure")).toEqual({
-      code: "internal_error",
-      message: "An unexpected internal error occurred.",
-    });
+    const serialized = JSON.stringify(mappedError);
+
+    expect(serialized).not.toContain(apiKey);
+    expect(serialized).not.toContain("stack");
+    expect(serialized).not.toContain(rawErrorMarker);
   });
 
-  it("builds a sanitized MCP validation tool error result", () => {
+  it("builds a bounded sanitized MCP validation tool error result", () => {
     const error = validationError([
-      "Subject can't be blank",
+      " First   validation\nerror ",
       `Invalid value ${apiKey}`,
+      "Third error",
+      "Fourth error",
+      "Fifth error",
+      "Sixth error",
     ]);
 
     const result = toToolErrorResult(error);
@@ -230,9 +329,26 @@ describe("MCP error mapping", () => {
       '"code":"validation_error"',
     );
     expect(content.text).toContain(
-      `"Subject can't be blank"`,
+      '"First validation error"',
     );
     expect(content.text).toContain("[REDACTED]");
     expect(content.text).not.toContain(apiKey);
+    expect(content.text).not.toContain("Sixth error");
+
+    const parsed = JSON.parse(content.text) as {
+      code: string;
+      message: string;
+      status: number;
+      details?: {
+        errors: string[];
+      };
+    };
+
+    expect(parsed).toMatchObject({
+      code: "validation_error",
+      message: "Redmine rejected the request.",
+      status: 422,
+    });
+    expect(parsed.details?.errors).toHaveLength(5);
   });
 });

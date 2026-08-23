@@ -6,7 +6,9 @@ function requiredEnv(name: string): string {
   const value = process.env[name];
 
   if (!value) {
-    throw new Error(`${name} is required for MCP E2E tests`);
+    throw new Error(
+      `${name} is required for MCP E2E tests`,
+    );
   }
 
   return value;
@@ -14,10 +16,14 @@ function requiredEnv(name: string): string {
 
 const redmineUrl = requiredEnv("REDMINE_URL");
 
-function childEnv(apiKey: string): Record<string, string> {
+function childEnv(
+  apiKey: string,
+): Record<string, string> {
   const env: Record<string, string> = {};
 
-  for (const [key, value] of Object.entries(process.env)) {
+  for (const [key, value] of Object.entries(
+    process.env,
+  )) {
     if (value !== undefined) {
       env[key] = value;
     }
@@ -30,8 +36,9 @@ function childEnv(apiKey: string): Record<string, string> {
 }
 
 describe("redmine_get_current_user MCP error E2E", () => {
-  it("maps invalid Redmine credentials to a sanitized MCP error", async () => {
-    const invalidApiKey = "invalid-api-key-for-mcp-e2e";
+  it("maps invalid Redmine credentials to an exact sanitized MCP error envelope", async () => {
+    const invalidApiKey =
+      "invalid-api-key-for-mcp-e2e";
 
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -60,17 +67,35 @@ describe("redmine_get_current_user MCP error E2E", () => {
 
       expect(textContent).toBeDefined();
 
-      if (!textContent || textContent.type !== "text") {
+      if (
+        !textContent ||
+        textContent.type !== "text"
+      ) {
         throw new Error("Expected text content");
       }
 
-      expect(textContent.text).toContain(
-        '"code":"authentication_failed"',
+      const parsed = JSON.parse(
+        textContent.text,
+      ) as Record<string, unknown>;
+
+      expect(parsed).toEqual({
+        code: "authentication_failed",
+        message: "Redmine authentication failed.",
+        status: 401,
+      });
+
+      expect(textContent.text).not.toContain(
+        invalidApiKey,
       );
-      expect(textContent.text).toContain(
-        '"message":"Redmine authentication failed."',
+      expect(textContent.text).not.toContain(
+        "Authorization",
       );
-      expect(textContent.text).not.toContain(invalidApiKey);
+      expect(textContent.text).not.toContain(
+        "X-Redmine-API-Key",
+      );
+      expect(textContent.text).not.toContain(
+        "stack",
+      );
     } finally {
       await client.close();
     }

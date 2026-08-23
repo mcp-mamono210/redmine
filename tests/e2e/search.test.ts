@@ -2,48 +2,82 @@ import { describe, expect, it } from "vitest";
 
 import { connectE2eClient, requireTextContent } from "./helpers.js";
 
+const AUTHENTICATION_SUBJECT =
+  "Authentication fails for invalid API token";
+
 describe("Search read-only MCP E2E", () => {
-  it("uses a default limit of 10 and rejects limits above 20", async () => {
-    const { client } = await connectE2eClient("redmine-mcp-search-e2e-client");
+  it("discovers an issue by free text and retrieves its detail by discovered ID", async () => {
+    const { client } = await connectE2eClient(
+      "redmine-mcp-search-issue-workflow-e2e-client",
+    );
 
     try {
-      const result = await client.callTool({
+      const searchResult = await client.callTool({
         name: "redmine_search",
         arguments: {
           query: "authentication",
         },
       });
 
-      expect(result.isError).not.toBe(true);
+      expect(searchResult.isError).not.toBe(true);
 
-      const parsed = JSON.parse(requireTextContent(result.content)) as {
-        items: Array<{ title: string; type: string }>;
-        limit: number;
+      const search = JSON.parse(
+        requireTextContent(searchResult.content),
+      ) as {
+        items: Array<
+          Record<string, unknown> & {
+            id: number;
+            title: string;
+            type: string;
+          }
+        >;
       };
 
-      expect(parsed.limit).toBe(10);
-      expect(
-        parsed.items.some(
-          ({ title, type }) =>
-            type.startsWith("issue") &&
-            title.includes("Authentication fails for invalid API token"),
-        ),
-      ).toBe(true);
+      const target = search.items.find(
+        ({ title, type }) =>
+          type.startsWith("issue") &&
+          title.includes(AUTHENTICATION_SUBJECT),
+      );
 
-      const invalidResult = await client.callTool({
-        name: "redmine_search",
+      expect(target).toBeDefined();
+
+      for (const item of search.items) {
+        expect(item).not.toHaveProperty("journals");
+        expect(item).not.toHaveProperty("relations");
+        expect(item).not.toHaveProperty("attachments");
+        expect(item).not.toHaveProperty("allowed_statuses");
+        expect(item).not.toHaveProperty("custom_fields");
+      }
+
+      if (!target) {
+        throw new Error(
+          "Representative issue was not found by redmine_search",
+        );
+      }
+
+      const getResult = await client.callTool({
+        name: "redmine_get_issue",
         arguments: {
-          query: "authentication",
-          limit: 21,
+          issue_id: target.id,
         },
       });
 
-      expect(invalidResult.isError).toBe(true);
+      expect(getResult.isError).not.toBe(true);
 
-      const invalidText = requireTextContent(invalidResult.content);
+      const detail = JSON.parse(
+        requireTextContent(getResult.content),
+      ) as Record<string, unknown> & {
+        id: number;
+        subject: string;
+      };
 
-      expect(invalidText).toContain("Input validation error");
-      expect(invalidText).toContain("expected number to be <=20");
+      expect(detail.id).toBe(target.id);
+      expect(detail.subject).toBe(AUTHENTICATION_SUBJECT);
+      expect(detail).not.toHaveProperty("journals");
+      expect(detail).not.toHaveProperty("relations");
+      expect(detail).not.toHaveProperty("children");
+      expect(detail).not.toHaveProperty("attachments");
+      expect(detail).not.toHaveProperty("allowed_statuses");
     } finally {
       await client.close();
     }

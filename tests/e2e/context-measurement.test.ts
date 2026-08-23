@@ -9,6 +9,17 @@ import {
   requireTextContent,
 } from "./helpers.js";
 
+const EXPECTED_CONTEXT_SCENARIOS = [
+  "tools/list",
+  "redmine_list_issues_default",
+  "redmine_search_default",
+  "redmine_get_issue_core",
+  "redmine_get_issue_journal_fixture_core",
+  "redmine_get_issue_plus_journals",
+  "redmine_get_issue_plus_allowed_statuses",
+  "redmine_get_project_stable_envelope",
+] as const;
+
 interface IssueSummary {
   id: number;
   subject: string;
@@ -32,11 +43,15 @@ interface ProjectListResponse {
   items: ProjectSummary[];
 }
 
-function parseToolJson<T>(content: Parameters<typeof requireTextContent>[0]): T {
+function parseToolJson<T>(
+  content: Parameters<typeof requireTextContent>[0],
+): T {
   return JSON.parse(requireTextContent(content)) as T;
 }
 
-function printBaseline(measurements: ContextMeasurement[]): void {
+function printBaseline(
+  measurements: ContextMeasurement[],
+): void {
   console.info(
     "Context measurement baseline:\n" +
       JSON.stringify(measurements, null, 2),
@@ -44,7 +59,7 @@ function printBaseline(measurements: ContextMeasurement[]): void {
 }
 
 describe("MCP context measurement baseline", () => {
-  it("measures deterministic read-only MCP responses", async () => {
+  it("measures the complete deterministic read-only scenario set", async () => {
     const { client } = await connectE2eClient(
       "redmine-mcp-context-measurement-e2e-client",
     );
@@ -71,9 +86,10 @@ describe("MCP context measurement baseline", () => {
 
       expect(issueListResult.isError).not.toBe(true);
 
-      const issueList = parseToolJson<IssueListResponse>(
-        issueListResult.content,
-      );
+      const issueList =
+        parseToolJson<IssueListResponse>(
+          issueListResult.content,
+        );
 
       expect(issueList.limit).toBe(10);
 
@@ -87,13 +103,16 @@ describe("MCP context measurement baseline", () => {
 
       const targetIssue = issueList.items.find(
         ({ subject }) =>
-          subject === "Authentication fails for invalid API token",
+          subject ===
+          "Authentication fails for invalid API token",
       );
 
       expect(targetIssue).toBeDefined();
 
       if (!targetIssue) {
-        throw new Error("Representative issue was not found");
+        throw new Error(
+          "Representative issue was not found",
+        );
       }
 
       const searchResult = await client.callTool({
@@ -146,65 +165,80 @@ describe("MCP context measurement baseline", () => {
 
       expect(journalListResult.isError).not.toBe(true);
 
-      const journalList = parseToolJson<IssueListResponse>(
-        journalListResult.content,
-      );
+      const journalList =
+        parseToolJson<IssueListResponse>(
+          journalListResult.content,
+        );
       const journalTarget = journalList.items[0];
 
       expect(journalTarget).toBeDefined();
 
       if (!journalTarget) {
-        throw new Error("Journal fixture issue was not found");
+        throw new Error(
+          "Journal fixture issue was not found",
+        );
       }
 
-      const journalCoreResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
-          issue_id: journalTarget.id,
-        },
-      });
+      const journalCoreResult =
+        await client.callTool({
+          name: "redmine_get_issue",
+          arguments: {
+            issue_id: journalTarget.id,
+          },
+        });
 
-      expect(journalCoreResult.isError).not.toBe(true);
+      expect(
+        journalCoreResult.isError,
+      ).not.toBe(true);
 
-      const journalDetailResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
-          issue_id: journalTarget.id,
-          include: ["journals"],
-        },
-      });
+      const journalDetailResult =
+        await client.callTool({
+          name: "redmine_get_issue",
+          arguments: {
+            issue_id: journalTarget.id,
+            include: ["journals"],
+          },
+        });
 
-      expect(journalDetailResult.isError).not.toBe(true);
+      expect(
+        journalDetailResult.isError,
+      ).not.toBe(true);
 
       const journalCoreMeasurement = measureContext(
         "redmine_get_issue_journal_fixture_core",
         journalCoreResult,
         1,
       );
-      const journalDetailMeasurement = measureContext(
-        "redmine_get_issue_plus_journals",
-        journalDetailResult,
-        1,
-      );
+      const journalDetailMeasurement =
+        measureContext(
+          "redmine_get_issue_plus_journals",
+          journalDetailResult,
+          1,
+        );
 
       measurements.push(
         journalCoreMeasurement,
         journalDetailMeasurement,
       );
 
-      expect(journalDetailMeasurement.bytes).toBeGreaterThan(
+      expect(
+        journalDetailMeasurement.bytes,
+      ).toBeGreaterThan(
         journalCoreMeasurement.bytes,
       );
 
-      const allowedStatusesResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
-          issue_id: targetIssue.id,
-          include: ["allowed_statuses"],
-        },
-      });
+      const allowedStatusesResult =
+        await client.callTool({
+          name: "redmine_get_issue",
+          arguments: {
+            issue_id: targetIssue.id,
+            include: ["allowed_statuses"],
+          },
+        });
 
-      expect(allowedStatusesResult.isError).not.toBe(true);
+      expect(
+        allowedStatusesResult.isError,
+      ).not.toBe(true);
 
       measurements.push(
         measureContext(
@@ -214,37 +248,49 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      const projectListResult = await client.callTool({
-        name: "redmine_list_projects",
-        arguments: {
-          limit: 25,
-        },
-      });
+      const projectListResult =
+        await client.callTool({
+          name: "redmine_list_projects",
+          arguments: {
+            limit: 25,
+          },
+        });
 
-      expect(projectListResult.isError).not.toBe(true);
+      expect(
+        projectListResult.isError,
+      ).not.toBe(true);
 
-      const projectList = parseToolJson<ProjectListResponse>(
-        projectListResult.content,
-      );
+      const projectList =
+        parseToolJson<ProjectListResponse>(
+          projectListResult.content,
+        );
 
-      const targetProject = projectList.items.find(
-        ({ identifier }) => identifier === "mcp-test",
-      );
+      const targetProject =
+        projectList.items.find(
+          ({ identifier }) =>
+            identifier === "mcp-test",
+        );
 
       expect(targetProject).toBeDefined();
 
       if (!targetProject) {
-        throw new Error("MCP Test Project was not found");
+        throw new Error(
+          "MCP Test Project was not found",
+        );
       }
 
-      const projectResult = await client.callTool({
-        name: "redmine_get_project",
-        arguments: {
-          project_id: targetProject.identifier,
-        },
-      });
+      const projectResult =
+        await client.callTool({
+          name: "redmine_get_project",
+          arguments: {
+            project_id:
+              targetProject.identifier,
+          },
+        });
 
-      expect(projectResult.isError).not.toBe(true);
+      expect(
+        projectResult.isError,
+      ).not.toBe(true);
 
       measurements.push(
         measureContext(
@@ -254,9 +300,21 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
+      expect(
+        measurements.map(
+          ({ scenario }) => scenario,
+        ),
+      ).toEqual([
+        ...EXPECTED_CONTEXT_SCENARIOS,
+      ]);
+
       for (const measurement of measurements) {
-        expect(measurement.bytes).toBeGreaterThan(0);
-        expect(measurement.items).toBeGreaterThanOrEqual(0);
+        expect(
+          measurement.bytes,
+        ).toBeGreaterThan(0);
+        expect(
+          measurement.items,
+        ).toBeGreaterThanOrEqual(0);
       }
 
       printBaseline(measurements);

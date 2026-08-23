@@ -21,6 +21,16 @@ function httpError(status: number, statusText: string): RedmineHttpError {
   });
 }
 
+function validationError(errors: string[] = []): RedmineHttpError {
+  return new RedmineHttpError({
+    method: "POST",
+    path: "/issues.json",
+    status: 422,
+    statusText: "Unprocessable Content",
+    errors,
+  });
+}
+
 describe("MCP error mapping", () => {
   it("maps 401 to authentication_failed", () => {
     expect(mapToMcpError(httpError(401, "Unauthorized"))).toEqual({
@@ -47,21 +57,108 @@ describe("MCP error mapping", () => {
     });
   });
 
-  it("maps other 4xx responses to invalid_request", () => {
+  it("maps 422 to validation_error and preserves validation details", () => {
     expect(
       mapToMcpError(
-        new RedmineHttpError({
-          method: "GET",
-          path: "/example.json",
-          status: 422,
-          statusText: "Unprocessable Content",
-          errors: [`Invalid value ${apiKey}`],
-        }),
+        validationError([
+          "Subject can't be blank",
+          "Status is invalid",
+        ]),
       ),
     ).toEqual({
-      code: "invalid_request",
+      code: "validation_error",
       message: "Redmine rejected the request.",
       status: 422,
+      details: {
+        errors: [
+          "Subject can't be blank",
+          "Status is invalid",
+        ],
+      },
+    });
+  });
+
+  it("omits details for a 422 response without validation errors", () => {
+    expect(mapToMcpError(validationError())).toEqual({
+      code: "validation_error",
+      message: "Redmine rejected the request.",
+      status: 422,
+    });
+  });
+
+  it("bounds validation error count and normalizes whitespace", () => {
+    const mapped = mapToMcpError(
+      validationError([
+        " First   validation\nerror ",
+        "Second error",
+        "Third error",
+        "Fourth error",
+        "Fifth error",
+        "Sixth error",
+        "Seventh error",
+      ]),
+    );
+
+    expect(mapped.details?.errors).toHaveLength(5);
+    expect(mapped.details?.errors[0]).toBe(
+      "First validation error",
+    );
+    expect(mapped.details?.errors).not.toContain("Sixth error");
+  });
+
+  it("bounds individual validation error message length", () => {
+    const mapped = mapToMcpError(
+      validationError(["x".repeat(500)]),
+    );
+
+    const message = mapped.details?.errors[0];
+
+    expect(message).toBeDefined();
+    expect(message?.length).toBeLessThanOrEqual(200);
+    expect(message?.endsWith("…")).toBe(true);
+  });
+
+  it("removes empty validation messages", () => {
+    const mapped = mapToMcpError(
+      validationError([
+        "",
+        "   ",
+        "\n\t",
+        "Subject can't be blank",
+      ]),
+    );
+
+    expect(mapped.details?.errors).toEqual([
+      "Subject can't be blank",
+    ]);
+  });
+
+  it("sanitizes credentials in validation details", () => {
+    const mapped = mapToMcpError(
+      validationError([
+        `Invalid value ${apiKey}`,
+        "Authorization: Bearer top-secret-token",
+        "password=hunter2 is invalid",
+        "credential:super-secret is invalid",
+        "X-Redmine-API-Key: another-secret",
+      ]),
+    );
+
+    const serialized = JSON.stringify(mapped);
+
+    expect(serialized).toContain("[REDACTED]");
+    expect(serialized).not.toContain(apiKey);
+    expect(serialized).not.toContain("top-secret-token");
+    expect(serialized).not.toContain("hunter2");
+    expect(serialized).not.toContain("super-secret");
+    expect(serialized).not.toContain("another-secret");
+  });
+
+  it("keeps other 4xx responses mapped to invalid_request", () => {
+    expect(mapToMcpError(httpError(400, "Bad Request"))).toEqual({
+      code: "invalid_request",
+      message: "Redmine rejected the request.",
+      status: 400,
     });
   });
 
@@ -110,14 +207,11 @@ describe("MCP error mapping", () => {
     });
   });
 
-  it("builds a sanitized MCP tool error result", () => {
-    const error = new RedmineHttpError({
-      method: "GET",
-      path: "/users/current.json",
-      status: 401,
-      statusText: "Unauthorized",
-      errors: [`secret ${apiKey}`],
-    });
+  it("builds a sanitized MCP validation tool error result", () => {
+    const error = validationError([
+      "Subject can't be blank",
+      `Invalid value ${apiKey}`,
+    ]);
 
     const result = toToolErrorResult(error);
 
@@ -132,8 +226,13 @@ describe("MCP error mapping", () => {
       throw new Error("Expected text content");
     }
 
-    expect(content.text).toContain('"code":"authentication_failed"');
+    expect(content.text).toContain(
+      '"code":"validation_error"',
+    );
+    expect(content.text).toContain(
+      `"Subject can't be blank"`,
+    );
+    expect(content.text).toContain("[REDACTED]");
     expect(content.text).not.toContain(apiKey);
-    expect(content.text).not.toContain("secret");
   });
 });

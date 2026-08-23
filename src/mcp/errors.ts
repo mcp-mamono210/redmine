@@ -9,17 +9,85 @@ export type McpErrorCode =
   | "permission_denied"
   | "not_found"
   | "invalid_request"
+  | "validation_error"
   | "backend_unavailable"
   | "invalid_backend_response"
   | "internal_error";
+
+export interface McpErrorDetails {
+  errors: string[];
+}
 
 export interface McpApplicationError {
   code: McpErrorCode;
   message: string;
   status?: number;
+  details?: McpErrorDetails;
 }
 
 const HTTP_SERVER_ERROR_MIN = 500;
+const MAX_VALIDATION_ERRORS = 5;
+const MAX_VALIDATION_ERROR_LENGTH = 200;
+const REDACTED = "[REDACTED]";
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/gu, " ").trim();
+}
+
+function redactValidationSecrets(value: string): string {
+  let sanitized = value
+    .replace(/\b[0-9a-f]{40}\b/giu, REDACTED)
+    .replace(
+      /\bX-Redmine-API-Key\s*:\s*[^,\s;]+/giu,
+      `X-Redmine-API-Key: ${REDACTED}`,
+    )
+    .replace(
+      /\bAuthorization\s*:\s*[^\r\n,;]+/giu,
+      `Authorization: ${REDACTED}`,
+    )
+    .replace(
+      /\b(password|credential|api[_ -]?key)\s*[:=]\s*[^,\s;]+/giu,
+      `$1=${REDACTED}`,
+    );
+
+  const configuredApiKey = process.env.REDMINE_API_KEY;
+
+  if (configuredApiKey) {
+    sanitized = sanitized.split(configuredApiKey).join(REDACTED);
+  }
+
+  return sanitized;
+}
+
+function truncateValidationError(value: string): string {
+  if (value.length <= MAX_VALIDATION_ERROR_LENGTH) {
+    return value;
+  }
+
+  return `${value.slice(0, MAX_VALIDATION_ERROR_LENGTH - 1)}…`;
+}
+
+function sanitizeValidationErrors(errors: readonly string[]): string[] {
+  const sanitized: string[] = [];
+
+  for (const error of errors) {
+    const normalized = normalizeWhitespace(error);
+
+    if (!normalized) {
+      continue;
+    }
+
+    sanitized.push(
+      truncateValidationError(redactValidationSecrets(normalized)),
+    );
+
+    if (sanitized.length >= MAX_VALIDATION_ERRORS) {
+      break;
+    }
+  }
+
+  return sanitized;
+}
 
 function mapHttpError(error: RedmineHttpError): McpApplicationError {
   if (error.status === 401) {
@@ -44,6 +112,23 @@ function mapHttpError(error: RedmineHttpError): McpApplicationError {
       code: "not_found",
       message: "The requested Redmine resource was not found.",
       status: error.status,
+    };
+  }
+
+  if (error.status === 422) {
+    const errors = sanitizeValidationErrors(error.errors);
+
+    return {
+      code: "validation_error",
+      message: "Redmine rejected the request.",
+      status: error.status,
+      ...(errors.length > 0
+        ? {
+            details: {
+              errors,
+            },
+          }
+        : {}),
     };
   }
 

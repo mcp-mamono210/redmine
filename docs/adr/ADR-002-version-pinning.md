@@ -6,33 +6,25 @@ Date: 2026-08-23
 
 ## Context
 
-The MCP server depends on npm packages and a deterministic Docker Redmine test
-environment. Uncontrolled dependency movement would make contract regressions
-difficult to reproduce.
+Runtime and dependency drift can change build, lint, test, and MCP behavior
+without a source-code change.
 
 ## Decision
 
-Use explicit dependency versions and lockfiles.
+Use explicit reproducibility boundaries:
 
-Current important boundaries include:
+- `.nvmrc` is the source of truth for the exact Node.js runtime
+- `package.json` declares the supported runtime requirement
+- `package-lock.json` is authoritative for npm dependency resolution
+- CircleCI installs and verifies the runtime from `.nvmrc`
+- Docker images used for deterministic Redmine testing are explicitly pinned
 
-```text
-@modelcontextprotocol/server  2.0.0
-@modelcontextprotocol/client  2.0.0
-zod                          4.4.3
-TypeScript                    6.0.3
-Vitest                        3.2.4
-Redmine                       6.1.3
-PostgreSQL                    17.10
-```
-
-`package-lock.json` is authoritative for npm resolution.
-
-The Node runtime itself is not yet pinned by this ADR implementation. Runtime
-pinning is a separate v0.1.1 task and must be completed before the stable v1
-contract.
+Do not repeat the exact Node.js version or the full dependency inventory in
+this ADR. Those values belong to their executable configuration files.
 
 ## Consequences
 
-Dependency upgrades are explicit reviewable changes. The project avoids
-silently redefining the MCP contract through dependency drift.
+Runtime and dependency upgrades become explicit reviewed changes.
+
+The CircleCI operating-system image is a separate reproducibility boundary and
+may be pinned independently when required.

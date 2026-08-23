@@ -1,31 +1,32 @@
 
-# ADR-007: Enforce least privilege at Redmine and MCP boundaries
+# ADR-007: Enforce a read-only least-privilege security boundary
 
 Status: Accepted  
 Date: 2026-08-23
 
 ## Context
 
-MCP-level validation is not a substitute for backend authorization. A
-misconfigured or bypassed tool must still be constrained by the Redmine user
-and role.
+MCP validation is not a substitute for backend authorization. The Redmine
+account itself must constrain what a compromised or incorrectly implemented
+tool can do.
 
 ## Decision
 
-For the read-only release:
+For the read-only architecture:
 
 - use a dedicated non-admin Redmine user
-- use the `MCP Read Only` role
-- grant only permissions needed to view projects and issues
-- keep write tools absent from the exposed tool surface
-- sanitize API keys and credential-like values from MCP errors
+- use a dedicated read-only Redmine role
+- grant only the permissions required for read operations
+- do not expose write tools
+- sanitize credential-like values from MCP errors
+- keep Redmine as the authorization authority
 
-Future writes must use a separate writer role/user and a write-enable guard.
-The read-only role must not be expanded into a writer role.
-
-Redmine remains the authority for permissions and workflow transitions.
+Do not extend the read-only role to gain write capability.
 
 ## Consequences
 
-Security does not depend on model compliance. Future write functionality can
-be added without weakening the read-only security boundary.
+A future write architecture must introduce a separate writer boundary.
+
+When write capability becomes an accepted architecture, create a new ADR and
+mark this ADR `Superseded by ADR-NNN` rather than editing this decision into a
+mixed read/write policy.

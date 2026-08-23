@@ -1,38 +1,28 @@
 
-# ADR-008: Build a distributable stdio server without committing generated output
+# ADR-008: Keep distribution independent from public registry publication
 
 Status: Accepted  
 Date: 2026-08-23
 
 ## Context
 
-The project currently runs as a TypeScript source repository and the npm
-package is marked `private`. The distribution contract must not force a public
-registry decision before the MCP API is stable.
+The project needs a reproducible executable build before it needs a public
+package-distribution decision.
+
+Prematurely selecting npm publication or another registry would couple MCP API
+stabilization to packaging policy.
 
 ## Decision
 
-Use TypeScript compilation as the build boundary:
+Use TypeScript compilation as the build boundary and keep source,
+configuration, lockfiles, tests, and release metadata under version control.
 
-```text
-npm run build
-node dist/src/index.js
-```
+Generated build output is reproducible and is not the source of truth.
 
-Source code, lockfiles, configuration, tests, and release metadata are version
-controlled. Generated build output is reproducible and is not the source of
-truth.
+Keep public registry publication as a later explicit decision.
 
-The package remains private until a later release explicitly selects a public
-distribution channel.
-
-Distribution must preserve:
-
-- stdio transport behavior
-- environment-based Redmine configuration
-- no embedded API keys or credentials
+Distribution must preserve stdio behavior and must not embed credentials.
 
 ## Consequences
 
-The project can stabilize its MCP contract independently from npm publication
-or other packaging decisions.
+The MCP contract can stabilize independently from a public packaging channel.

@@ -1,24 +1,31 @@
 
 # Read-only MCP Contract
 
-Status: Accepted for v0.1.1 development  
+Status: Draft  
+Target release: v0.1.1  
+Latest released version: v0.1.0  
 Last synchronized: 2026-08-23
 
-This document defines the public read-only MCP contract. The TypeScript
-`RedmineClient` is an internal API and is not itself the MCP contract.
+This document is the canonical documentation for exact read-only MCP behavior
+being prepared for v0.1.1.
+
+`package.json` remains at the latest released version until the release ticket
+is executed. Therefore `package.json` may still report `0.1.0` while this
+document describes the unreleased v0.1.1 target.
 
 ## Contract elements
 
-The following are treated as public contract elements:
+The following are public MCP contract elements:
 
 - tool name
 - tool description
 - input schema
 - successful response shape
 - application error shape
-- documented pagination and include limits
+- pagination bounds
+- include semantics
 
-Changes to these elements require contract review and regression-test updates.
+A change to any of these requires contract review and regression-test updates.
 
 ## Naming boundary
 
@@ -38,14 +45,14 @@ allowed_statuses          allowedStatuses
 created_on                createdOn
 ```
 
-Successful tool responses are currently returned as JSON text in
+Successful tool responses are currently serialized as JSON in
 `content[0].text`.
 
-`outputSchema` and `structuredContent` are not part of the v0.1.1 contract.
+`outputSchema` and `structuredContent` are not part of this target contract.
 
 ## Tool surface
 
-The read-only server exposes exactly six tools:
+The read-only MCP server exposes exactly these tools:
 
 ```text
 redmine_get_current_user
@@ -56,11 +63,9 @@ redmine_list_projects
 redmine_search
 ```
 
-Write tools are not part of this contract.
+### `redmine_get_current_user`
 
-## `redmine_get_current_user`
-
-Retrieves the Redmine user associated with the configured API key.
+Purpose: return the Redmine user associated with the configured API key.
 
 Input:
 
@@ -68,149 +73,39 @@ Input:
 {}
 ```
 
-Representative response:
+### `redmine_list_issues`
 
-```json
-{
-  "id": 7,
-  "login": "mcp-test",
-  "firstname": "MCP",
-  "lastname": "Test",
-  "mail": "mcp-test@example.invalid"
-}
-```
+Purpose: bounded structured issue discovery.
 
-## `redmine_list_issues`
-
-Returns bounded issue summaries.
-
-Default limit: `10`  
-Maximum limit: `20`
-
-Representative response:
-
-```json
-{
-  "items": [
-    {
-      "id": 42,
-      "subject": "Authentication fails for invalid API token",
-      "project": {
-        "id": 1,
-        "name": "MCP Test Project"
-      },
-      "tracker": {
-        "id": 1,
-        "name": "Bug"
-      },
-      "status": {
-        "id": 1,
-        "name": "New",
-        "is_closed": false
-      },
-      "priority": {
-        "id": 3,
-        "name": "High"
-      },
-      "assigned_to": {
-        "id": 7,
-        "name": "MCP Test"
-      },
-      "fixed_version": {
-        "id": 5,
-        "name": "v0.1.0"
-      },
-      "updated_on": "..."
-    }
-  ],
-  "total_count": 1,
-  "offset": 0,
-  "limit": 10
-}
-```
-
-Issue-list summaries intentionally exclude large detail fields such as:
+Supported input fields:
 
 ```text
-description
-journals
-relations
-attachments
-custom_fields
-author
+project_id
+tracker_id
+status_id
+assigned_to_id
+fixed_version_id
+subject
+offset
+limit
+sort
+```
+
+Pagination:
+
+```text
+default limit = 10
+maximum limit = 20
 ```
 
 The `subject` filter is substring-based. The Redmine-specific `~` operator is
 an internal transport detail and is not part of the MCP input.
 
-## `redmine_get_issue`
+Issue summaries contain only bounded discovery fields. They do not include
+large detail associations such as descriptions, journals, relations,
+attachments, or large custom-field payloads.
 
-The default call returns the issue core without optional associated data.
-
-Input:
-
-```json
-{
-  "issue_id": 42
-}
-```
-
-Optional associated data is selected through `include`:
-
-```json
-{
-  "issue_id": 42,
-  "include": [
-    "journals",
-    "relations",
-    "children",
-    "attachments",
-    "allowed_statuses"
-  ]
-}
-```
-
-Supported public include values:
-
-```text
-journals
-relations
-children
-attachments
-allowed_statuses
-```
-
-`watchers` is not part of the public MCP include contract.
-
-Semantics:
-
-- omitted include value: the corresponding response property is absent
-- requested include with zero results: the corresponding response property is `[]`
-- attachments contain metadata only; file content is not fetched
-- `allowed_statuses` is supplied by Redmine and remains the authority for
-  future status-transition validation
-
-## `redmine_search`
-
-Performs free-text discovery.
-
-Default limit: `10`  
-Maximum limit: `20`
-
-Input:
-
-```json
-{
-  "query": "authentication",
-  "project_id": "mcp-test",
-  "limit": 10
-}
-```
-
-`project_id` is optional. Search results are summaries. Use
-`redmine_get_issue` after discovering an issue ID when issue detail is needed.
-
-Pagination uses:
+Pagination response fields:
 
 ```json
 {
@@ -221,48 +116,117 @@ Pagination uses:
 }
 ```
 
-## `redmine_list_projects`
+### `redmine_get_issue`
 
-Returns project summaries visible to the configured Redmine user.
+Purpose: retrieve issue detail after an issue ID is known.
 
-Maximum limit: `100`.
-
-Representative response:
+Required input:
 
 ```json
 {
-  "items": [
-    {
-      "id": 1,
-      "name": "MCP Test Project",
-      "identifier": "mcp-test",
-      "parent_id": 10
-    }
-  ],
-  "total_count": 1,
-  "offset": 0,
-  "limit": 25
+  "issue_id": 42
 }
 ```
 
-Detailed project metadata is not returned by this list tool.
+The default response is core-only. Optional associations are absent unless
+explicitly requested.
 
-## `redmine_get_project`
+Supported public `include` values:
 
-Returns a stable envelope.
+```text
+journals
+relations
+children
+attachments
+allowed_statuses
+```
+
+Example:
 
 ```json
 {
-  "project": {
-    "id": 1,
-    "identifier": "mcp-test",
-    "name": "MCP Test Project",
-    "description": "...",
-    "status": 1,
-    "is_public": false,
-    "created_on": "...",
-    "updated_on": "..."
-  },
+  "issue_id": 42,
+  "include": [
+    "journals",
+    "allowed_statuses"
+  ]
+}
+```
+
+Semantics:
+
+```text
+include omitted
+  -> optional association property is absent
+
+include requested and result is empty
+  -> property is present as []
+
+attachments
+  -> metadata only; file body is not fetched
+
+allowed_statuses
+  -> Redmine remains authoritative for available transitions
+```
+
+`watchers` is not part of the public include contract.
+
+### `redmine_search`
+
+Purpose: free-text resource discovery.
+
+Required input:
+
+```text
+query
+```
+
+Optional input:
+
+```text
+project_id
+offset
+limit
+```
+
+Pagination:
+
+```text
+default limit = 10
+maximum limit = 20
+```
+
+Search results are summaries. Issue detail should be retrieved only after an
+issue ID has been selected.
+
+### `redmine_list_projects`
+
+Purpose: project discovery.
+
+Supported input:
+
+```text
+offset
+limit
+```
+
+Pagination:
+
+```text
+maximum limit = 100
+```
+
+The response contains project summaries only.
+
+### `redmine_get_project`
+
+Purpose: retrieve project detail and the currently supported project metadata.
+
+Response envelope:
+
+```json
+{
+  "project": {},
   "trackers": [],
   "categories": [],
   "custom_fields": [],
@@ -273,23 +237,50 @@ Returns a stable envelope.
 }
 ```
 
-Envelope semantics:
+Semantics:
 
 ```text
-null = not fetched / not implemented at this phase
-[]   = fetched successfully and no entries were returned
+null
+  -> not fetched / not implemented by this contract
+
+[]
+  -> fetched successfully and no entries were returned
 ```
 
-In v0.1.1 development:
+For this target contract:
 
-- `trackers`, `categories`, and `custom_fields` are populated from the Redmine
-  Project API
-- `versions`, `members`, and `priorities` are reserved and remain `null`
-- `warnings` is reserved for future partial-failure reporting and is `[]`
+```text
+trackers
+categories
+custom_fields
+  -> populated from the Redmine Project API
+
+versions
+members
+priorities
+  -> reserved as null
+
+warnings
+  -> reserved for future partial-failure reporting and currently []
+```
 
 ## Error contract
 
-MCP application errors use a stable sanitized shape:
+Application error codes:
+
+```text
+401                     -> authentication_failed
+403                     -> permission_denied
+404                     -> not_found
+422                     -> validation_error
+other 4xx               -> invalid_request
+5xx                     -> backend_unavailable
+network / timeout       -> backend_unavailable
+invalid JSON / schema   -> invalid_backend_response
+unexpected error        -> internal_error
+```
+
+HTTP 422 may expose bounded sanitized validation messages:
 
 ```json
 {
@@ -304,57 +295,28 @@ MCP application errors use a stable sanitized shape:
 }
 ```
 
-Mappings:
+API keys, Authorization values, passwords, raw backend bodies, stack traces,
+and causes must not be returned to MCP clients.
+
+## Context measurement
+
+Context cost is measured using serialized UTF-8 bytes.
+
+The exact measurement scenarios and current byte values are executable test
+data and therefore live in:
 
 ```text
-401                     -> authentication_failed
-403                     -> permission_denied
-404                     -> not_found
-422                     -> validation_error
-other 4xx               -> invalid_request
-5xx                     -> backend_unavailable
-network / timeout       -> backend_unavailable
-invalid JSON / schema   -> invalid_backend_response
-unexpected error        -> internal_error
+tests/e2e/context-measurement.test.ts
 ```
 
-Validation details are bounded and sanitized. API keys, authorization values,
-passwords, raw response bodies, stack traces, and causes must not be returned
-to the MCP client.
+This contract intentionally does not duplicate measured byte values.
 
-## Context-cost contract
-
-Context efficiency is a functional requirement.
-
-Deterministic measurements use UTF-8 byte length of the serialized MCP result.
-The current measurement suite covers:
-
-```text
-tools/list
-redmine_list_issues default
-redmine_search default
-redmine_get_issue core
-redmine_get_issue + journals
-redmine_get_issue + allowed_statuses
-redmine_get_project stable envelope
-```
-
-No hard byte threshold is defined in v0.1.1. Measurements establish a baseline
-for later budget gates.
+No hard byte threshold is part of the v0.1.1 target contract.
 
 ## Regression coverage
 
-The public contract is protected by:
+The contract is protected by the read-only contract/workflow E2E tests and the
+tool-specific unit, integration, and E2E tests.
 
-```text
-tests/e2e/read-only-contract.test.ts
-tests/e2e/read-only-workflow.test.ts
-tests/e2e/issues.test.ts
-tests/e2e/projects.test.ts
-tests/e2e/search.test.ts
-tests/e2e/context-measurement.test.ts
-tests/unit/serialize.test.ts
-```
-
-A contract change must update this document and the relevant regression tests
-in the same change.
+When this document changes, the corresponding executable regression contract
+must change in the same ticket.

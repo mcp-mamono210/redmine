@@ -6,27 +6,20 @@ Date: 2026-08-23
 
 ## Context
 
-Integration and E2E tests require a reproducible Redmine instance that can be
-started, seeded, reset, and stopped without manual database manipulation.
+Integration and E2E tests need a reproducible Redmine environment that can be
+rebuilt without manual database cleanup.
 
 ## Decision
 
-Expose the lifecycle through npm scripts:
+Expose start, seed, reset, and stop operations through project npm scripts.
 
-```text
-npm run redmine:start
-npm run redmine:seed
-npm run redmine:reset
-npm run redmine:stop
-```
+The reset path is the authoritative way to return the local test Redmine
+environment to its deterministic baseline.
 
-`redmine:reset` is the authoritative clean rebuild path for tests that require
-a deterministic initial state.
-
-The lifecycle uses `docker/compose.yml` and the separated configuration/data
-seed scripts defined by ADR-006.
+The lifecycle uses the Docker Compose configuration and synthetic seed model
+defined by ADR-006.
 
 ## Consequences
 
-Local development and CI use the same lifecycle concepts. Tests can recover
-from mutable Redmine state without relying on manual cleanup.
+Local development and CI share the same environment lifecycle concepts and can
+recover from mutable test state consistently.

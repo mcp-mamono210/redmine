@@ -6,38 +6,26 @@ Date: 2026-08-23
 
 ## Context
 
-A large generic CRUD surface increases `tools/list` context cost and gives the
-model more ambiguous ways to perform the same task.
+Every exposed tool increases `tools/list` context cost and gives the model
+another possible action path.
+
+A generic CRUD or arbitrary REST surface would expose implementation details
+and increase ambiguity without improving the intended Redmine workflows.
 
 ## Decision
 
-Use domain-oriented tool names with the `redmine_` prefix and `snake_case`.
+Expose a small domain-oriented Redmine tool surface.
 
-Current read-only tools:
+- discovery/list operations stay separate from detail retrieval
+- tool names use the Redmine domain and stable task-oriented verbs
+- do not add generic CRUD, arbitrary REST, or delete tools for v1
+- evaluate new tools against workflow value and context cost
 
-```text
-redmine_get_current_user
-redmine_get_issue
-redmine_list_issues
-redmine_get_project
-redmine_list_projects
-redmine_search
-```
-
-The planned write surface is intentionally narrow:
-
-```text
-redmine_create_issue
-redmine_update_issue
-redmine_add_issue_note
-```
-
-Do not add generic delete, arbitrary REST, or generic CRUD tools for v1.
-
-List/search tools perform discovery; get tools perform detail retrieval.
+The exact current tool inventory is defined only in
+`docs/contracts/read-only-mcp-contract.md`.
 
 ## Consequences
 
-The tool surface remains easier to reason about and cheaper to expose to the
-model. Adding a tool requires justification against both workflow value and
-`tools/list` context cost.
+The public surface stays easier for models and humans to reason about.
+
+Adding a new tool is a contract change, not merely an internal helper addition.

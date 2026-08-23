@@ -6,25 +6,30 @@ Date: 2026-08-23
 
 ## Context
 
-The server is intended to be launched by an MCP host as a local process.
-Protocol messages therefore share the process standard streams with any
-application diagnostics.
+The intended MCP host launches this server as a local child process.
 
-Writing diagnostics to stdout can corrupt the MCP protocol stream.
+A network transport would add listener lifecycle, network exposure,
+authentication, and deployment concerns without solving a current product
+requirement.
+
+Protocol output also shares process standard streams with diagnostics, so
+stdout discipline is required.
 
 ## Decision
 
 Use MCP stdio transport.
 
 - stdout is reserved exclusively for MCP protocol traffic
-- diagnostics and operational logs use stderr or an explicitly configured file
-- application source under `src/**` must not use `console.*`
-- the server must not emit API keys, authorization values, passwords, or raw
-  Redmine response bodies to the protocol stream
+- diagnostics use stderr or an explicitly configured file
+- application source must not write arbitrary console output to stdout
+- secrets and raw backend responses must not enter the protocol stream
+
+HTTP/SSE transport is outside the current architecture.
 
 ## Consequences
 
-The process is simple to launch and integrate with MCP hosts, but stdout
-discipline becomes a correctness and security requirement.
+Local host integration stays simple and avoids an unnecessary network security
+boundary.
 
-HTTP/SSE transport is not part of the current contract.
+Adding a network transport is a new architectural decision and requires a new
+ADR rather than an incidental implementation change.

@@ -6,36 +6,24 @@ Date: 2026-08-23
 
 ## Context
 
-Models choose tools using names, descriptions, and schemas. A seemingly small
-description or schema change can therefore change runtime behavior even when
-the TypeScript function signature is unchanged.
+Models choose tools using names, descriptions, and schemas. A metadata change
+can therefore alter behavior even when TypeScript implementation signatures do
+not change.
 
 ## Decision
 
-Treat the following as public MCP contract elements:
+Treat tool names, descriptions, input schemas, successful output shapes,
+application error shapes, and documented bounds as public contract.
+
+Exact contract facts live in:
 
 ```text
-tool name
-description
-input schema
-successful response shape
-application error shape
-documented bounds and include semantics
+docs/contracts/read-only-mcp-contract.md
 ```
 
-Descriptions must state the tool's intended workflow role, important bounds,
-and when another tool should be preferred.
-
-Contract changes require:
-
-1. contract review
-2. regression-test updates
-3. documentation updates
-
-The exact read-only names, descriptions, and input schemas are checked through
-`tests/e2e/read-only-contract.test.ts`.
+Contract changes require matching regression-test and documentation changes.
 
 ## Consequences
 
-Tool metadata changes receive the same scrutiny as API changes. This reduces
-silent behavior drift in MCP hosts and models.
+Tool metadata receives API-level review rather than being treated as harmless
+copy editing.

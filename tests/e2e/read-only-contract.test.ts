@@ -71,6 +71,41 @@ const EXPECTED_INPUT_PROPERTIES = {
   redmine_search: ["limit", "offset", "project_id", "query"],
 } as const;
 
+const EXPECTED_REQUIRED_PROPERTIES = {
+  redmine_get_current_user: [],
+  redmine_get_issue: ["issue_id"],
+  redmine_get_project: ["project_id"],
+  redmine_list_issues: [],
+  redmine_list_projects: [],
+  redmine_search: ["query"],
+} as const;
+
+const EXPECTED_ISSUE_INCLUDE_VALUES = [
+  "allowed_statuses",
+  "attachments",
+  "children",
+  "journals",
+  "relations",
+] as const;
+
+const ISSUE_SUMMARY_KEYS = new Set([
+  "assigned_to",
+  "fixed_version",
+  "id",
+  "priority",
+  "project",
+  "status",
+  "subject",
+  "tracker",
+  "updated_on",
+]);
+
+const PROJECT_SUMMARY_KEYS = new Set([
+  "id",
+  "identifier",
+  "name",
+  "parent_id",
+]);
 
 function requireRecord(
   value: unknown,
@@ -81,6 +116,20 @@ function requireRecord(
   }
 
   return value as Record<string, unknown>;
+}
+
+function requireStringArray(
+  value: unknown,
+  label: string,
+): string[] {
+  if (
+    !Array.isArray(value) ||
+    !value.every((item) => typeof item === "string")
+  ) {
+    throw new Error(`${label} must be a string array`);
+  }
+
+  return [...value];
 }
 
 function inputPropertyNames(inputSchema: unknown): string[] {
@@ -105,10 +154,9 @@ function inputProperty(
     schema.properties,
     "inputSchema.properties",
   );
-  const property = properties[propertyName];
 
   return requireRecord(
-    property,
+    properties[propertyName],
     `inputSchema.properties.${propertyName}`,
   );
 }
@@ -121,18 +169,63 @@ function requiredProperties(inputSchema: unknown): string[] {
     return [];
   }
 
-  if (
-    !Array.isArray(required) ||
-    !required.every((value) => typeof value === "string")
-  ) {
-    throw new Error("inputSchema.required must be a string array");
+  return requireStringArray(required, "inputSchema.required").sort();
+}
+
+function enumValues(
+  inputSchema: unknown,
+  propertyName: string,
+): string[] {
+  const property = inputProperty(inputSchema, propertyName);
+  const items = requireRecord(
+    property.items,
+    `inputSchema.properties.${propertyName}.items`,
+  );
+
+  return requireStringArray(
+    items.enum,
+    `inputSchema.properties.${propertyName}.items.enum`,
+  ).sort();
+}
+
+function expectOnlyKnownKeys(
+  record: Record<string, unknown>,
+  allowedKeys: ReadonlySet<string>,
+): void {
+  for (const key of Object.keys(record)) {
+    expect(
+      allowedKeys.has(key),
+      `Unexpected public response key: ${key}`,
+    ).toBe(true);
+  }
+}
+
+function expectSnakeCaseKeys(
+  value: unknown,
+  path = "$",
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      expectSnakeCaseKeys(item, `${path}[${index}]`);
+    });
+    return;
   }
 
-  return [...required].sort();
+  if (typeof value !== "object" || value === null) {
+    return;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    expect(
+      key,
+      `Public JSON key must not contain uppercase characters: ${path}.${key}`,
+    ).not.toMatch(/[A-Z]/);
+    expectSnakeCaseKeys(child, `${path}.${key}`);
+  }
 }
 
 describe("Read-only MCP public contract", () => {
-  it("keeps tools/list names, descriptions, and input schemas stable", async () => {
+  it("keeps tools/list names, descriptions, required fields, bounds, and include enum stable", async () => {
     const { client } = await connectE2eClient(
       "redmine-mcp-read-only-contract-e2e-client",
     );
@@ -162,24 +255,19 @@ describe("Read-only MCP public contract", () => {
         expect(inputPropertyNames(tool.inputSchema)).toEqual(
           [...EXPECTED_INPUT_PROPERTIES[name]].sort(),
         );
+        expect(requiredProperties(tool.inputSchema)).toEqual(
+          [...EXPECTED_REQUIRED_PROPERTIES[name]].sort(),
+        );
       }
 
       const getIssue = toolByName.get("redmine_get_issue");
-      const getProject = toolByName.get("redmine_get_project");
       const listIssues = toolByName.get("redmine_list_issues");
+      const listProjects = toolByName.get("redmine_list_projects");
       const search = toolByName.get("redmine_search");
 
-      if (!getIssue || !getProject || !listIssues || !search) {
+      if (!getIssue || !listIssues || !listProjects || !search) {
         throw new Error("Required contract tools were not registered");
       }
-
-      expect(requiredProperties(getIssue.inputSchema)).toEqual([
-        "issue_id",
-      ]);
-      expect(requiredProperties(getProject.inputSchema)).toEqual([
-        "project_id",
-      ]);
-      expect(requiredProperties(search.inputSchema)).toEqual(["query"]);
 
       expect(
         inputProperty(listIssues.inputSchema, "limit").maximum,
@@ -187,12 +275,136 @@ describe("Read-only MCP public contract", () => {
       expect(
         inputProperty(search.inputSchema, "limit").maximum,
       ).toBe(20);
+      expect(
+        inputProperty(listProjects.inputSchema, "limit").maximum,
+      ).toBe(100);
+
+      const includeProperty = inputProperty(
+        getIssue.inputSchema,
+        "include",
+      );
+
+      expect(includeProperty.minItems).toBe(1);
+      expect(includeProperty.maxItems).toBe(5);
+      expect(enumValues(getIssue.inputSchema, "include")).toEqual(
+        [...EXPECTED_ISSUE_INCLUDE_VALUES].sort(),
+      );
     } finally {
       await client.close();
     }
   });
 
-  it("keeps issue and project list responses summarized", async () => {
+  it("enforces list and search pagination defaults and maximum bounds", async () => {
+    const { client } = await connectE2eClient(
+      "redmine-mcp-pagination-contract-e2e-client",
+    );
+
+    try {
+      const defaultIssueResult = await client.callTool({
+        name: "redmine_list_issues",
+        arguments: {
+          project_id: "mcp-test",
+        },
+      });
+
+      expect(defaultIssueResult.isError).not.toBe(true);
+
+      const defaultIssueResponse = JSON.parse(
+        requireTextContent(defaultIssueResult.content),
+      ) as Record<string, unknown>;
+
+      expect(defaultIssueResponse.limit).toBe(10);
+
+      const maximumIssueResult = await client.callTool({
+        name: "redmine_list_issues",
+        arguments: {
+          project_id: "mcp-test",
+          limit: 20,
+        },
+      });
+
+      expect(maximumIssueResult.isError).not.toBe(true);
+
+      const maximumIssueResponse = JSON.parse(
+        requireTextContent(maximumIssueResult.content),
+      ) as Record<string, unknown>;
+
+      expect(maximumIssueResponse.limit).toBe(20);
+
+      const overLimitIssueResult = await client.callTool({
+        name: "redmine_list_issues",
+        arguments: {
+          project_id: "mcp-test",
+          limit: 21,
+        },
+      });
+
+      expect(overLimitIssueResult.isError).toBe(true);
+
+      const defaultSearchResult = await client.callTool({
+        name: "redmine_search",
+        arguments: {
+          query: "Authentication",
+        },
+      });
+
+      expect(defaultSearchResult.isError).not.toBe(true);
+
+      const defaultSearchResponse = JSON.parse(
+        requireTextContent(defaultSearchResult.content),
+      ) as Record<string, unknown>;
+
+      expect(defaultSearchResponse.limit).toBe(10);
+
+      const maximumSearchResult = await client.callTool({
+        name: "redmine_search",
+        arguments: {
+          query: "Authentication",
+          limit: 20,
+        },
+      });
+
+      expect(maximumSearchResult.isError).not.toBe(true);
+
+      const maximumSearchResponse = JSON.parse(
+        requireTextContent(maximumSearchResult.content),
+      ) as Record<string, unknown>;
+
+      expect(maximumSearchResponse.limit).toBe(20);
+
+      const overLimitSearchResult = await client.callTool({
+        name: "redmine_search",
+        arguments: {
+          query: "Authentication",
+          limit: 21,
+        },
+      });
+
+      expect(overLimitSearchResult.isError).toBe(true);
+
+      const maximumProjectResult = await client.callTool({
+        name: "redmine_list_projects",
+        arguments: {
+          limit: 100,
+        },
+      });
+
+      expect(maximumProjectResult.isError).not.toBe(true);
+
+      const overLimitProjectResult = await client.callTool({
+        name: "redmine_list_projects",
+        arguments: {
+          limit: 101,
+        },
+      });
+
+      expect(overLimitProjectResult.isError).toBe(true);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("keeps issue and project list responses summarized and snake_case", async () => {
     const { client } = await connectE2eClient(
       "redmine-mcp-summary-contract-e2e-client",
     );
@@ -212,16 +424,30 @@ describe("Read-only MCP public contract", () => {
       ) as {
         items: Array<Record<string, unknown>>;
         total_count: number;
+        offset: number;
+        limit: number;
       };
 
       expect(issueResponse.items.length).toBeGreaterThan(0);
       expect(issueResponse.total_count).toBeGreaterThan(0);
-      expect(issueResponse).not.toHaveProperty("totalCount");
+      expect(issueResponse.limit).toBe(10);
+      expectSnakeCaseKeys(issueResponse);
 
       for (const issue of issueResponse.items) {
+        expectOnlyKnownKeys(issue, ISSUE_SUMMARY_KEYS);
+        expect(issue).toHaveProperty("id");
+        expect(issue).toHaveProperty("subject");
+        expect(issue).toHaveProperty("project");
+        expect(issue).toHaveProperty("tracker");
+        expect(issue).toHaveProperty("status");
+        expect(issue).toHaveProperty("priority");
+
         expect(issue).not.toHaveProperty("description");
         expect(issue).not.toHaveProperty("journals");
         expect(issue).not.toHaveProperty("relations");
+        expect(issue).not.toHaveProperty("children");
+        expect(issue).not.toHaveProperty("attachments");
+        expect(issue).not.toHaveProperty("allowed_statuses");
         expect(issue).not.toHaveProperty("custom_fields");
         expect(issue).not.toHaveProperty("author");
       }
@@ -240,17 +466,29 @@ describe("Read-only MCP public contract", () => {
       ) as {
         items: Array<Record<string, unknown>>;
         total_count: number;
+        offset: number;
+        limit: number;
       };
 
       expect(projectResponse.items.length).toBeGreaterThan(0);
       expect(projectResponse.total_count).toBeGreaterThan(0);
-      expect(projectResponse).not.toHaveProperty("totalCount");
+      expectSnakeCaseKeys(projectResponse);
 
       for (const project of projectResponse.items) {
+        expectOnlyKnownKeys(project, PROJECT_SUMMARY_KEYS);
+        expect(project).toHaveProperty("id");
+        expect(project).toHaveProperty("name");
+        expect(project).toHaveProperty("identifier");
+
         expect(project).not.toHaveProperty("description");
         expect(project).not.toHaveProperty("trackers");
+        expect(project).not.toHaveProperty("categories");
         expect(project).not.toHaveProperty("issue_categories");
         expect(project).not.toHaveProperty("custom_fields");
+        expect(project).not.toHaveProperty("versions");
+        expect(project).not.toHaveProperty("members");
+        expect(project).not.toHaveProperty("priorities");
+        expect(project).not.toHaveProperty("warnings");
       }
     } finally {
       await client.close();

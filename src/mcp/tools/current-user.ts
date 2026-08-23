@@ -1,6 +1,8 @@
+
 import type { McpServer } from "@modelcontextprotocol/server";
 
 import { toToolErrorResult } from "../errors.js";
+import { stringifyPublicMcpJson } from "../serialize.js";
 import type { RedmineUser } from "../../redmine/types.js";
 
 export interface CurrentUserClient {
@@ -18,7 +20,7 @@ export async function callCurrentUserTool(
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(user),
+          text: stringifyPublicMcpJson(user),
         },
       ],
     };

@@ -71,6 +71,7 @@ const EXPECTED_INPUT_PROPERTIES = {
   redmine_search: ["limit", "offset", "project_id", "query"],
 } as const;
 
+
 function requireRecord(
   value: unknown,
   label: string,
@@ -210,15 +211,18 @@ describe("Read-only MCP public contract", () => {
         requireTextContent(issueResult.content),
       ) as {
         items: Array<Record<string, unknown>>;
+        total_count: number;
       };
 
       expect(issueResponse.items.length).toBeGreaterThan(0);
+      expect(issueResponse.total_count).toBeGreaterThan(0);
+      expect(issueResponse).not.toHaveProperty("totalCount");
 
       for (const issue of issueResponse.items) {
         expect(issue).not.toHaveProperty("description");
         expect(issue).not.toHaveProperty("journals");
         expect(issue).not.toHaveProperty("relations");
-        expect(issue).not.toHaveProperty("customFields");
+        expect(issue).not.toHaveProperty("custom_fields");
         expect(issue).not.toHaveProperty("author");
       }
 
@@ -235,15 +239,18 @@ describe("Read-only MCP public contract", () => {
         requireTextContent(projectResult.content),
       ) as {
         items: Array<Record<string, unknown>>;
+        total_count: number;
       };
 
       expect(projectResponse.items.length).toBeGreaterThan(0);
+      expect(projectResponse.total_count).toBeGreaterThan(0);
+      expect(projectResponse).not.toHaveProperty("totalCount");
 
       for (const project of projectResponse.items) {
         expect(project).not.toHaveProperty("description");
         expect(project).not.toHaveProperty("trackers");
-        expect(project).not.toHaveProperty("issueCategories");
-        expect(project).not.toHaveProperty("issueCustomFields");
+        expect(project).not.toHaveProperty("issue_categories");
+        expect(project).not.toHaveProperty("custom_fields");
       }
     } finally {
       await client.close();

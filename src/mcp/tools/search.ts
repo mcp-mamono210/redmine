@@ -1,7 +1,9 @@
+
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { toToolErrorResult } from "../errors.js";
+import { stringifyPublicMcpJson } from "../serialize.js";
 import type {
   RedminePaginatedResponse,
   RedmineSearchParams,
@@ -45,7 +47,7 @@ export async function callSearchTool(
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(result),
+          text: stringifyPublicMcpJson(result),
         },
       ],
     };

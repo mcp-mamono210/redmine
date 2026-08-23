@@ -29,7 +29,7 @@ const searchResultSchema = z.object({
 
 const searchResponseSchema = z.object({
   items: z.array(searchResultSchema),
-  totalCount: z.number().int().nonnegative(),
+  total_count: z.number().int().nonnegative(),
   offset: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
 });
@@ -41,7 +41,7 @@ const issueSummarySchema = z.object({
 
 const issueListSchema = z.object({
   items: z.array(issueSummarySchema),
-  totalCount: z.number().int().nonnegative(),
+  total_count: z.number().int().nonnegative(),
   offset: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
 });
@@ -71,7 +71,7 @@ const projectSummarySchema = z.object({
 
 const projectListSchema = z.object({
   items: z.array(projectSummarySchema),
-  totalCount: z.number().int().nonnegative(),
+  total_count: z.number().int().nonnegative(),
   offset: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
 });

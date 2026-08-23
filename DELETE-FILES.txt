@@ -1,6 +1,1 @@
-Delete these obsolete unit-test files after applying this archive:
-
-tests/unit/read-only-tools.test.ts
-tests/unit/issues-tools.test.ts
-tests/unit/projects-tools.test.ts
-tests/unit/search-tool.test.ts
+docs/adr/.gitkeep

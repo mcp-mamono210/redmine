@@ -1,3 +1,4 @@
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -25,8 +26,20 @@ const searchPage: RedminePaginatedResponse<RedmineSearchResult> = {
   limit: 10,
 };
 
+function requireText(result: {
+  content: Array<{ type: "text"; text: string }>;
+}): string {
+  const content = result.content[0];
+
+  if (!content || content.type !== "text") {
+    throw new Error("Expected text content");
+  }
+
+  return content.text;
+}
+
 describe("Search read-only tool", () => {
-  it("uses the bounded default limit", async () => {
+  it("uses the bounded default limit and returns snake_case pagination", async () => {
     let receivedParams: RedmineSearchParams | undefined;
 
     const client: SearchToolClient = {
@@ -47,6 +60,14 @@ describe("Search read-only tool", () => {
       offset: undefined,
       limit: 10,
     });
+
+    const response = JSON.parse(requireText(result)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(response).toHaveProperty("total_count", 1);
+    expect(response).not.toHaveProperty("totalCount");
   });
 
   it("accepts limit 20 and rejects values above the contract maximum", () => {
@@ -67,6 +88,8 @@ describe("Search read-only tool", () => {
 
   it("rejects empty and whitespace-only queries", () => {
     expect(searchInputSchema.safeParse({ query: "" }).success).toBe(false);
-    expect(searchInputSchema.safeParse({ query: "   " }).success).toBe(false);
+    expect(
+      searchInputSchema.safeParse({ query: "   " }).success,
+    ).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { toToolErrorResult } from "../errors.js";
+import { stringifyPublicMcpJson } from "../serialize.js";
 import type {
   RedmineIssue,
   RedmineIssueInclude,
@@ -77,7 +78,7 @@ export async function callGetIssueTool(
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(issue),
+          text: stringifyPublicMcpJson(issue),
         },
       ],
     };
@@ -108,7 +109,7 @@ export async function callListIssuesTool(
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(issues),
+          text: stringifyPublicMcpJson(issues),
         },
       ],
     };

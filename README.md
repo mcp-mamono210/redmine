@@ -1,62 +1,94 @@
+
 # Redmine MCP Server
 
-Redmine MCP Server is a TypeScript implementation of a Model Context Protocol (MCP) server for Redmine.
+Redmine MCP Server is a TypeScript Model Context Protocol (MCP) server for
+Redmine.
 
-The current stable read-only release is **v0.1.0**.
+The current stable release is **v0.1.0**. The repository is preparing the
+**v0.1.1 Read-only Contract Alignment** release.
 
-## MCP tool structure
+## Design goals
 
-Read-only MCP tools are separated from the server composition root.
+The server is designed around three requirements:
+
+```text
+Correct
++
+Secure
++
+Context-efficient
+```
+
+The MCP surface intentionally exposes domain-oriented Redmine operations
+instead of a generic REST/CRUD interface.
+
+## Architecture
 
 ```text
 src/
 ├── mcp/
 │   ├── errors.ts
 │   ├── register-tools.ts
+│   ├── serialize.ts
 │   └── tools/
 │       ├── current-user.ts
 │       ├── issues.ts
 │       ├── projects.ts
 │       └── search.ts
 ├── redmine/
-│   └── ...
+│   ├── client.ts
+│   ├── errors.ts
+│   ├── schemas.ts
+│   └── types.ts
 └── server.ts
 ```
 
-Responsibilities are separated as follows:
+Responsibilities:
 
-- `src/server.ts` creates the MCP server and delegates read-only tool registration.
-- `src/mcp/register-tools.ts` is the shared registration entry point for read-only tools.
-- `src/mcp/tools/` contains individual MCP tool definitions and handlers.
-- `src/mcp/errors.ts` contains shared MCP application error mapping.
+- `src/redmine/` handles Redmine HTTP transport, runtime validation, and
+  internal TypeScript models.
+- `src/mcp/tools/` defines the public MCP tools and workflow-oriented bounds.
+- `src/mcp/serialize.ts` converts internal `camelCase` values to public
+  `snake_case` JSON.
+- `src/mcp/errors.ts` maps backend failures to sanitized MCP application
+  errors.
+- stdout is reserved for MCP protocol traffic.
 
-External MCP parameters use `snake_case` while the internal TypeScript `RedmineClient` API uses `camelCase`.
+## Public contract
 
-## Current tools
+The authoritative read-only contract is:
+
+```text
+docs/contracts/read-only-mcp-contract.md
+```
+
+Architecture decisions are recorded under:
+
+```text
+docs/adr/
+```
+
+Public MCP inputs and successful response JSON use `snake_case`. Internal
+TypeScript and `RedmineClient` models use `camelCase`.
+
+## Current read-only tools
+
+```text
+redmine_get_current_user
+redmine_get_issue
+redmine_list_issues
+redmine_get_project
+redmine_list_projects
+redmine_search
+```
 
 ### `redmine_get_current_user`
 
-Retrieves the Redmine user associated with the configured API key.
-
-Use this tool to verify Redmine authentication and determine the identity and internal user ID used by the MCP server. It does not search for arbitrary Redmine users.
-
-### `redmine_get_issue`
-
-Retrieves detailed information for a Redmine issue when its numeric issue ID is known.
-
-Input:
-
-```json
-{
-  "issue_id": 123
-}
-```
-
-The response includes journals and issue relations when available.
+Returns the Redmine user associated with the configured API key.
 
 ### `redmine_list_issues`
 
-Lists Redmine issues using structured filters and pagination.
+Lists bounded issue summaries using structured filters.
 
 Supported parameters:
 
@@ -72,127 +104,133 @@ limit
 sort
 ```
 
-All parameters are optional. `limit` is constrained to 1-100.
+`limit` defaults to `10` and has a maximum of `20`.
 
-Example:
+The `subject` filter is substring-based.
 
-```json
-{
-  "project_id": "mcp-test",
-  "status_id": "open",
-  "limit": 25
-}
-```
-
-The response preserves Redmine pagination information:
+Representative pagination:
 
 ```json
 {
   "items": [],
-  "totalCount": 0,
+  "total_count": 0,
   "offset": 0,
-  "limit": 25
+  "limit": 10
 }
 ```
 
-`redmine_list_issues` is intended for structured filtering. Use `redmine_search` for free-text discovery.
+Large detail fields such as description, journals, relations, attachments, and
+custom fields are excluded from list summaries.
 
-### `redmine_get_project`
+### `redmine_get_issue`
 
-Retrieves detailed project metadata when the Redmine project ID or identifier is known.
+Returns issue core information when a numeric issue ID is known.
 
-Input by identifier:
+Default input:
 
 ```json
 {
-  "project_id": "mcp-test"
+  "issue_id": 123
 }
 ```
 
-A positive numeric project ID is also accepted.
-
-The response includes project metadata available through the Redmine Project API, including:
-
-```text
-trackers
-issue categories
-issue custom fields
-```
-
-Project versions and memberships are not aggregated by this tool.
-
-### `redmine_list_projects`
-
-Lists projects visible to the configured Redmine user using pagination.
-
-Supported parameters:
-
-```text
-offset
-limit
-```
-
-Both parameters are optional. `limit` is constrained to 1-100.
-
-Example:
+Optional associated data can be requested explicitly:
 
 ```json
 {
-  "offset": 0,
-  "limit": 25
+  "issue_id": 123,
+  "include": [
+    "journals",
+    "relations",
+    "children",
+    "attachments",
+    "allowed_statuses"
+  ]
 }
 ```
 
-Use `redmine_list_projects` to discover a project ID or identifier, then call `redmine_get_project` when detailed metadata is required.
+Supported public include values:
+
+```text
+journals
+relations
+children
+attachments
+allowed_statuses
+```
+
+Optional properties are absent when not requested. If an association is
+requested successfully and has zero entries, the response contains `[]`.
+
+Attachments are metadata only; file content is not downloaded.
 
 ### `redmine_search`
 
-Searches Redmine by free text for resource discovery.
-
-Supported parameters:
-
-```text
-query
-project_id
-offset
-limit
-```
-
-`query` is required. `project_id`, `offset`, and `limit` are optional. `limit` is constrained to 1-100.
-
-Global search example:
-
-```json
-{
-  "query": "authentication",
-  "limit": 25
-}
-```
-
-Project-scoped search example:
+Performs free-text discovery globally or within one project.
 
 ```json
 {
   "query": "authentication",
   "project_id": "mcp-test",
-  "limit": 25
+  "limit": 10
 }
 ```
 
-Use `redmine_search` when the resource ID is unknown. Search results are summaries; after discovering an issue ID, call `redmine_get_issue` for complete issue details.
+`query` is required. `limit` defaults to `10` and has a maximum of `20`.
 
-Use `redmine_list_issues` instead when structured issue filters such as project, tracker, status, assignee, or fixed version are already known.
+Search results are summaries. Use `redmine_get_issue` after discovering an
+issue ID when detail is required.
+
+### `redmine_list_projects`
+
+Lists visible project summaries.
+
+Supported parameters:
+
+```text
+offset
+limit
+```
+
+`limit` has a maximum of `100`.
+
+Use this tool to discover a project identifier before calling
+`redmine_get_project`.
+
+### `redmine_get_project`
+
+Returns project information in a stable envelope:
+
+```json
+{
+  "project": {},
+  "trackers": [],
+  "categories": [],
+  "custom_fields": [],
+  "versions": null,
+  "members": null,
+  "priorities": null,
+  "warnings": []
+}
+```
+
+Semantics:
+
+```text
+null = not fetched / not implemented at this phase
+[]   = fetched successfully and empty
+```
+
+In the current v0.1.1 development contract, `trackers`, `categories`, and
+`custom_fields` are populated. `versions`, `members`, and `priorities` are
+reserved as `null`. `warnings` is reserved for later partial-failure reporting.
 
 ## Read-only workflows
-
-The v0.1.0 read-only tool surface is designed around discovery followed by detailed retrieval.
 
 Free-text issue discovery:
 
 ```text
 redmine_search
-↓
-discover an issue ID
 ↓
 redmine_get_issue
 ```
@@ -202,8 +240,6 @@ Structured issue discovery:
 ```text
 redmine_list_issues
 ↓
-select an issue ID
-↓
 redmine_get_issue
 ```
 
@@ -212,16 +248,13 @@ Project discovery:
 ```text
 redmine_list_projects
 ↓
-select a project identifier
-↓
 redmine_get_project
 ```
 
-Project-scoped search is available by passing `project_id` to `redmine_search`.
+The list/search step is intentionally compact. Detail is requested only after a
+resource has been selected.
 
 ## Error model
-
-Errors are separated into three layers:
 
 ```text
 Redmine failure
@@ -233,46 +266,13 @@ MCP application error
 sanitized MCP tool result
 ```
 
-RedmineClient continues to use:
-
-```text
-RedmineNetworkError
-RedmineHttpError
-RedmineResponseError
-```
-
-The MCP layer maps these failures to stable application error codes:
-
-```text
-authentication_failed
-permission_denied
-not_found
-invalid_request
-backend_unavailable
-invalid_backend_response
-internal_error
-```
-
-The MCP response exposes only a stable error code, a sanitized message, and an HTTP status when appropriate.
-
-Raw Redmine response bodies, stack traces, causes, and API keys are not returned to MCP clients.
-
-## Example error
-
-```json
-{
-  "code": "not_found",
-  "message": "The requested Redmine resource was not found.",
-  "status": 404
-}
-```
-
-## Error mapping
+Mappings:
 
 ```text
 401                     -> authentication_failed
 403                     -> permission_denied
 404                     -> not_found
+422                     -> validation_error
 other 4xx               -> invalid_request
 5xx                     -> backend_unavailable
 network / timeout       -> backend_unavailable
@@ -280,34 +280,76 @@ invalid JSON / schema   -> invalid_backend_response
 unexpected error        -> internal_error
 ```
 
-## Tests
+Example validation error:
 
-Run unit tests with:
-
-```bash
-npm run test:unit
+```json
+{
+  "code": "validation_error",
+  "message": "Redmine rejected the request.",
+  "status": 422,
+  "details": {
+    "errors": [
+      "Subject can't be blank"
+    ]
+  }
+}
 ```
 
-Run MCP E2E tests with the deterministic Redmine test environment and required environment variables configured:
+Validation details are bounded and sanitized. Raw response bodies, stack
+traces, causes, API keys, authorization values, and passwords are not exposed
+to MCP clients.
+
+## Context measurement
+
+Context efficiency is measured deterministically using serialized UTF-8 bytes.
+
+Run the current measurement baseline with:
 
 ```bash
+npm run context:measure
+```
+
+The suite measures:
+
+```text
+tools/list
+redmine_list_issues default
+redmine_search default
+redmine_get_issue core
+redmine_get_issue + journals
+redmine_get_issue + allowed_statuses
+redmine_get_project stable envelope
+```
+
+v0.1.1 records a baseline; hard byte thresholds are deferred until sufficient
+measurements exist.
+
+## Local Redmine lifecycle
+
+```bash
+npm run redmine:start
+npm run redmine:seed
+npm run redmine:reset
+npm run redmine:stop
+```
+
+The Docker environment uses synthetic deterministic fixtures. Production
+Redmine data is not copied into the test environment.
+
+## Quality checks
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+npm run test:unit
+npm run test:integration
 npm run test:e2e
 ```
 
-The read-only E2E suite fixes the v0.1.0 public tool contract at these six tools:
-
-```text
-redmine_get_current_user
-redmine_get_issue
-redmine_list_issues
-redmine_get_project
-redmine_list_projects
-redmine_search
-```
-
-The suite verifies Current User, Issue, Project, global Search, project-scoped Search, Search-to-Issue, structured Issue-list-to-detail, and Project-list-to-detail workflows over stdio.
-
-The deterministic Docker Redmine seed is used to discover resource IDs during tests instead of depending on fixed seeded database IDs. API-key leak regression coverage remains part of the E2E quality gate.
+The E2E suite protects the six-tool read-only surface, workflow behavior,
+response contracts, API-key non-leak guarantees, and context measurement
+baseline.
 
 ## License
 

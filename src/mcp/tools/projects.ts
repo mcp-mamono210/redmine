@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { toToolErrorResult } from "../errors.js";
+import { stringifyPublicMcpJson } from "../serialize.js";
 import type {
   RedmineIssueCustomFieldMetadata,
   RedmineListProjectsParams,
@@ -148,7 +149,7 @@ export async function callGetProjectTool(
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(envelope),
+          text: stringifyPublicMcpJson(envelope),
         },
       ],
     };
@@ -172,7 +173,7 @@ export async function callListProjectsTool(
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(projects),
+          text: stringifyPublicMcpJson(projects),
         },
       ],
     };

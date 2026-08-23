@@ -248,7 +248,7 @@ describe("MCP context measurement baseline", () => {
 
       measurements.push(
         measureContext(
-          "redmine_get_project_current",
+          "redmine_get_project_stable_envelope",
           projectResult,
           1,
         ),

@@ -86,7 +86,7 @@ describe("Issue read-only tools", () => {
     expect(parsed).not.toHaveProperty("relations");
     expect(parsed).not.toHaveProperty("children");
     expect(parsed).not.toHaveProperty("attachments");
-    expect(parsed).not.toHaveProperty("allowedStatuses");
+    expect(parsed).not.toHaveProperty("allowed_statuses");
   });
 
   it("forwards explicitly requested issue includes", async () => {
@@ -126,7 +126,7 @@ describe("Issue read-only tools", () => {
 
     expect(parsed).toHaveProperty("journals");
     expect(parsed).toHaveProperty("relations");
-    expect(parsed).toHaveProperty("allowedStatuses");
+    expect(parsed).toHaveProperty("allowed_statuses");
   });
 
   it("accepts only the public get_issue include contract", () => {
@@ -202,8 +202,11 @@ describe("Issue read-only tools", () => {
 
     const parsed = JSON.parse(requireText(result)) as {
       items: Array<Record<string, unknown>>;
+      total_count: number;
     };
 
+    expect(parsed.total_count).toBe(1);
+    expect(parsed).not.toHaveProperty("totalCount");
     expect(parsed.items[0]).not.toHaveProperty("description");
     expect(parsed.items[0]).not.toHaveProperty("journals");
     expect(parsed.items[0]).not.toHaveProperty("relations");

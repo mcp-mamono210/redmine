@@ -39,8 +39,8 @@ describe("Project read-only MCP E2E", () => {
       for (const item of list.items) {
         expect(item).not.toHaveProperty("description");
         expect(item).not.toHaveProperty("trackers");
-        expect(item).not.toHaveProperty("issueCategories");
-        expect(item).not.toHaveProperty("issueCustomFields");
+        expect(item).not.toHaveProperty("issue_categories");
+        expect(item).not.toHaveProperty("custom_fields");
       }
 
       if (!target) {
@@ -80,9 +80,9 @@ describe("Project read-only MCP E2E", () => {
       );
 
       expect(envelope.project).not.toHaveProperty("trackers");
-      expect(envelope.project).not.toHaveProperty("issueCategories");
+      expect(envelope.project).not.toHaveProperty("issue_categories");
       expect(envelope.project).not.toHaveProperty(
-        "issueCustomFields",
+        "custom_fields",
       );
       expect(envelope.project).not.toHaveProperty("isPublic");
       expect(envelope.project).not.toHaveProperty("createdOn");

@@ -46,7 +46,7 @@ describe("Issue read-only MCP E2E", () => {
         expect(item).not.toHaveProperty("description");
         expect(item).not.toHaveProperty("journals");
         expect(item).not.toHaveProperty("relations");
-        expect(item).not.toHaveProperty("customFields");
+        expect(item).not.toHaveProperty("custom_fields");
         expect(item).not.toHaveProperty("author");
       }
 
@@ -72,7 +72,7 @@ describe("Issue read-only MCP E2E", () => {
       expect(detail).not.toHaveProperty("relations");
       expect(detail).not.toHaveProperty("children");
       expect(detail).not.toHaveProperty("attachments");
-      expect(detail).not.toHaveProperty("allowedStatuses");
+      expect(detail).not.toHaveProperty("allowed_statuses");
     } finally {
       await client.close();
     }
@@ -126,7 +126,7 @@ describe("Issue read-only MCP E2E", () => {
       ) as {
         journals?: Array<{ notes: string }>;
         attachments?: unknown[];
-        allowedStatuses?: unknown[];
+        allowed_statuses?: unknown[];
         relations?: unknown[];
       };
 
@@ -137,7 +137,7 @@ describe("Issue read-only MCP E2E", () => {
         ),
       ).toBe(true);
       expect(journalDetail.attachments).toEqual([]);
-      expect(Array.isArray(journalDetail.allowedStatuses)).toBe(true);
+      expect(Array.isArray(journalDetail.allowed_statuses)).toBe(true);
       expect(journalDetail).not.toHaveProperty("relations");
 
       const relationListResult = await client.callTool({

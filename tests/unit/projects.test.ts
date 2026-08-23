@@ -147,7 +147,7 @@ describe("Project read-only tools", () => {
 
     expect(listed.items[0]).not.toHaveProperty("description");
     expect(listed.items[0]).not.toHaveProperty("trackers");
-    expect(listed.items[0]).not.toHaveProperty("issueCategories");
-    expect(listed.items[0]).not.toHaveProperty("issueCustomFields");
+    expect(listed.items[0]).not.toHaveProperty("issue_categories");
+    expect(listed.items[0]).not.toHaveProperty("custom_fields");
   });
 });

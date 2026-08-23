@@ -13,6 +13,43 @@ jobs:
       - checkout
 
       - run:
+          name: Install pinned Node.js runtime
+          command: |
+            NODE_VERSION="$(cat .nvmrc)"
+            PROJECT_DIR="$PWD"
+
+            # CircleCI machine image にプリインストールされている nvm を使用する。
+            export NVM_DIR="/opt/circleci/.nvm"
+
+            # .nvmrc がまだインストールされていない Node.js を指している場合、
+            # project directory で nvm.sh を読み込むと exit 3 になることがある。
+            # .nvmrc の存在しないディレクトリで nvm を初期化する。
+            cd /tmp
+            . "$NVM_DIR/nvm.sh"
+            cd "$PROJECT_DIR"
+
+            nvm install "$NODE_VERSION"
+            nvm use "$NODE_VERSION"
+
+            # 後続の CircleCI run step でも同じ Node.js runtime を使用する。
+            {
+              echo 'export NVM_DIR="/opt/circleci/.nvm"'
+              echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
+              echo 'nvm use --silent "$(cat .nvmrc)" >/dev/null'
+            } >> "$BASH_ENV"
+
+      - run:
+          name: Verify Node.js runtime
+          command: |
+            expected_node_version="$(cat .nvmrc)"
+            actual_node_version="$(node -p 'process.versions.node')"
+
+            echo "Node.js: $(node --version)"
+            echo "npm: $(npm --version)"
+
+            test "$actual_node_version" = "$expected_node_version"
+
+      - run:
           name: Install Node.js dependencies
           command: npm ci
 

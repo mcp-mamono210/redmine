@@ -49,7 +49,13 @@ The exact supported Node.js runtime is defined by:
 .nvmrc
 ```
 
-Use the same runtime locally and in CI.
+Current pinned runtime:
+
+```text
+Node.js 24.19.0
+```
+
+Use the same runtime locally and in CI:
 
 ```bash
 nvm install
@@ -59,8 +65,8 @@ npm --version
 npm ci
 ```
 
-`package.json` declares the runtime requirement through `engines.node`.
-CircleCI installs and verifies the version from `.nvmrc`.
+`package.json` declares the same runtime through `engines.node`. CircleCI
+installs and verifies the runtime from `.nvmrc` before running npm commands.
 
 Docker and Docker Compose are required for integration and MCP E2E tests.
 

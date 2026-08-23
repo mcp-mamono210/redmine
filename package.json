@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "24.19.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",

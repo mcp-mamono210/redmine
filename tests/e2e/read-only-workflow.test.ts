@@ -136,7 +136,7 @@ describe("Read-only MCP E2E contract", () => {
         name: "redmine_search",
         arguments: {
           query: "authentication",
-          limit: 25,
+          limit: 20,
         },
       });
 
@@ -196,7 +196,7 @@ describe("Read-only MCP E2E contract", () => {
         name: "redmine_list_issues",
         arguments: {
           project_id: "mcp-test",
-          limit: 25,
+          limit: 20,
         },
       });
 
@@ -316,7 +316,7 @@ describe("Read-only MCP E2E contract", () => {
         arguments: {
           query: "Secondary",
           project_id: "mcp-secondary",
-          limit: 25,
+          limit: 20,
         },
       });
 

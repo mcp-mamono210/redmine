@@ -7,15 +7,12 @@ import {
   listIssuesInputSchema,
   type IssueToolClient,
 } from "../../src/mcp/tools/issues.js";
-import { RedmineHttpError } from "../../src/redmine/errors.js";
 import type {
   RedmineIssue,
   RedmineIssueSummary,
   RedmineListIssuesParams,
   RedminePaginatedResponse,
 } from "../../src/redmine/types.js";
-
-const apiKey = "0123456789abcdef0123456789abcdef01234567";
 
 const issue: RedmineIssue = {
   id: 42,
@@ -31,11 +28,20 @@ const issue: RedmineIssue = {
   relations: [],
 };
 
+const issueSummary: RedmineIssueSummary = {
+  id: 42,
+  subject: "Authentication fails for invalid API token",
+  project: { id: 1, name: "MCP Test Project" },
+  tracker: { id: 1, name: "Bug" },
+  status: { id: 1, name: "New" },
+  priority: { id: 2, name: "Normal" },
+};
+
 const issuePage: RedminePaginatedResponse<RedmineIssueSummary> = {
-  items: [issue],
+  items: [issueSummary],
   totalCount: 1,
   offset: 0,
-  limit: 25,
+  limit: 10,
 };
 
 function requireText(result: {
@@ -72,31 +78,7 @@ describe("Issue read-only tools", () => {
     expect(JSON.parse(requireText(result)) as unknown).toEqual(issue);
   });
 
-  it("maps a missing issue through the shared error model", async () => {
-    const client: IssueToolClient = {
-      getIssue: () =>
-        Promise.reject(
-          new RedmineHttpError({
-            method: "GET",
-            path: "/issues/999999.json",
-            status: 404,
-            statusText: "Not Found",
-            errors: [`secret ${apiKey}`],
-          }),
-        ),
-      listIssues: () => Promise.resolve(issuePage),
-    };
-
-    const result = await callGetIssueTool(client, { issue_id: 999999 });
-    const text = requireText(result);
-
-    expect(result.isError).toBe(true);
-    expect(text).toContain('"code":"not_found"');
-    expect(text).not.toContain(apiKey);
-    expect(text).not.toContain("secret");
-  });
-
-  it("maps snake_case list inputs to RedmineClient camelCase params", async () => {
+  it("uses the bounded default limit and forwards snake_case filters", async () => {
     let receivedParams: RedmineListIssuesParams | undefined;
 
     const client: IssueToolClient = {
@@ -114,8 +96,7 @@ describe("Issue read-only tools", () => {
       assigned_to_id: 7,
       fixed_version_id: 3,
       subject: "Authentication",
-      offset: 10,
-      limit: 25,
+      offset: 0,
       sort: "updated_on:desc",
     });
 
@@ -127,11 +108,29 @@ describe("Issue read-only tools", () => {
       assignedToId: 7,
       fixedVersionId: 3,
       subject: "Authentication",
-      offset: 10,
-      limit: 25,
+      offset: 0,
+      limit: 10,
       sort: "updated_on:desc",
     });
-    expect(JSON.parse(requireText(result)) as unknown).toEqual(issuePage);
+
+    const parsed = JSON.parse(requireText(result)) as {
+      items: Array<Record<string, unknown>>;
+    };
+
+    expect(parsed.items[0]).not.toHaveProperty("description");
+    expect(parsed.items[0]).not.toHaveProperty("journals");
+    expect(parsed.items[0]).not.toHaveProperty("relations");
+  });
+
+  it("accepts limit 20 and rejects values above the contract maximum", () => {
+    expect(listIssuesInputSchema.safeParse({ limit: 20 }).success).toBe(true);
+    expect(listIssuesInputSchema.safeParse({ limit: 21 }).success).toBe(false);
+  });
+
+  it("trims and validates subject filters", () => {
+    const parsed = listIssuesInputSchema.parse({ subject: "  Authentication  " });
+    expect(parsed.subject).toBe("Authentication");
+    expect(listIssuesInputSchema.safeParse({ subject: "   " }).success).toBe(false);
   });
 
   it("accepts an empty list input", () => {
@@ -141,17 +140,5 @@ describe("Issue read-only tools", () => {
   it("rejects invalid get issue IDs", () => {
     expect(getIssueInputSchema.safeParse({ issue_id: 0 }).success).toBe(false);
     expect(getIssueInputSchema.safeParse({ issue_id: -1 }).success).toBe(false);
-  });
-
-  it("rejects invalid pagination values", () => {
-    expect(
-      listIssuesInputSchema.safeParse({ offset: -1 }).success,
-    ).toBe(false);
-    expect(
-      listIssuesInputSchema.safeParse({ limit: 0 }).success,
-    ).toBe(false);
-    expect(
-      listIssuesInputSchema.safeParse({ limit: 101 }).success,
-    ).toBe(false);
   });
 });

@@ -65,10 +65,17 @@ export interface RedmineIssue {
   allowedStatuses?: RedmineNamedResource[];
 }
 
-export type RedmineIssueSummary = Omit<
-  RedmineIssue,
-  "journals" | "relations" | "allowedStatuses"
->;
+export interface RedmineIssueSummary {
+  id: number;
+  subject: string;
+  project: RedmineNamedResource;
+  tracker: RedmineNamedResource;
+  status: RedmineNamedResource & { isClosed?: boolean };
+  priority: RedmineNamedResource;
+  assignedTo?: RedmineNamedResource;
+  fixedVersion?: RedmineNamedResource;
+  updatedOn?: string;
+}
 
 export interface RedmineIssueCustomFieldMetadata {
   id: number;
@@ -92,10 +99,12 @@ export interface RedmineProject {
   issueCustomFields?: RedmineIssueCustomFieldMetadata[];
 }
 
-export type RedmineProjectSummary = Omit<
-  RedmineProject,
-  "trackers" | "issueCategories" | "issueCustomFields"
->;
+export interface RedmineProjectSummary {
+  id: number;
+  name: string;
+  identifier: string;
+  parentId?: number;
+}
 
 export interface RedmineVersion {
   id: number;

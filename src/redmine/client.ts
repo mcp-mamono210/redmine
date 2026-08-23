@@ -39,6 +39,7 @@ import type {
 } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_CONTEXT_LIMIT = 10;
 
 type QueryValue =
   | string
@@ -58,7 +59,7 @@ function compactOptional<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
-function normalizeIssue(raw: RawIssue): RedmineIssue {
+function normalizeIssueDetail(raw: RawIssue): RedmineIssue {
   return {
     id: raw.id,
     project: raw.project,
@@ -110,7 +111,25 @@ function normalizeIssue(raw: RawIssue): RedmineIssue {
   };
 }
 
-function normalizeProject(raw: RawProject): RedmineProject {
+function normalizeIssueSummary(raw: RawIssue): RedmineIssueSummary {
+  return {
+    id: raw.id,
+    subject: raw.subject,
+    project: raw.project,
+    tracker: raw.tracker,
+    status: {
+      id: raw.status.id,
+      name: raw.status.name,
+      isClosed: raw.status.is_closed,
+    },
+    priority: raw.priority,
+    assignedTo: raw.assigned_to,
+    fixedVersion: raw.fixed_version,
+    updatedOn: raw.updated_on,
+  };
+}
+
+function normalizeProjectDetail(raw: RawProject): RedmineProject {
   return {
     id: raw.id,
     name: raw.name,
@@ -129,6 +148,15 @@ function normalizeProject(raw: RawProject): RedmineProject {
       fieldFormat: field.field_format,
       isRequired: field.is_required,
     })),
+  };
+}
+
+function normalizeProjectSummary(raw: RawProject): RedmineProjectSummary {
+  return {
+    id: raw.id,
+    name: raw.name,
+    identifier: raw.identifier,
+    parentId: raw.parent?.id,
   };
 }
 
@@ -173,6 +201,16 @@ function normalizeSearchResult(raw: RawSearchResult): RedmineSearchResult {
 
 function encodePathSegment(value: string | number): string {
   return encodeURIComponent(String(value));
+}
+
+function toSubjectSubstringFilter(subject: string | undefined): string | undefined {
+  const value = subject?.trim();
+
+  if (!value) {
+    return undefined;
+  }
+
+  return `~${value}`;
 }
 
 export class RedmineClient {
@@ -231,7 +269,7 @@ export class RedmineClient {
     });
     const parsed = this.parse(issueResponseSchema, data, `GET ${path}`);
 
-    return normalizeIssue(parsed.issue);
+    return normalizeIssueDetail(parsed.issue);
   }
 
   async listIssues(
@@ -243,16 +281,16 @@ export class RedmineClient {
       status_id: params.statusId,
       assigned_to_id: params.assignedToId,
       fixed_version_id: params.fixedVersionId,
-      subject: params.subject,
+      subject: toSubjectSubstringFilter(params.subject),
       offset: params.offset,
-      limit: params.limit,
+      limit: params.limit ?? DEFAULT_CONTEXT_LIMIT,
       sort: params.sort,
     });
 
     const parsed = this.parse(issuesResponseSchema, data, "GET /issues.json");
 
     return {
-      items: parsed.issues.map(normalizeIssue),
+      items: parsed.issues.map(normalizeIssueSummary),
       totalCount: parsed.total_count,
       offset: parsed.offset,
       limit: parsed.limit,
@@ -269,7 +307,7 @@ export class RedmineClient {
     });
     const parsed = this.parse(projectResponseSchema, data, `GET ${path}`);
 
-    return normalizeProject(parsed.project);
+    return normalizeProjectDetail(parsed.project);
   }
 
   async listProjects(
@@ -287,7 +325,7 @@ export class RedmineClient {
     );
 
     return {
-      items: parsed.projects.map(normalizeProject),
+      items: parsed.projects.map(normalizeProjectSummary),
       totalCount: parsed.total_count,
       offset: parsed.offset,
       limit: parsed.limit,
@@ -340,7 +378,7 @@ export class RedmineClient {
     const data = await this.requestJson(path, {
       q: query,
       offset: params.offset,
-      limit: params.limit,
+      limit: params.limit ?? DEFAULT_CONTEXT_LIMIT,
     });
 
     const parsed = this.parse(searchResponseSchema, data, `GET ${path}`);

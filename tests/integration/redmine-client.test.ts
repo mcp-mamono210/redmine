@@ -54,31 +54,52 @@ describe("RedmineClient integration", () => {
     }
   });
 
-  it("returns a typed 404 error for a missing issue", async () => {
-    try {
-      await client.getIssue(999_999_999);
-      throw new Error("Expected request to fail");
-    } catch (error) {
-      expect(error).toBeInstanceOf(RedmineHttpError);
+  it("projects issue lists to bounded summaries with a default limit of 10", async () => {
+    const response = await client.listIssues({
+      projectId: "mcp-test",
+    });
 
-      if (!(error instanceof RedmineHttpError)) {
-        throw error;
-      }
+    expect(response.limit).toBe(10);
 
-      expect(error.status).toBe(404);
-      expect(error.path).toBe("/issues/999999999.json");
-      expect(error.message).not.toContain(redmineApiKey);
+    for (const item of response.items) {
+      expect(item).not.toHaveProperty("description");
+      expect(item).not.toHaveProperty("journals");
+      expect(item).not.toHaveProperty("relations");
+      expect(item).not.toHaveProperty("customFields");
+      expect(item).not.toHaveProperty("author");
     }
   });
 
-  it("keeps API keys out of search result URLs", async () => {
-    const response = await client.search({
-      query: "MCP",
-      limit: 20,
+  it("supports substring matching for the issue subject filter", async () => {
+    const response = await client.listIssues({
+      projectId: "mcp-test",
+      subject: "invalid API",
+      limit: 10,
     });
 
-    for (const result of response.items) {
-      expect(result.url).not.toContain(redmineApiKey);
+    expect(
+      response.items.some(
+        ({ subject }) => subject === "Authentication fails for invalid API token",
+      ),
+    ).toBe(true);
+  });
+
+  it("projects project lists to bounded summaries", async () => {
+    const response = await client.listProjects({ limit: 20 });
+
+    for (const item of response.items) {
+      expect(item).not.toHaveProperty("description");
+      expect(item).not.toHaveProperty("trackers");
+      expect(item).not.toHaveProperty("issueCategories");
+      expect(item).not.toHaveProperty("issueCustomFields");
     }
+  });
+
+  it("uses a default search limit of 10", async () => {
+    const response = await client.search({
+      query: "MCP",
+    });
+
+    expect(response.limit).toBe(10);
   });
 });

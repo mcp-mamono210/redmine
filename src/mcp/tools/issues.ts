@@ -25,9 +25,9 @@ export const listIssuesInputSchema = z.object({
   status_id: issueFilterIdSchema.optional(),
   assigned_to_id: issueFilterIdSchema.optional(),
   fixed_version_id: issueFilterIdSchema.optional(),
-  subject: z.string().min(1).optional(),
+  subject: z.string().trim().min(1).optional(),
   offset: z.number().int().nonnegative().optional(),
-  limit: z.number().int().positive().max(100).optional(),
+  limit: z.number().int().positive().max(20).optional(),
   sort: z.string().min(1).optional(),
 });
 
@@ -83,7 +83,7 @@ export async function callListIssuesTool(
       fixedVersionId: input.fixed_version_id,
       subject: input.subject,
       offset: input.offset,
-      limit: input.limit,
+      limit: input.limit ?? 10,
       sort: input.sort,
     });
 
@@ -124,8 +124,9 @@ export function registerIssueTools(
       description:
         "List Redmine issues using structured filters and pagination. Use " +
         "this tool when project, tracker, status, assignee, version, subject, " +
-        "or sort filters are known. This tool does not perform free-text " +
-        "discovery; use redmine_search for that purpose.",
+        "or sort filters are known. Subject matching is substring-based. " +
+        "The default limit is 10 and the maximum is 20. This tool returns " +
+        "bounded summaries; use redmine_get_issue for details.",
       inputSchema: listIssuesInputSchema,
     },
     (input) => callListIssuesTool(redmineClient, input),

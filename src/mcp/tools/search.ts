@@ -17,7 +17,7 @@ export const searchInputSchema = z.object({
   query: z.string().trim().min(1),
   project_id: projectIdSchema.optional(),
   offset: z.number().int().nonnegative().optional(),
-  limit: z.number().int().positive().max(100).optional(),
+  limit: z.number().int().positive().max(20).optional(),
 });
 
 export type SearchInput = z.infer<typeof searchInputSchema>;
@@ -37,7 +37,7 @@ export async function callSearchTool(
       query: input.query.trim(),
       projectId: input.project_id,
       offset: input.offset,
-      limit: input.limit,
+      limit: input.limit ?? 10,
     });
 
     return {
@@ -64,9 +64,10 @@ export function registerSearchTool(
       description:
         "Search Redmine by free text to discover resources. Use project_id " +
         "to scope the search to one project, or omit it for a global search. " +
-        "Search results are summaries; when an issue ID is found, use " +
-        "redmine_get_issue to retrieve complete issue details. Use " +
-        "redmine_list_issues instead when structured issue filters are known.",
+        "The default limit is 10 and the maximum is 20. Search results are " +
+        "summaries; when an issue ID is found, use redmine_get_issue to " +
+        "retrieve complete issue details. Use redmine_list_issues instead " +
+        "when structured issue filters are known.",
       inputSchema: searchInputSchema,
     },
     (input) => callSearchTool(redmineClient, input),

@@ -16,9 +16,21 @@ const project: RedmineProject = {
   name: "MCP Test Project",
   identifier: "mcp-test",
   description: "Representative MCP test project",
+  status: 1,
+  isPublic: false,
+  parent: { id: 10, name: "Parent Project" },
+  createdOn: "2026-08-01T00:00:00Z",
+  updatedOn: "2026-08-23T00:00:00Z",
   trackers: [{ id: 1, name: "Bug" }],
   issueCategories: [],
-  issueCustomFields: [],
+  issueCustomFields: [
+    {
+      id: 5,
+      name: "release_tag",
+      fieldFormat: "string",
+      isRequired: false,
+    },
+  ],
 };
 
 const projectPage: RedminePaginatedResponse<RedmineProjectSummary> = {
@@ -47,22 +59,92 @@ function requireText(result: {
 }
 
 describe("Project read-only tools", () => {
-  it("keeps get_project detailed while list_projects stays summarized", async () => {
+  it("returns get_project as a stable snake_case envelope", async () => {
     const client: ProjectToolClient = {
       getProject: () => Promise.resolve(project),
       listProjects: () => Promise.resolve(projectPage),
     };
 
-    const getResult = await callGetProjectTool(client, { project_id: "mcp-test" });
-    const listResult = await callListProjectsTool(client, {});
+    const result = await callGetProjectTool(client, {
+      project_id: "mcp-test",
+    });
 
-    const detailed = JSON.parse(requireText(getResult)) as Record<string, unknown>;
-    const listed = JSON.parse(requireText(listResult)) as {
+    expect(result.isError).toBe(false);
+
+    expect(JSON.parse(requireText(result)) as unknown).toEqual({
+      project: {
+        id: 1,
+        identifier: "mcp-test",
+        name: "MCP Test Project",
+        description: "Representative MCP test project",
+        status: 1,
+        is_public: false,
+        parent: { id: 10, name: "Parent Project" },
+        created_on: "2026-08-01T00:00:00Z",
+        updated_on: "2026-08-23T00:00:00Z",
+      },
+      trackers: [{ id: 1, name: "Bug" }],
+      categories: [],
+      custom_fields: [
+        {
+          id: 5,
+          name: "release_tag",
+          field_format: "string",
+          is_required: false,
+        },
+      ],
+      versions: null,
+      members: null,
+      priorities: null,
+      warnings: [],
+    });
+  });
+
+  it("uses empty arrays for requested metadata with zero results", async () => {
+    const client: ProjectToolClient = {
+      getProject: () =>
+        Promise.resolve({
+          id: 1,
+          name: "MCP Test Project",
+          identifier: "mcp-test",
+        }),
+      listProjects: () => Promise.resolve(projectPage),
+    };
+
+    const result = await callGetProjectTool(client, {
+      project_id: "mcp-test",
+    });
+
+    const envelope = JSON.parse(requireText(result)) as {
+      trackers: unknown[];
+      categories: unknown[];
+      custom_fields: unknown[];
+      versions: null;
+      members: null;
+      priorities: null;
+      warnings: unknown[];
+    };
+
+    expect(envelope.trackers).toEqual([]);
+    expect(envelope.categories).toEqual([]);
+    expect(envelope.custom_fields).toEqual([]);
+    expect(envelope.versions).toBeNull();
+    expect(envelope.members).toBeNull();
+    expect(envelope.priorities).toBeNull();
+    expect(envelope.warnings).toEqual([]);
+  });
+
+  it("keeps list_projects summarized", async () => {
+    const client: ProjectToolClient = {
+      getProject: () => Promise.resolve(project),
+      listProjects: () => Promise.resolve(projectPage),
+    };
+
+    const result = await callListProjectsTool(client, {});
+    const listed = JSON.parse(requireText(result)) as {
       items: Array<Record<string, unknown>>;
     };
 
-    expect(detailed).toHaveProperty("description");
-    expect(detailed).toHaveProperty("trackers");
     expect(listed.items[0]).not.toHaveProperty("description");
     expect(listed.items[0]).not.toHaveProperty("trackers");
     expect(listed.items[0]).not.toHaveProperty("issueCategories");

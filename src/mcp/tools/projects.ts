@@ -3,7 +3,9 @@ import { z } from "zod";
 
 import { toToolErrorResult } from "../errors.js";
 import type {
+  RedmineIssueCustomFieldMetadata,
   RedmineListProjectsParams,
+  RedmineNamedResource,
   RedminePaginatedResponse,
   RedmineProject,
   RedmineProjectInclude,
@@ -38,11 +40,98 @@ export interface ProjectToolClient {
   ): Promise<RedminePaginatedResponse<RedmineProjectSummary>>;
 }
 
+interface ProjectCoreResponse {
+  id: number;
+  identifier: string;
+  name: string;
+  description?: string;
+  status?: number;
+  is_public?: boolean;
+  parent?: RedmineNamedResource;
+  created_on?: string;
+  updated_on?: string;
+}
+
+interface ProjectCustomFieldResponse {
+  id: number;
+  name: string;
+  field_format?: string;
+  is_required?: boolean;
+}
+
+interface ProjectStableEnvelope {
+  project: ProjectCoreResponse;
+  trackers: RedmineNamedResource[];
+  categories: RedmineNamedResource[];
+  custom_fields: ProjectCustomFieldResponse[];
+  versions: null;
+  members: null;
+  priorities: null;
+  warnings: string[];
+}
+
 const PROJECT_DETAIL_INCLUDE = [
   "trackers",
   "issue_categories",
   "issue_custom_fields",
 ] as const satisfies readonly RedmineProjectInclude[];
+
+function toProjectCore(project: RedmineProject): ProjectCoreResponse {
+  return {
+    id: project.id,
+    identifier: project.identifier,
+    name: project.name,
+    ...(project.description !== undefined
+      ? { description: project.description }
+      : {}),
+    ...(project.status !== undefined
+      ? { status: project.status }
+      : {}),
+    ...(project.isPublic !== undefined
+      ? { is_public: project.isPublic }
+      : {}),
+    ...(project.parent !== undefined
+      ? { parent: project.parent }
+      : {}),
+    ...(project.createdOn !== undefined
+      ? { created_on: project.createdOn }
+      : {}),
+    ...(project.updatedOn !== undefined
+      ? { updated_on: project.updatedOn }
+      : {}),
+  };
+}
+
+function toCustomFieldResponse(
+  field: RedmineIssueCustomFieldMetadata,
+): ProjectCustomFieldResponse {
+  return {
+    id: field.id,
+    name: field.name,
+    ...(field.fieldFormat !== undefined
+      ? { field_format: field.fieldFormat }
+      : {}),
+    ...(field.isRequired !== undefined
+      ? { is_required: field.isRequired }
+      : {}),
+  };
+}
+
+function toStableEnvelope(
+  project: RedmineProject,
+): ProjectStableEnvelope {
+  return {
+    project: toProjectCore(project),
+    trackers: project.trackers ?? [],
+    categories: project.issueCategories ?? [],
+    custom_fields:
+      project.issueCustomFields?.map(toCustomFieldResponse) ?? [],
+    versions: null,
+    members: null,
+    priorities: null,
+    warnings: [],
+  };
+}
 
 export async function callGetProjectTool(
   redmineClient: ProjectToolClient,
@@ -52,13 +141,14 @@ export async function callGetProjectTool(
     const project = await redmineClient.getProject(input.project_id, {
       include: PROJECT_DETAIL_INCLUDE,
     });
+    const envelope = toStableEnvelope(project);
 
     return {
       isError: false,
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(project),
+          text: JSON.stringify(envelope),
         },
       ],
     };

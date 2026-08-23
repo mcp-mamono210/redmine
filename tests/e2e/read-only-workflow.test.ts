@@ -77,21 +77,33 @@ const projectListSchema = z.object({
 });
 
 const projectDetailSchema = z.object({
-  id: z.number().int().positive(),
-  name: z.string(),
-  identifier: z.string(),
+  project: z.object({
+    id: z.number().int().positive(),
+    name: z.string(),
+    identifier: z.string(),
+  }),
   trackers: z.array(
     z.object({
       id: z.number().int().positive(),
       name: z.string(),
     }),
   ),
-  issueCustomFields: z.array(
+  categories: z.array(
     z.object({
       id: z.number().int().positive(),
       name: z.string(),
     }),
   ),
+  custom_fields: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      name: z.string(),
+    }),
+  ),
+  versions: z.null(),
+  members: z.null(),
+  priorities: z.null(),
+  warnings: z.array(z.string()),
 });
 
 function parseToolJson<T>(
@@ -293,9 +305,9 @@ describe("Read-only MCP E2E contract", () => {
         projectDetailSchema,
       );
 
-      expect(projectDetail.id).toBe(project.id);
-      expect(projectDetail.name).toBe("MCP Test Project");
-      expect(projectDetail.identifier).toBe("mcp-test");
+      expect(projectDetail.project.id).toBe(project.id);
+      expect(projectDetail.project.name).toBe("MCP Test Project");
+      expect(projectDetail.project.identifier).toBe("mcp-test");
 
       const trackerNames = projectDetail.trackers.map(
         ({ name }) => name,
@@ -304,11 +316,17 @@ describe("Read-only MCP E2E contract", () => {
       expect(trackerNames).toContain("Bug");
       expect(trackerNames).toContain("Feature");
       expect(trackerNames).toContain("Task");
+
       expect(
-        projectDetail.issueCustomFields.some(
+        projectDetail.custom_fields.some(
           ({ name }) => name === "release_tag",
         ),
       ).toBe(true);
+
+      expect(projectDetail.versions).toBeNull();
+      expect(projectDetail.members).toBeNull();
+      expect(projectDetail.priorities).toBeNull();
+      expect(projectDetail.warnings).toEqual([]);
       expect(projectText).not.toContain(redmineApiKey);
 
       const scopedSearchResult = await client.callTool({

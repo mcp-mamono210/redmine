@@ -1,17 +1,12 @@
-
 # Read-only MCP Contract
 
-Status: Draft  
-Target release: v0.1.1  
-Latest released version: v0.1.0  
-Last synchronized: 2026-08-23
+Status: Released  
+Contract version: v0.1.1  
+Latest released version: v0.1.1  
+Last synchronized: 2026-08-24
 
-This document is the canonical documentation for exact read-only MCP behavior
-being prepared for v0.1.1.
-
-`package.json` remains at the latest released version until the release ticket
-is executed. Therefore `package.json` may still report `0.1.0` while this
-document describes the unreleased v0.1.1 target.
+This document is the canonical documentation for the exact read-only MCP
+behavior released in v0.1.1.
 
 ## Contract elements
 
@@ -48,7 +43,7 @@ created_on                createdOn
 Successful tool responses are currently serialized as JSON in
 `content[0].text`.
 
-`outputSchema` and `structuredContent` are not part of this target contract.
+`outputSchema` and `structuredContent` are not part of this contract.
 
 ## Tool surface
 
@@ -159,8 +154,12 @@ Semantics:
 include omitted
   -> optional association property is absent
 
-include requested and result is empty
-  -> property is present as []
+include requested and Redmine returns an empty collection
+  -> property is []
+
+include requested but Redmine omits an empty section
+  -> property may remain absent; treat it as zero entries
+     (observed for children on Redmine 6.1.x)
 
 attachments
   -> metadata only; file body is not fetched
@@ -247,7 +246,7 @@ null
   -> fetched successfully and no entries were returned
 ```
 
-For this target contract:
+For this contract:
 
 ```text
 trackers
@@ -295,6 +294,9 @@ HTTP 422 may expose bounded sanitized validation messages:
 }
 ```
 
+Validation details are bounded to at most 5 messages and 200 characters per
+message.
+
 API keys, Authorization values, passwords, raw backend bodies, stack traces,
 and causes must not be returned to MCP clients.
 
@@ -311,7 +313,7 @@ tests/e2e/context-measurement.test.ts
 
 This contract intentionally does not duplicate measured byte values.
 
-No hard byte threshold is part of the v0.1.1 target contract.
+No hard byte threshold is part of the v0.1.1 contract.
 
 ## Regression coverage
 

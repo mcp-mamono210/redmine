@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-24
+
+### Added
+
+- Added deterministic serialized-byte context measurement for the read-only MCP surface.
+- Added regression coverage for the exact read-only tool surface, input schemas, pagination bounds, response naming, and summary projections.
+- Added Issue workflow regression coverage for search/list discovery, core-only detail retrieval, optional includes, and unsupported include rejection.
+- Added Project Stable Envelope regression coverage, including `null` versus empty-array semantics.
+- Added bounded HTTP 422 `validation_error` details with regression coverage for error count, message length, whitespace normalization, and credential sanitization.
+- Added ADR indexing, documentation source-of-truth guidance, and `AGENTS.md` reading-order guidance.
+- Added a pinned Node.js runtime shared by local development and CircleCI.
+
+### Changed
+
+- Changed issue list and search defaults to bounded summary responses with a default limit of 10 and maximum limit of 20.
+- Limited `redmine_list_projects` to a maximum limit of 100.
+- Changed successful public MCP JSON serialization to `snake_case` while retaining internal TypeScript `camelCase`.
+- Changed `redmine_get_issue` to return a core-only response by default and expose associated data only through explicit public `include` values.
+- Changed `redmine_get_project` to return the Stable Envelope with explicit `null` placeholders for metadata not yet fetched.
+- Aligned README, ADR, and contract documentation responsibilities so exact public MCP behavior has a single canonical document.
+- Clarified optional include semantics for Redmine versions that omit empty included sections.
+
+### Security
+
+- Added regression coverage ensuring configured API keys, Authorization values, passwords, credentials, backend exception details, and stack traces are not exposed through MCP errors.
+- Added a production `no-console` lint guard so stdout remains reserved for MCP stdio protocol traffic.
+- Preserved least-privilege read-only behavior, including empty `allowed_statuses` for the deterministic read-only role.
+
 ## [0.1.0] - 2026-08-22
 
 ### Added

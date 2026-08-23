@@ -1,13 +1,13 @@
-
 # Redmine MCP Server
 
 Redmine MCP Server is a TypeScript implementation of a Model Context Protocol
 (MCP) server for Redmine.
 
-The latest released version is **v0.1.0**.
+The latest released version is **v0.1.1**.
 
 The repository may contain changes for the next unreleased version. Exact
-public MCP behavior for the current development target is documented in:
+public MCP behavior for the current released read-only contract is documented
+in:
 
 ```text
 docs/contracts/read-only-mcp-contract.md

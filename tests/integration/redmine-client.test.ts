@@ -70,6 +70,72 @@ describe("RedmineClient integration", () => {
     }
   });
 
+  it("keeps getIssue core-only unless optional associations are requested", async () => {
+    const page = await client.listIssues({
+      projectId: "mcp-test",
+      subject: "Authentication fails",
+    });
+    const target = page.items[0];
+
+    expect(target).toBeDefined();
+
+    if (!target) {
+      throw new Error("Representative issue was not found");
+    }
+
+    const issue = await client.getIssue(target.id);
+
+    expect(issue).not.toHaveProperty("journals");
+    expect(issue).not.toHaveProperty("relations");
+    expect(issue).not.toHaveProperty("children");
+    expect(issue).not.toHaveProperty("attachments");
+    expect(issue).not.toHaveProperty("allowedStatuses");
+  });
+
+  it("retrieves requested issue journals, relations, attachments, and allowed statuses", async () => {
+    const journalPage = await client.listIssues({
+      projectId: "mcp-test",
+      subject: "Add issue listing support",
+    });
+    const journalTarget = journalPage.items[0];
+
+    expect(journalTarget).toBeDefined();
+
+    if (!journalTarget) {
+      throw new Error("Journal fixture issue was not found");
+    }
+
+    const journalIssue = await client.getIssue(journalTarget.id, {
+      include: ["journals", "attachments", "allowed_statuses"],
+    });
+
+    expect(
+      journalIssue.journals?.some(
+        ({ notes }) => notes === "Initial investigation completed.",
+      ),
+    ).toBe(true);
+    expect(journalIssue.attachments).toEqual([]);
+    expect(Array.isArray(journalIssue.allowedStatuses)).toBe(true);
+
+    const relationPage = await client.listIssues({
+      projectId: "mcp-test",
+      subject: "Authentication fails",
+    });
+    const relationTarget = relationPage.items[0];
+
+    expect(relationTarget).toBeDefined();
+
+    if (!relationTarget) {
+      throw new Error("Relation fixture issue was not found");
+    }
+
+    const relationIssue = await client.getIssue(relationTarget.id, {
+      include: ["relations"],
+    });
+
+    expect(relationIssue.relations?.length).toBeGreaterThan(0);
+  });
+
   it("supports substring matching for the issue subject filter", async () => {
     const response = await client.listIssues({
       projectId: "mcp-test",

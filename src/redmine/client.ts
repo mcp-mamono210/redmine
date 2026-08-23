@@ -59,6 +59,17 @@ function compactOptional<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
+function normalizeIssueChild(
+  child: NonNullable<RawIssue["children"]>[number],
+): NonNullable<RedmineIssue["children"]>[number] {
+  return {
+    id: child.id,
+    tracker: child.tracker,
+    subject: child.subject,
+    children: child.children?.map(normalizeIssueChild),
+  };
+}
+
 function normalizeIssueDetail(raw: RawIssue): RedmineIssue {
   return {
     id: raw.id,
@@ -88,26 +99,61 @@ function normalizeIssueDetail(raw: RawIssue): RedmineIssue {
     createdOn: raw.created_on,
     updatedOn: raw.updated_on,
     closedOn: compactOptional(raw.closed_on),
-    journals: raw.journals?.map((journal) => ({
-      id: journal.id,
-      user: journal.user,
-      notes: journal.notes,
-      createdOn: journal.created_on,
-      details: journal.details.map((detail) => ({
-        property: detail.property,
-        name: detail.name,
-        oldValue: detail.old_value,
-        newValue: detail.new_value,
-      })),
-    })),
-    relations: raw.relations?.map((relation) => ({
-      id: relation.id,
-      issueId: relation.issue_id,
-      issueToId: relation.issue_to_id,
-      relationType: relation.relation_type,
-      delay: compactOptional(relation.delay),
-    })),
-    allowedStatuses: raw.allowed_statuses,
+    ...(raw.journals !== undefined
+      ? {
+          journals: raw.journals.map((journal) => ({
+            id: journal.id,
+            user: journal.user,
+            notes: journal.notes,
+            createdOn: journal.created_on,
+            details: journal.details.map((detail) => ({
+              property: detail.property,
+              name: detail.name,
+              oldValue: detail.old_value,
+              newValue: detail.new_value,
+            })),
+          })),
+        }
+      : {}),
+    ...(raw.relations !== undefined
+      ? {
+          relations: raw.relations.map((relation) => ({
+            id: relation.id,
+            issueId: relation.issue_id,
+            issueToId: relation.issue_to_id,
+            relationType: relation.relation_type,
+            delay: compactOptional(relation.delay),
+          })),
+        }
+      : {}),
+    ...(raw.children !== undefined
+      ? {
+          children: raw.children.map(normalizeIssueChild),
+        }
+      : {}),
+    ...(raw.attachments !== undefined
+      ? {
+          attachments: raw.attachments.map((attachment) => ({
+            id: attachment.id,
+            filename: attachment.filename,
+            filesize: attachment.filesize,
+            contentType: compactOptional(attachment.content_type),
+            description: compactOptional(attachment.description),
+            contentUrl: attachment.content_url,
+            thumbnailUrl: attachment.thumbnail_url,
+            author: attachment.author,
+            createdOn: attachment.created_on,
+          })),
+        }
+      : {}),
+    ...(raw.allowed_statuses !== undefined
+      ? {
+          allowedStatuses: raw.allowed_statuses.map((status) => ({
+            id: status.id,
+            name: status.name,
+          })),
+        }
+      : {}),
   };
 }
 

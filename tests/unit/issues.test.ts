@@ -9,6 +9,7 @@ import {
 } from "../../src/mcp/tools/issues.js";
 import type {
   RedmineIssue,
+  RedmineIssueInclude,
   RedmineIssueSummary,
   RedmineListIssuesParams,
   RedminePaginatedResponse,
@@ -24,8 +25,6 @@ const issue: RedmineIssue = {
   subject: "Authentication fails for invalid API token",
   description: "Representative issue",
   customFields: [],
-  journals: [],
-  relations: [],
 };
 
 const issueSummary: RedmineIssueSummary = {
@@ -57,14 +56,16 @@ function requireText(result: {
 }
 
 describe("Issue read-only tools", () => {
-  it("gets an issue with journals and relations included", async () => {
+  it("gets an issue without optional includes by default", async () => {
     let receivedIssueId: number | undefined;
-    let receivedIncludes: readonly string[] | undefined;
+    let receivedOptions:
+      | { include?: readonly RedmineIssueInclude[] }
+      | undefined;
 
     const client: IssueToolClient = {
       getIssue: (issueId, options) => {
         receivedIssueId = issueId;
-        receivedIncludes = options?.include;
+        receivedOptions = options;
         return Promise.resolve(issue);
       },
       listIssues: () => Promise.resolve(issuePage),
@@ -74,8 +75,94 @@ describe("Issue read-only tools", () => {
 
     expect(result.isError).toBe(false);
     expect(receivedIssueId).toBe(42);
-    expect(receivedIncludes).toEqual(["journals", "relations"]);
-    expect(JSON.parse(requireText(result)) as unknown).toEqual(issue);
+    expect(receivedOptions).toBeUndefined();
+
+    const parsed = JSON.parse(requireText(result)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(parsed).not.toHaveProperty("journals");
+    expect(parsed).not.toHaveProperty("relations");
+    expect(parsed).not.toHaveProperty("children");
+    expect(parsed).not.toHaveProperty("attachments");
+    expect(parsed).not.toHaveProperty("allowedStatuses");
+  });
+
+  it("forwards explicitly requested issue includes", async () => {
+    let receivedIncludes: readonly RedmineIssueInclude[] | undefined;
+
+    const includedIssue: RedmineIssue = {
+      ...issue,
+      journals: [],
+      relations: [],
+      allowedStatuses: [{ id: 2, name: "In Progress" }],
+    };
+
+    const client: IssueToolClient = {
+      getIssue: (_issueId, options) => {
+        receivedIncludes = options?.include;
+        return Promise.resolve(includedIssue);
+      },
+      listIssues: () => Promise.resolve(issuePage),
+    };
+
+    const result = await callGetIssueTool(client, {
+      issue_id: 42,
+      include: ["journals", "relations", "allowed_statuses"],
+    });
+
+    expect(result.isError).toBe(false);
+    expect(receivedIncludes).toEqual([
+      "journals",
+      "relations",
+      "allowed_statuses",
+    ]);
+
+    const parsed = JSON.parse(requireText(result)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(parsed).toHaveProperty("journals");
+    expect(parsed).toHaveProperty("relations");
+    expect(parsed).toHaveProperty("allowedStatuses");
+  });
+
+  it("accepts only the public get_issue include contract", () => {
+    expect(
+      getIssueInputSchema.safeParse({
+        issue_id: 42,
+        include: [
+          "journals",
+          "relations",
+          "children",
+          "attachments",
+          "allowed_statuses",
+        ],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      getIssueInputSchema.safeParse({
+        issue_id: 42,
+        include: ["watchers"],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      getIssueInputSchema.safeParse({
+        issue_id: 42,
+        include: ["unknown"],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      getIssueInputSchema.safeParse({
+        issue_id: 42,
+        include: [],
+      }).success,
+    ).toBe(false);
   });
 
   it("uses the bounded default limit and forwards snake_case filters", async () => {
@@ -128,9 +215,14 @@ describe("Issue read-only tools", () => {
   });
 
   it("trims and validates subject filters", () => {
-    const parsed = listIssuesInputSchema.parse({ subject: "  Authentication  " });
+    const parsed = listIssuesInputSchema.parse({
+      subject: "  Authentication  ",
+    });
+
     expect(parsed.subject).toBe("Authentication");
-    expect(listIssuesInputSchema.safeParse({ subject: "   " }).success).toBe(false);
+    expect(
+      listIssuesInputSchema.safeParse({ subject: "   " }).success,
+    ).toBe(false);
   });
 
   it("accepts an empty list input", () => {
@@ -138,7 +230,11 @@ describe("Issue read-only tools", () => {
   });
 
   it("rejects invalid get issue IDs", () => {
-    expect(getIssueInputSchema.safeParse({ issue_id: 0 }).success).toBe(false);
-    expect(getIssueInputSchema.safeParse({ issue_id: -1 }).success).toBe(false);
+    expect(
+      getIssueInputSchema.safeParse({ issue_id: 0 }).success,
+    ).toBe(false);
+    expect(
+      getIssueInputSchema.safeParse({ issue_id: -1 }).success,
+    ).toBe(false);
   });
 });

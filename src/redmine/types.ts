@@ -40,6 +40,25 @@ export interface RedmineIssueRelation {
   delay?: number;
 }
 
+export interface RedmineIssueChild {
+  id: number;
+  tracker?: RedmineNamedResource;
+  subject: string;
+  children?: RedmineIssueChild[];
+}
+
+export interface RedmineAttachment {
+  id: number;
+  filename: string;
+  filesize: number;
+  contentType?: string;
+  description?: string;
+  contentUrl: string;
+  thumbnailUrl?: string;
+  author?: RedmineNamedResource;
+  createdOn: string;
+}
+
 export interface RedmineIssue {
   id: number;
   project: RedmineNamedResource;
@@ -62,6 +81,8 @@ export interface RedmineIssue {
   closedOn?: string;
   journals?: RedmineJournal[];
   relations?: RedmineIssueRelation[];
+  children?: RedmineIssueChild[];
+  attachments?: RedmineAttachment[];
   allowedStatuses?: RedmineNamedResource[];
 }
 

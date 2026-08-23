@@ -22,9 +22,11 @@ const EXPECTED_DESCRIPTIONS = {
     "retrieves only the currently authenticated user; it does not search " +
     "for arbitrary Redmine users.",
   redmine_get_issue:
-    "Retrieve detailed information for a Redmine issue when its numeric " +
-    "issue ID is already known. The response includes journals and issue " +
-    "relations when available. Use redmine_search for free-text discovery " +
+    "Retrieve core information for a Redmine issue when its numeric " +
+    "issue ID is already known. Optional associated data can be requested " +
+    "with include: journals, relations, children, attachments, or " +
+    "allowed_statuses. By default, associated data is omitted to keep " +
+    "the response bounded. Use redmine_search for free-text discovery " +
     "when the issue ID is unknown.",
   redmine_list_issues:
     "List Redmine issues using structured filters and pagination. Use " +
@@ -52,7 +54,7 @@ const EXPECTED_DESCRIPTIONS = {
 
 const EXPECTED_INPUT_PROPERTIES = {
   redmine_get_current_user: [],
-  redmine_get_issue: ["issue_id"],
+  redmine_get_issue: ["include", "issue_id"],
   redmine_get_project: ["project_id"],
   redmine_list_issues: [
     "assigned_to_id",

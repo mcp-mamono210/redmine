@@ -56,6 +56,42 @@ const relationSchema = z
   })
   .passthrough();
 
+interface RawIssueChildValue {
+  id: number;
+  tracker?: {
+    id: number;
+    name: string;
+    [key: string]: unknown;
+  };
+  subject: string;
+  children?: RawIssueChildValue[];
+}
+
+const issueChildSchema: z.ZodType<RawIssueChildValue> = z.lazy(() =>
+  z
+    .object({
+      id: z.number().int(),
+      tracker: namedResourceSchema.optional(),
+      subject: z.string(),
+      children: z.array(issueChildSchema).optional(),
+    })
+    .passthrough(),
+);
+
+const attachmentSchema = z
+  .object({
+    id: z.number().int(),
+    filename: z.string(),
+    filesize: z.number().int().nonnegative(),
+    content_type: z.string().nullish(),
+    description: z.string().nullish(),
+    content_url: z.string(),
+    thumbnail_url: z.string().optional(),
+    author: namedResourceSchema.optional(),
+    created_on: z.string(),
+  })
+  .passthrough();
+
 const issueStatusSchema = namedResourceSchema.extend({
   is_closed: z.boolean().optional(),
 });
@@ -83,6 +119,8 @@ export const issueSchema = z
     closed_on: z.string().nullish(),
     journals: z.array(journalSchema).optional(),
     relations: z.array(relationSchema).optional(),
+    children: z.array(issueChildSchema).optional(),
+    attachments: z.array(attachmentSchema).optional(),
     allowed_statuses: z.array(namedResourceSchema).optional(),
   })
   .passthrough();

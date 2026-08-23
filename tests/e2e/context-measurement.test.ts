@@ -119,19 +119,97 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      const issueResult = await client.callTool({
+      const coreIssueResult = await client.callTool({
         name: "redmine_get_issue",
         arguments: {
           issue_id: targetIssue.id,
         },
       });
 
-      expect(issueResult.isError).not.toBe(true);
+      expect(coreIssueResult.isError).not.toBe(true);
+
+      const coreIssueMeasurement = measureContext(
+        "redmine_get_issue_core",
+        coreIssueResult,
+        1,
+      );
+
+      measurements.push(coreIssueMeasurement);
+
+      const journalListResult = await client.callTool({
+        name: "redmine_list_issues",
+        arguments: {
+          project_id: "mcp-test",
+          subject: "Add issue listing support",
+        },
+      });
+
+      expect(journalListResult.isError).not.toBe(true);
+
+      const journalList = parseToolJson<IssueListResponse>(
+        journalListResult.content,
+      );
+      const journalTarget = journalList.items[0];
+
+      expect(journalTarget).toBeDefined();
+
+      if (!journalTarget) {
+        throw new Error("Journal fixture issue was not found");
+      }
+
+      const journalCoreResult = await client.callTool({
+        name: "redmine_get_issue",
+        arguments: {
+          issue_id: journalTarget.id,
+        },
+      });
+
+      expect(journalCoreResult.isError).not.toBe(true);
+
+      const journalDetailResult = await client.callTool({
+        name: "redmine_get_issue",
+        arguments: {
+          issue_id: journalTarget.id,
+          include: ["journals"],
+        },
+      });
+
+      expect(journalDetailResult.isError).not.toBe(true);
+
+      const journalCoreMeasurement = measureContext(
+        "redmine_get_issue_journal_fixture_core",
+        journalCoreResult,
+        1,
+      );
+      const journalDetailMeasurement = measureContext(
+        "redmine_get_issue_plus_journals",
+        journalDetailResult,
+        1,
+      );
+
+      measurements.push(
+        journalCoreMeasurement,
+        journalDetailMeasurement,
+      );
+
+      expect(journalDetailMeasurement.bytes).toBeGreaterThan(
+        journalCoreMeasurement.bytes,
+      );
+
+      const allowedStatusesResult = await client.callTool({
+        name: "redmine_get_issue",
+        arguments: {
+          issue_id: targetIssue.id,
+          include: ["allowed_statuses"],
+        },
+      });
+
+      expect(allowedStatusesResult.isError).not.toBe(true);
 
       measurements.push(
         measureContext(
-          "redmine_get_issue_current",
-          issueResult,
+          "redmine_get_issue_plus_allowed_statuses",
+          allowedStatusesResult,
           1,
         ),
       );

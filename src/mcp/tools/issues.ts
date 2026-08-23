@@ -15,8 +15,21 @@ const issueFilterIdSchema = z.union([
   z.number().int().positive(),
 ]);
 
+const publicIssueIncludeSchema = z.enum([
+  "journals",
+  "relations",
+  "children",
+  "attachments",
+  "allowed_statuses",
+]);
+
 export const getIssueInputSchema = z.object({
   issue_id: z.number().int().positive(),
+  include: z
+    .array(publicIssueIncludeSchema)
+    .min(1)
+    .max(5)
+    .optional(),
 });
 
 export const listIssuesInputSchema = z.object({
@@ -45,16 +58,19 @@ export interface IssueToolClient {
   ): Promise<RedminePaginatedResponse<RedmineIssueSummary>>;
 }
 
-const ISSUE_DETAIL_INCLUDE = ["journals", "relations"] as const satisfies readonly RedmineIssueInclude[];
-
 export async function callGetIssueTool(
   redmineClient: IssueToolClient,
   input: GetIssueInput,
 ) {
   try {
-    const issue = await redmineClient.getIssue(input.issue_id, {
-      include: ISSUE_DETAIL_INCLUDE,
-    });
+    const issue = await redmineClient.getIssue(
+      input.issue_id,
+      input.include === undefined
+        ? undefined
+        : {
+            include: input.include,
+          },
+    );
 
     return {
       isError: false,
@@ -109,9 +125,11 @@ export function registerIssueTools(
     "redmine_get_issue",
     {
       description:
-        "Retrieve detailed information for a Redmine issue when its numeric " +
-        "issue ID is already known. The response includes journals and issue " +
-        "relations when available. Use redmine_search for free-text discovery " +
+        "Retrieve core information for a Redmine issue when its numeric " +
+        "issue ID is already known. Optional associated data can be requested " +
+        "with include: journals, relations, children, attachments, or " +
+        "allowed_statuses. By default, associated data is omitted to keep " +
+        "the response bounded. Use redmine_search for free-text discovery " +
         "when the issue ID is unknown.",
       inputSchema: getIssueInputSchema,
     },

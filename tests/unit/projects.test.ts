@@ -98,6 +98,20 @@ function requireText(result: {
   return content.text;
 }
 
+interface PartialFailureEnvelope {
+  project: { id: number; identifier: string; name: string };
+  versions: unknown[] | null;
+  members: unknown[] | null;
+  priorities: unknown[] | null;
+  warnings: string[];
+}
+
+function parsePartialFailureEnvelope(result: {
+  content: Array<{ type: "text"; text: string }>;
+}): PartialFailureEnvelope {
+  return JSON.parse(requireText(result)) as PartialFailureEnvelope;
+}
+
 describe("Project read-only tools", () => {
   it("aggregates project metadata into the stable snake_case envelope", async () => {
     const result = await callGetProjectTool(createClient(), {
@@ -168,12 +182,7 @@ describe("Project read-only tools", () => {
       { project_id: "mcp-test" },
     );
 
-    const envelope = JSON.parse(requireText(result)) as {
-      versions: unknown[];
-      members: unknown[];
-      priorities: unknown[];
-      warnings: unknown[];
-    };
+    const envelope = parsePartialFailureEnvelope(result);
 
     expect(envelope.versions).toEqual([]);
     expect(envelope.members).toEqual([]);
@@ -181,7 +190,67 @@ describe("Project read-only tools", () => {
     expect(envelope.warnings).toEqual([]);
   });
 
-  it("keeps optional metadata failures partial and records warnings", async () => {
+  it("keeps versions failure partial while preserving other metadata", async () => {
+    const result = await callGetProjectTool(
+      createClient({
+        listProjectVersions: () =>
+          Promise.reject(new Error("versions failed")),
+      }),
+      { project_id: "mcp-test" },
+    );
+
+    expect(result.isError).toBe(false);
+
+    const envelope = parsePartialFailureEnvelope(result);
+
+    expect(envelope.project.identifier).toBe("mcp-test");
+    expect(envelope.versions).toBeNull();
+    expect(envelope.members).not.toBeNull();
+    expect(envelope.priorities).not.toBeNull();
+    expect(envelope.warnings).toEqual(["versions: unavailable"]);
+  });
+
+  it("keeps members failure partial while preserving other metadata", async () => {
+    const result = await callGetProjectTool(
+      createClient({
+        listProjectMemberships: () =>
+          Promise.reject(new Error("members failed")),
+      }),
+      { project_id: "mcp-test" },
+    );
+
+    expect(result.isError).toBe(false);
+
+    const envelope = parsePartialFailureEnvelope(result);
+
+    expect(envelope.project.identifier).toBe("mcp-test");
+    expect(envelope.versions).not.toBeNull();
+    expect(envelope.members).toBeNull();
+    expect(envelope.priorities).not.toBeNull();
+    expect(envelope.warnings).toEqual(["members: unavailable"]);
+  });
+
+  it("keeps priorities failure partial while preserving other metadata", async () => {
+    const result = await callGetProjectTool(
+      createClient({
+        listIssuePriorities: () =>
+          Promise.reject(new Error("priorities failed")),
+      }),
+      { project_id: "mcp-test" },
+    );
+
+    expect(result.isError).toBe(false);
+
+    const envelope = parsePartialFailureEnvelope(result);
+
+    expect(envelope.project.identifier).toBe("mcp-test");
+    expect(envelope.versions).not.toBeNull();
+    expect(envelope.members).not.toBeNull();
+    expect(envelope.priorities).toBeNull();
+    expect(envelope.warnings).toEqual(["priorities: unavailable"]);
+  });
+
+  it("records multiple optional metadata failures independently", async () => {
     const result = await callGetProjectTool(
       createClient({
         listProjectVersions: () => Promise.reject(new Error("boom")),
@@ -193,12 +262,7 @@ describe("Project read-only tools", () => {
 
     expect(result.isError).toBe(false);
 
-    const envelope = JSON.parse(requireText(result)) as {
-      versions: null;
-      members: null;
-      priorities: null;
-      warnings: string[];
-    };
+    const envelope = parsePartialFailureEnvelope(result);
 
     expect(envelope.versions).toBeNull();
     expect(envelope.members).toBeNull();
@@ -208,6 +272,41 @@ describe("Project read-only tools", () => {
       "members: unavailable",
       "priorities: unavailable",
     ]);
+  });
+
+  it("does not leak optional metadata error details into warnings", async () => {
+    const secret = "redmine-api-key-secret-value";
+    const result = await callGetProjectTool(
+      createClient({
+        listProjectVersions: () =>
+          Promise.reject(
+            new Error(`Authorization: Bearer ${secret}`),
+          ),
+        listProjectMemberships: () =>
+          Promise.reject(
+            new Error(`X-Redmine-API-Key: ${secret}`),
+          ),
+        listIssuePriorities: () =>
+          Promise.reject(
+            new Error(`request failed with ${secret}`),
+          ),
+      }),
+      { project_id: "mcp-test" },
+    );
+
+    expect(result.isError).toBe(false);
+
+    const text = requireText(result);
+    const envelope = JSON.parse(text) as PartialFailureEnvelope;
+
+    expect(envelope.warnings).toEqual([
+      "versions: unavailable",
+      "members: unavailable",
+      "priorities: unavailable",
+    ]);
+    expect(text).not.toContain(secret);
+    expect(text).not.toContain("Authorization");
+    expect(text).not.toContain("X-Redmine-API-Key");
   });
 
   it("warns when memberships exceed the bounded aggregation page", async () => {
@@ -231,9 +330,7 @@ describe("Project read-only tools", () => {
       { project_id: "mcp-test" },
     );
 
-    const envelope = JSON.parse(requireText(result)) as {
-      warnings: string[];
-    };
+    const envelope = parsePartialFailureEnvelope(result);
 
     expect(envelope.warnings).toContain(
       "members: truncated to 1 of 101",

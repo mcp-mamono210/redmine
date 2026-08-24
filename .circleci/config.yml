@@ -71,15 +71,15 @@ jobs:
           command: npm run test:unit
 
       - run:
-          name: Reset Redmine test environment
+          name: Reset Redmine before integration tests
           command: npm run redmine:reset
 
       - run:
-          name: Run RedmineClient integration tests
+          name: Run integration tests
           command: npm run test:integration
 
       - run:
-          name: Reset Redmine test environment before E2E
+          name: Reset Redmine before MCP E2E tests
           command: npm run redmine:reset
 
       - run:
@@ -87,11 +87,11 @@ jobs:
           command: npm run test:e2e
 
       - run:
-          name: Reset Redmine test environment again
+          name: Reset Redmine for reproducibility check
           command: npm run redmine:reset
 
       - run:
-          name: Run integration tests after second reset
+          name: Re-run integration tests after reset
           command: npm run test:integration
 
       - run:

@@ -34,6 +34,10 @@ export function registerCurrentUserTool(
         "identity and internal user ID used by this MCP server. This tool " +
         "retrieves only the currently authenticated user; it does not search " +
         "for arbitrary Redmine users.",
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       outputSchema: currentUserOutputSchema,
     },
     () => callCurrentUserTool(redmineClient),

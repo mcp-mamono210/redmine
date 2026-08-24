@@ -286,6 +286,10 @@ export function registerProjectTools(
         "ID or project identifier is already known. The response includes " +
         "trackers, issue categories, and issue custom field metadata when " +
         "available. Use redmine_list_projects to discover visible projects.",
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       inputSchema: getProjectInputSchema,
       outputSchema: getProjectOutputSchema,
     },
@@ -299,6 +303,10 @@ export function registerProjectTools(
         "List Redmine projects visible to the configured Redmine user using " +
         "pagination. Use this tool to discover project IDs or identifiers, " +
         "then use redmine_get_project when detailed project metadata is needed.",
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       inputSchema: listProjectsInputSchema,
       outputSchema: listProjectsOutputSchema,
     },

@@ -62,6 +62,10 @@ export function registerSearchTool(
         "summaries; when an issue ID is found, use redmine_get_issue to " +
         "retrieve complete issue details. Use redmine_list_issues instead " +
         "when structured issue filters are known.",
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       inputSchema: searchInputSchema,
       outputSchema: searchOutputSchema,
     },

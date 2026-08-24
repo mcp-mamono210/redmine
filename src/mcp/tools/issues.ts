@@ -120,6 +120,10 @@ export function registerIssueTools(
         "allowed_statuses. By default, associated data is omitted to keep " +
         "the response bounded. Use redmine_search for free-text discovery " +
         "when the issue ID is unknown.",
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       inputSchema: getIssueInputSchema,
       outputSchema: getIssueOutputSchema,
     },
@@ -135,6 +139,10 @@ export function registerIssueTools(
         "or sort filters are known. Subject matching is substring-based. " +
         "The default limit is 10 and the maximum is 20. This tool returns " +
         "bounded summaries; use redmine_get_issue for details.",
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       inputSchema: listIssuesInputSchema,
       outputSchema: listIssuesOutputSchema,
     },

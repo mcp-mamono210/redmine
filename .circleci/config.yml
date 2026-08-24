@@ -8,6 +8,7 @@ jobs:
     environment:
       REDMINE_URL: http://localhost:3000
       REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
+      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
 
     steps:
       - checkout
@@ -76,6 +77,10 @@ jobs:
       - run:
           name: Run RedmineClient integration tests
           command: npm run test:integration
+
+      - run:
+          name: Reset Redmine test environment before E2E
+          command: npm run redmine:reset
 
       - run:
           name: Run MCP end-to-end tests

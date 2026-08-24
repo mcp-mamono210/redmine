@@ -161,6 +161,22 @@ describe("RedmineClient integration", () => {
     }
   });
 
+  it("retrieves project versions, memberships, and issue priorities", async () => {
+    const versions = await client.listProjectVersions("mcp-test");
+    const memberships = await client.listProjectMemberships("mcp-test", {
+      limit: 100,
+    });
+    const priorities = await client.listIssuePriorities();
+
+    expect(Array.isArray(versions)).toBe(true);
+    expect(Array.isArray(memberships.items)).toBe(true);
+    expect(priorities.length).toBeGreaterThan(0);
+
+    expect(JSON.stringify(versions)).not.toContain(redmineApiKey);
+    expect(JSON.stringify(memberships)).not.toContain(redmineApiKey);
+    expect(JSON.stringify(priorities)).not.toContain(redmineApiKey);
+  });
+
   it("uses a default search limit of 10", async () => {
     const response = await client.search({
       query: "MCP",

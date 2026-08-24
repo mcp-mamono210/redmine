@@ -5,12 +5,15 @@ import { toToolErrorResult } from "../errors.js";
 import { stringifyPublicMcpJson } from "../serialize.js";
 import type {
   RedmineIssueCustomFieldMetadata,
+  RedmineListMembershipsParams,
   RedmineListProjectsParams,
+  RedmineMembership,
   RedmineNamedResource,
   RedminePaginatedResponse,
   RedmineProject,
   RedmineProjectInclude,
   RedmineProjectSummary,
+  RedmineVersion,
 } from "../../redmine/types.js";
 
 const projectIdSchema = z.union([
@@ -39,6 +42,17 @@ export interface ProjectToolClient {
   listProjects(
     params?: RedmineListProjectsParams,
   ): Promise<RedminePaginatedResponse<RedmineProjectSummary>>;
+
+  listProjectVersions(
+    projectId: string | number,
+  ): Promise<RedmineVersion[]>;
+
+  listProjectMemberships(
+    projectId: string | number,
+    params?: RedmineListMembershipsParams,
+  ): Promise<RedminePaginatedResponse<RedmineMembership>>;
+
+  listIssuePriorities(): Promise<RedmineNamedResource[]>;
 }
 
 interface ProjectCoreResponse {
@@ -60,14 +74,34 @@ interface ProjectCustomFieldResponse {
   is_required?: boolean;
 }
 
+interface ProjectVersionResponse {
+  id: number;
+  name: string;
+  description?: string;
+  status: string;
+  due_date?: string;
+  sharing?: string;
+}
+
+interface ProjectMemberResponse {
+  id: number;
+  user?: RedmineNamedResource;
+  group?: RedmineNamedResource;
+  roles: Array<
+    RedmineNamedResource & {
+      inherited?: boolean;
+    }
+  >;
+}
+
 interface ProjectStableEnvelope {
   project: ProjectCoreResponse;
   trackers: RedmineNamedResource[];
   categories: RedmineNamedResource[];
   custom_fields: ProjectCustomFieldResponse[];
-  versions: null;
-  members: null;
-  priorities: null;
+  versions: ProjectVersionResponse[] | null;
+  members: ProjectMemberResponse[] | null;
+  priorities: RedmineNamedResource[] | null;
   warnings: string[];
 }
 
@@ -76,6 +110,8 @@ const PROJECT_DETAIL_INCLUDE = [
   "issue_categories",
   "issue_custom_fields",
 ] as const satisfies readonly RedmineProjectInclude[];
+
+const MEMBERSHIP_LIMIT = 100;
 
 function toProjectCore(project: RedmineProject): ProjectCoreResponse {
   return {
@@ -118,7 +154,39 @@ function toCustomFieldResponse(
   };
 }
 
-function toStableEnvelope(
+function toVersionResponse(version: RedmineVersion): ProjectVersionResponse {
+  return {
+    id: version.id,
+    name: version.name,
+    ...(version.description !== undefined
+      ? { description: version.description }
+      : {}),
+    status: version.status,
+    ...(version.dueDate !== undefined
+      ? { due_date: version.dueDate }
+      : {}),
+    ...(version.sharing !== undefined
+      ? { sharing: version.sharing }
+      : {}),
+  };
+}
+
+function toMemberResponse(member: RedmineMembership): ProjectMemberResponse {
+  return {
+    id: member.id,
+    ...(member.user !== undefined ? { user: member.user } : {}),
+    ...(member.group !== undefined ? { group: member.group } : {}),
+    roles: member.roles.map((role) => ({
+      id: role.id,
+      name: role.name,
+      ...(role.inherited !== undefined
+        ? { inherited: role.inherited }
+        : {}),
+    })),
+  };
+}
+
+function baseStableEnvelope(
   project: RedmineProject,
 ): ProjectStableEnvelope {
   return {
@@ -142,7 +210,43 @@ export async function callGetProjectTool(
     const project = await redmineClient.getProject(input.project_id, {
       include: PROJECT_DETAIL_INCLUDE,
     });
-    const envelope = toStableEnvelope(project);
+    const envelope = baseStableEnvelope(project);
+
+    const [versionsResult, membershipsResult, prioritiesResult] =
+      await Promise.allSettled([
+        redmineClient.listProjectVersions(input.project_id),
+        redmineClient.listProjectMemberships(input.project_id, {
+          limit: MEMBERSHIP_LIMIT,
+        }),
+        redmineClient.listIssuePriorities(),
+      ]);
+
+    if (versionsResult.status === "fulfilled") {
+      envelope.versions = versionsResult.value.map(toVersionResponse);
+    } else {
+      envelope.warnings.push("versions: unavailable");
+    }
+
+    if (membershipsResult.status === "fulfilled") {
+      envelope.members = membershipsResult.value.items.map(toMemberResponse);
+
+      if (
+        membershipsResult.value.totalCount >
+        membershipsResult.value.items.length
+      ) {
+        envelope.warnings.push(
+          `members: truncated to ${membershipsResult.value.items.length} of ${membershipsResult.value.totalCount}`,
+        );
+      }
+    } else {
+      envelope.warnings.push("members: unavailable");
+    }
+
+    if (prioritiesResult.status === "fulfilled") {
+      envelope.priorities = prioritiesResult.value;
+    } else {
+      envelope.warnings.push("priorities: unavailable");
+    }
 
     return {
       isError: false,

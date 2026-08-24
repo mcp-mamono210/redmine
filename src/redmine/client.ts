@@ -7,6 +7,7 @@ import {
 } from "./errors.js";
 import {
   currentUserResponseSchema,
+  issuePrioritiesResponseSchema,
   issueResponseSchema,
   issuesResponseSchema,
   membershipsResponseSchema,
@@ -28,6 +29,7 @@ import type {
   RedmineListMembershipsParams,
   RedmineListProjectsParams,
   RedmineMembership,
+  RedmineNamedResource,
   RedminePaginatedResponse,
   RedmineProject,
   RedmineProjectInclude,
@@ -405,6 +407,18 @@ export class RedmineClient {
       offset: parsed.offset,
       limit: parsed.limit,
     };
+  }
+
+  async listIssuePriorities(): Promise<RedmineNamedResource[]> {
+    const path = "/enumerations/issue_priorities.json";
+    const data = await this.requestJson(path);
+    const parsed = this.parse(
+      issuePrioritiesResponseSchema,
+      data,
+      `GET ${path}`,
+    );
+
+    return parsed.issue_priorities.map(({ id, name }) => ({ id, name }));
   }
 
   async search(

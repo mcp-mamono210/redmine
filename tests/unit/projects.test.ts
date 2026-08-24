@@ -46,6 +46,46 @@ const projectPage: RedminePaginatedResponse<RedmineProjectSummary> = {
   limit: 25,
 };
 
+function createClient(
+  overrides: Partial<ProjectToolClient> = {},
+): ProjectToolClient {
+  return {
+    getProject: () => Promise.resolve(project),
+    listProjects: () => Promise.resolve(projectPage),
+    listProjectVersions: () =>
+      Promise.resolve([
+        {
+          id: 3,
+          project: { id: 1, name: "MCP Test Project" },
+          name: "v0.2.0",
+          status: "open",
+          dueDate: "2026-09-01",
+          sharing: "none",
+        },
+      ]),
+    listProjectMemberships: () =>
+      Promise.resolve({
+        items: [
+          {
+            id: 7,
+            project: { id: 1, name: "MCP Test Project" },
+            user: { id: 2, name: "MCP Test User" },
+            roles: [{ id: 4, name: "MCP Read Only" }],
+          },
+        ],
+        totalCount: 1,
+        offset: 0,
+        limit: 100,
+      }),
+    listIssuePriorities: () =>
+      Promise.resolve([
+        { id: 1, name: "Low" },
+        { id: 2, name: "Normal" },
+      ]),
+    ...overrides,
+  };
+}
+
 function requireText(result: {
   content: Array<{ type: "text"; text: string }>;
 }): string {
@@ -59,13 +99,8 @@ function requireText(result: {
 }
 
 describe("Project read-only tools", () => {
-  it("returns get_project as a stable snake_case envelope", async () => {
-    const client: ProjectToolClient = {
-      getProject: () => Promise.resolve(project),
-      listProjects: () => Promise.resolve(projectPage),
-    };
-
-    const result = await callGetProjectTool(client, {
+  it("aggregates project metadata into the stable snake_case envelope", async () => {
+    const result = await callGetProjectTool(createClient(), {
       project_id: "mcp-test",
     });
 
@@ -93,54 +128,131 @@ describe("Project read-only tools", () => {
           is_required: false,
         },
       ],
-      versions: null,
-      members: null,
-      priorities: null,
+      versions: [
+        {
+          id: 3,
+          name: "v0.2.0",
+          status: "open",
+          due_date: "2026-09-01",
+          sharing: "none",
+        },
+      ],
+      members: [
+        {
+          id: 7,
+          user: { id: 2, name: "MCP Test User" },
+          roles: [{ id: 4, name: "MCP Read Only" }],
+        },
+      ],
+      priorities: [
+        { id: 1, name: "Low" },
+        { id: 2, name: "Normal" },
+      ],
       warnings: [],
     });
   });
 
-  it("uses empty arrays for requested metadata with zero results", async () => {
-    const client: ProjectToolClient = {
-      getProject: () =>
-        Promise.resolve({
-          id: 1,
-          name: "MCP Test Project",
-          identifier: "mcp-test",
-        }),
-      listProjects: () => Promise.resolve(projectPage),
-    };
-
-    const result = await callGetProjectTool(client, {
-      project_id: "mcp-test",
-    });
+  it("uses empty arrays when optional metadata requests succeed with zero results", async () => {
+    const result = await callGetProjectTool(
+      createClient({
+        listProjectVersions: () => Promise.resolve([]),
+        listProjectMemberships: () =>
+          Promise.resolve({
+            items: [],
+            totalCount: 0,
+            offset: 0,
+            limit: 100,
+          }),
+        listIssuePriorities: () => Promise.resolve([]),
+      }),
+      { project_id: "mcp-test" },
+    );
 
     const envelope = JSON.parse(requireText(result)) as {
-      trackers: unknown[];
-      categories: unknown[];
-      custom_fields: unknown[];
-      versions: null;
-      members: null;
-      priorities: null;
+      versions: unknown[];
+      members: unknown[];
+      priorities: unknown[];
       warnings: unknown[];
     };
 
-    expect(envelope.trackers).toEqual([]);
-    expect(envelope.categories).toEqual([]);
-    expect(envelope.custom_fields).toEqual([]);
-    expect(envelope.versions).toBeNull();
-    expect(envelope.members).toBeNull();
-    expect(envelope.priorities).toBeNull();
+    expect(envelope.versions).toEqual([]);
+    expect(envelope.members).toEqual([]);
+    expect(envelope.priorities).toEqual([]);
     expect(envelope.warnings).toEqual([]);
   });
 
-  it("keeps list_projects summarized", async () => {
-    const client: ProjectToolClient = {
-      getProject: () => Promise.resolve(project),
-      listProjects: () => Promise.resolve(projectPage),
+  it("keeps optional metadata failures partial and records warnings", async () => {
+    const result = await callGetProjectTool(
+      createClient({
+        listProjectVersions: () => Promise.reject(new Error("boom")),
+        listProjectMemberships: () => Promise.reject(new Error("boom")),
+        listIssuePriorities: () => Promise.reject(new Error("boom")),
+      }),
+      { project_id: "mcp-test" },
+    );
+
+    expect(result.isError).toBe(false);
+
+    const envelope = JSON.parse(requireText(result)) as {
+      versions: null;
+      members: null;
+      priorities: null;
+      warnings: string[];
     };
 
-    const result = await callListProjectsTool(client, {});
+    expect(envelope.versions).toBeNull();
+    expect(envelope.members).toBeNull();
+    expect(envelope.priorities).toBeNull();
+    expect(envelope.warnings).toEqual([
+      "versions: unavailable",
+      "members: unavailable",
+      "priorities: unavailable",
+    ]);
+  });
+
+  it("warns when memberships exceed the bounded aggregation page", async () => {
+    const result = await callGetProjectTool(
+      createClient({
+        listProjectMemberships: () =>
+          Promise.resolve({
+            items: [
+              {
+                id: 7,
+                project: { id: 1, name: "MCP Test Project" },
+                user: { id: 2, name: "MCP Test User" },
+                roles: [{ id: 4, name: "MCP Read Only" }],
+              },
+            ],
+            totalCount: 101,
+            offset: 0,
+            limit: 100,
+          }),
+      }),
+      { project_id: "mcp-test" },
+    );
+
+    const envelope = JSON.parse(requireText(result)) as {
+      warnings: string[];
+    };
+
+    expect(envelope.warnings).toContain(
+      "members: truncated to 1 of 101",
+    );
+  });
+
+  it("fails the tool when the project itself cannot be retrieved", async () => {
+    const result = await callGetProjectTool(
+      createClient({
+        getProject: () => Promise.reject(new Error("project failed")),
+      }),
+      { project_id: "mcp-test" },
+    );
+
+    expect(result.isError).toBe(true);
+  });
+
+  it("keeps list_projects summarized", async () => {
+    const result = await callListProjectsTool(createClient(), {});
     const listed = JSON.parse(requireText(result)) as {
       items: Array<Record<string, unknown>>;
     };

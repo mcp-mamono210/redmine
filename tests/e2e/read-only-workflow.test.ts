@@ -76,33 +76,48 @@ const projectListSchema = z.object({
   limit: z.number().int().positive(),
 });
 
+const namedResourceSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+});
+
+const projectVersionSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  description: z.string().optional(),
+  status: z.string(),
+  due_date: z.string().optional(),
+  sharing: z.string().optional(),
+});
+
+const projectMemberSchema = z.object({
+  id: z.number().int().positive(),
+  user: namedResourceSchema.optional(),
+  group: namedResourceSchema.optional(),
+  roles: z.array(
+    namedResourceSchema.extend({
+      inherited: z.boolean().optional(),
+    }),
+  ),
+});
+
 const projectDetailSchema = z.object({
   project: z.object({
     id: z.number().int().positive(),
     name: z.string(),
     identifier: z.string(),
   }),
-  trackers: z.array(
-    z.object({
-      id: z.number().int().positive(),
-      name: z.string(),
-    }),
-  ),
-  categories: z.array(
-    z.object({
-      id: z.number().int().positive(),
-      name: z.string(),
-    }),
-  ),
+  trackers: z.array(namedResourceSchema),
+  categories: z.array(namedResourceSchema),
   custom_fields: z.array(
     z.object({
       id: z.number().int().positive(),
       name: z.string(),
     }),
   ),
-  versions: z.null(),
-  members: z.null(),
-  priorities: z.null(),
+  versions: z.array(projectVersionSchema),
+  members: z.array(projectMemberSchema),
+  priorities: z.array(namedResourceSchema),
   warnings: z.array(z.string()),
 });
 
@@ -114,7 +129,7 @@ function parseToolJson<T>(
 }
 
 describe("Read-only MCP E2E contract", () => {
-  it("completes the v0.1.0 read-only workflows over stdio", async () => {
+  it("completes the read-only workflows over stdio", async () => {
     const { client, redmineApiKey } = await connectE2eClient(
       "redmine-mcp-read-only-e2e-client",
     );
@@ -323,9 +338,10 @@ describe("Read-only MCP E2E contract", () => {
         ),
       ).toBe(true);
 
-      expect(projectDetail.versions).toBeNull();
-      expect(projectDetail.members).toBeNull();
-      expect(projectDetail.priorities).toBeNull();
+      expect(Array.isArray(projectDetail.versions)).toBe(true);
+      expect(Array.isArray(projectDetail.members)).toBe(true);
+      expect(Array.isArray(projectDetail.priorities)).toBe(true);
+      expect(projectDetail.priorities.length).toBeGreaterThan(0);
       expect(projectDetail.warnings).toEqual([]);
       expect(projectText).not.toContain(redmineApiKey);
 

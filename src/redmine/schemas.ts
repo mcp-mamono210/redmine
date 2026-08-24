@@ -225,6 +225,12 @@ export const membershipsResponseSchema = z
   })
   .passthrough();
 
+export const issuePrioritiesResponseSchema = z
+  .object({
+    issue_priorities: z.array(namedResourceSchema),
+  })
+  .passthrough();
+
 export const searchResultSchema = z
   .object({
     id: z.number().int(),

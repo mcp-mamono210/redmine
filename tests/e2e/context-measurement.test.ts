@@ -43,10 +43,41 @@ interface ProjectListResponse {
   items: ProjectSummary[];
 }
 
+function requireStructuredContent(result: {
+  content: unknown;
+  structuredContent?: unknown;
+}): Record<string, unknown> {
+  const { structuredContent } = result;
+
+  if (
+    typeof structuredContent !== "object" ||
+    structuredContent === null ||
+    Array.isArray(structuredContent)
+  ) {
+    throw new Error(
+      "Tool result did not contain structuredContent",
+    );
+  }
+
+  return structuredContent as Record<string, unknown>;
+}
+
 function parseToolJson<T>(
   content: Parameters<typeof requireTextContent>[0],
 ): T {
   return JSON.parse(requireTextContent(content)) as T;
+}
+
+function expectStructuredMatchesText(result: {
+  content: Parameters<typeof requireTextContent>[0];
+  structuredContent?: unknown;
+}): void {
+  const text = requireTextContent(result.content);
+  const structured = requireStructuredContent(result);
+
+  expect(structured).toEqual(
+    JSON.parse(text) as Record<string, unknown>,
+  );
 }
 
 function printBaseline(
@@ -85,6 +116,7 @@ describe("MCP context measurement baseline", () => {
       });
 
       expect(issueListResult.isError).not.toBe(true);
+      expectStructuredMatchesText(issueListResult);
 
       const issueList =
         parseToolJson<IssueListResponse>(
@@ -123,6 +155,7 @@ describe("MCP context measurement baseline", () => {
       });
 
       expect(searchResult.isError).not.toBe(true);
+      expectStructuredMatchesText(searchResult);
 
       const search = parseToolJson<SearchResponse>(
         searchResult.content,
@@ -146,6 +179,7 @@ describe("MCP context measurement baseline", () => {
       });
 
       expect(coreIssueResult.isError).not.toBe(true);
+      expectStructuredMatchesText(coreIssueResult);
 
       const coreIssueMeasurement = measureContext(
         "redmine_get_issue_core",
@@ -164,6 +198,7 @@ describe("MCP context measurement baseline", () => {
       });
 
       expect(journalListResult.isError).not.toBe(true);
+      expectStructuredMatchesText(journalListResult);
 
       const journalList =
         parseToolJson<IssueListResponse>(
@@ -179,30 +214,30 @@ describe("MCP context measurement baseline", () => {
         );
       }
 
-      const journalCoreResult =
-        await client.callTool({
-          name: "redmine_get_issue",
-          arguments: {
-            issue_id: journalTarget.id,
-          },
-        });
+      const journalCoreResult = await client.callTool({
+        name: "redmine_get_issue",
+        arguments: {
+          issue_id: journalTarget.id,
+        },
+      });
 
       expect(
         journalCoreResult.isError,
       ).not.toBe(true);
+      expectStructuredMatchesText(journalCoreResult);
 
-      const journalDetailResult =
-        await client.callTool({
-          name: "redmine_get_issue",
-          arguments: {
-            issue_id: journalTarget.id,
-            include: ["journals"],
-          },
-        });
+      const journalDetailResult = await client.callTool({
+        name: "redmine_get_issue",
+        arguments: {
+          issue_id: journalTarget.id,
+          include: ["journals"],
+        },
+      });
 
       expect(
         journalDetailResult.isError,
       ).not.toBe(true);
+      expectStructuredMatchesText(journalDetailResult);
 
       const journalCoreMeasurement = measureContext(
         "redmine_get_issue_journal_fixture_core",
@@ -239,6 +274,9 @@ describe("MCP context measurement baseline", () => {
       expect(
         allowedStatusesResult.isError,
       ).not.toBe(true);
+      expectStructuredMatchesText(
+        allowedStatusesResult,
+      );
 
       measurements.push(
         measureContext(
@@ -259,6 +297,7 @@ describe("MCP context measurement baseline", () => {
       expect(
         projectListResult.isError,
       ).not.toBe(true);
+      expectStructuredMatchesText(projectListResult);
 
       const projectList =
         parseToolJson<ProjectListResponse>(
@@ -291,6 +330,7 @@ describe("MCP context measurement baseline", () => {
       expect(
         projectResult.isError,
       ).not.toBe(true);
+      expectStructuredMatchesText(projectResult);
 
       measurements.push(
         measureContext(

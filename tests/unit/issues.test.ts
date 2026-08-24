@@ -55,6 +55,28 @@ function requireText(result: {
   return content.text;
 }
 
+function requireStructuredContent(result: {
+  structuredContent?: Record<string, unknown>;
+}): Record<string, unknown> {
+  if (!result.structuredContent) {
+    throw new Error("Expected structuredContent");
+  }
+
+  return result.structuredContent;
+}
+
+function expectStructuredMatchesText(result: {
+  content: Array<{ type: "text"; text: string }>;
+  structuredContent?: Record<string, unknown>;
+}): Record<string, unknown> {
+  const text = requireText(result);
+  const structured = requireStructuredContent(result);
+
+  expect(structured).toEqual(JSON.parse(text) as unknown);
+
+  return structured;
+}
+
 describe("Issue read-only tools", () => {
   it("gets an issue without optional includes by default", async () => {
     let receivedIssueId: number | undefined;
@@ -77,10 +99,7 @@ describe("Issue read-only tools", () => {
     expect(receivedIssueId).toBe(42);
     expect(receivedOptions).toBeUndefined();
 
-    const parsed = JSON.parse(requireText(result)) as Record<
-      string,
-      unknown
-    >;
+    const parsed = expectStructuredMatchesText(result);
 
     expect(parsed).not.toHaveProperty("journals");
     expect(parsed).not.toHaveProperty("relations");
@@ -119,10 +138,7 @@ describe("Issue read-only tools", () => {
       "allowed_statuses",
     ]);
 
-    const parsed = JSON.parse(requireText(result)) as Record<
-      string,
-      unknown
-    >;
+    const parsed = expectStructuredMatchesText(result);
 
     expect(parsed).toHaveProperty("journals");
     expect(parsed).toHaveProperty("relations");
@@ -200,7 +216,7 @@ describe("Issue read-only tools", () => {
       sort: "updated_on:desc",
     });
 
-    const parsed = JSON.parse(requireText(result)) as {
+    const parsed = expectStructuredMatchesText(result) as {
       items: Array<Record<string, unknown>>;
       total_count: number;
     };

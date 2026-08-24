@@ -98,6 +98,33 @@ function requireText(result: {
   return content.text;
 }
 
+function requireStructuredContent(result: {
+  isError: boolean;
+  structuredContent?: Record<string, unknown>;
+}): Record<string, unknown> {
+  if (!result.structuredContent) {
+    throw new Error("Expected structuredContent");
+  }
+
+  return result.structuredContent;
+}
+
+function expectStructuredMatchesText(result: {
+  content: Array<{ type: "text"; text: string }>;
+  structuredContent?: Record<string, unknown>;
+}): Record<string, unknown> {
+  const text = requireText(result);
+  const structured = result.structuredContent;
+
+  if (!structured) {
+    throw new Error("Expected structuredContent");
+  }
+
+  expect(structured).toEqual(JSON.parse(text) as unknown);
+
+  return structured;
+}
+
 interface PartialFailureEnvelope {
   project: { id: number; identifier: string; name: string };
   versions: unknown[] | null;
@@ -108,19 +135,22 @@ interface PartialFailureEnvelope {
 
 function parsePartialFailureEnvelope(result: {
   content: Array<{ type: "text"; text: string }>;
+  structuredContent?: Record<string, unknown>;
 }): PartialFailureEnvelope {
-  return JSON.parse(requireText(result)) as PartialFailureEnvelope;
+  return expectStructuredMatchesText(
+    result,
+  ) as unknown as PartialFailureEnvelope;
 }
 
 describe("Project read-only tools", () => {
-  it("aggregates project metadata into the stable snake_case envelope", async () => {
+  it("aggregates project metadata into matching text and structured output", async () => {
     const result = await callGetProjectTool(createClient(), {
       project_id: "mcp-test",
     });
 
     expect(result.isError).toBe(false);
 
-    expect(JSON.parse(requireText(result)) as unknown).toEqual({
+    const expected = {
       project: {
         id: 1,
         identifier: "mcp-test",
@@ -163,7 +193,10 @@ describe("Project read-only tools", () => {
         { id: 2, name: "Normal" },
       ],
       warnings: [],
-    });
+    };
+
+    expect(JSON.parse(requireText(result)) as unknown).toEqual(expected);
+    expect(requireStructuredContent(result)).toEqual(expected);
   });
 
   it("uses empty arrays when optional metadata requests succeed with zero results", async () => {
@@ -274,7 +307,7 @@ describe("Project read-only tools", () => {
     ]);
   });
 
-  it("does not leak optional metadata error details into warnings", async () => {
+  it("does not leak optional metadata error details into either output form", async () => {
     const secret = "redmine-api-key-secret-value";
     const result = await callGetProjectTool(
       createClient({
@@ -297,6 +330,7 @@ describe("Project read-only tools", () => {
     expect(result.isError).toBe(false);
 
     const text = requireText(result);
+    const structured = requireStructuredContent(result);
     const envelope = JSON.parse(text) as PartialFailureEnvelope;
 
     expect(envelope.warnings).toEqual([
@@ -304,7 +338,9 @@ describe("Project read-only tools", () => {
       "members: unavailable",
       "priorities: unavailable",
     ]);
+    expect(structured).toEqual(envelope);
     expect(text).not.toContain(secret);
+    expect(JSON.stringify(structured)).not.toContain(secret);
     expect(text).not.toContain("Authorization");
     expect(text).not.toContain("X-Redmine-API-Key");
   });
@@ -348,9 +384,9 @@ describe("Project read-only tools", () => {
     expect(result.isError).toBe(true);
   });
 
-  it("keeps list_projects summarized", async () => {
+  it("keeps list_projects summarized in both output forms", async () => {
     const result = await callListProjectsTool(createClient(), {});
-    const listed = JSON.parse(requireText(result)) as {
+    const listed = expectStructuredMatchesText(result) as {
       items: Array<Record<string, unknown>>;
     };
 

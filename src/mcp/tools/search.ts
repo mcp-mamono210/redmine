@@ -1,9 +1,9 @@
-
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { toToolErrorResult } from "../errors.js";
-import { stringifyPublicMcpJson } from "../serialize.js";
+import { searchOutputSchema } from "../output-schemas.js";
+import { createPublicMcpSuccessResult } from "../serialize.js";
 import type {
   RedminePaginatedResponse,
   RedmineSearchParams,
@@ -42,15 +42,7 @@ export async function callSearchTool(
       limit: input.limit ?? 10,
     });
 
-    return {
-      isError: false,
-      content: [
-        {
-          type: "text" as const,
-          text: stringifyPublicMcpJson(result),
-        },
-      ],
-    };
+    return createPublicMcpSuccessResult(result);
   } catch (error) {
     return toToolErrorResult(error);
   }
@@ -71,6 +63,7 @@ export function registerSearchTool(
         "retrieve complete issue details. Use redmine_list_issues instead " +
         "when structured issue filters are known.",
       inputSchema: searchInputSchema,
+      outputSchema: searchOutputSchema,
     },
     (input) => callSearchTool(redmineClient, input),
   );

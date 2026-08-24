@@ -2,7 +2,11 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { toToolErrorResult } from "../errors.js";
-import { stringifyPublicMcpJson } from "../serialize.js";
+import {
+  getProjectOutputSchema,
+  listProjectsOutputSchema,
+} from "../output-schemas.js";
+import { createPublicMcpSuccessResult } from "../serialize.js";
 import type {
   RedmineIssueCustomFieldMetadata,
   RedmineListMembershipsParams,
@@ -248,15 +252,7 @@ export async function callGetProjectTool(
       envelope.warnings.push("priorities: unavailable");
     }
 
-    return {
-      isError: false,
-      content: [
-        {
-          type: "text" as const,
-          text: stringifyPublicMcpJson(envelope),
-        },
-      ],
-    };
+    return createPublicMcpSuccessResult(envelope);
   } catch (error) {
     return toToolErrorResult(error);
   }
@@ -272,15 +268,7 @@ export async function callListProjectsTool(
       limit: input.limit,
     });
 
-    return {
-      isError: false,
-      content: [
-        {
-          type: "text" as const,
-          text: stringifyPublicMcpJson(projects),
-        },
-      ],
-    };
+    return createPublicMcpSuccessResult(projects);
   } catch (error) {
     return toToolErrorResult(error);
   }
@@ -299,6 +287,7 @@ export function registerProjectTools(
         "trackers, issue categories, and issue custom field metadata when " +
         "available. Use redmine_list_projects to discover visible projects.",
       inputSchema: getProjectInputSchema,
+      outputSchema: getProjectOutputSchema,
     },
     (input) => callGetProjectTool(redmineClient, input),
   );
@@ -311,6 +300,7 @@ export function registerProjectTools(
         "pagination. Use this tool to discover project IDs or identifiers, " +
         "then use redmine_get_project when detailed project metadata is needed.",
       inputSchema: listProjectsInputSchema,
+      outputSchema: listProjectsOutputSchema,
     },
     (input) => callListProjectsTool(redmineClient, input),
   );

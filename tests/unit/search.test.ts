@@ -1,4 +1,3 @@
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -38,8 +37,19 @@ function requireText(result: {
   return content.text;
 }
 
+function requireStructuredContent(result: {
+  isError: boolean;
+  structuredContent?: Record<string, unknown>;
+}): Record<string, unknown> {
+  if (!result.structuredContent) {
+    throw new Error("Expected structuredContent");
+  }
+
+  return result.structuredContent;
+}
+
 describe("Search read-only tool", () => {
-  it("uses the bounded default limit and returns snake_case pagination", async () => {
+  it("uses the bounded default limit and returns matching structured output", async () => {
     let receivedParams: RedmineSearchParams | undefined;
 
     const client: SearchToolClient = {
@@ -61,13 +71,13 @@ describe("Search read-only tool", () => {
       limit: 10,
     });
 
-    const response = JSON.parse(requireText(result)) as Record<
-      string,
-      unknown
-    >;
+    const text = requireText(result);
+    const response = JSON.parse(text) as Record<string, unknown>;
+    const structured = requireStructuredContent(result);
 
     expect(response).toHaveProperty("total_count", 1);
     expect(response).not.toHaveProperty("totalCount");
+    expect(structured).toEqual(response);
   });
 
   it("accepts limit 20 and rejects values above the contract maximum", () => {

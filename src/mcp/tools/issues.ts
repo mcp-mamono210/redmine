@@ -2,7 +2,11 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { toToolErrorResult } from "../errors.js";
-import { stringifyPublicMcpJson } from "../serialize.js";
+import {
+  getIssueOutputSchema,
+  listIssuesOutputSchema,
+} from "../output-schemas.js";
+import { createPublicMcpSuccessResult } from "../serialize.js";
 import type {
   RedmineIssue,
   RedmineIssueInclude,
@@ -73,15 +77,7 @@ export async function callGetIssueTool(
           },
     );
 
-    return {
-      isError: false,
-      content: [
-        {
-          type: "text" as const,
-          text: stringifyPublicMcpJson(issue),
-        },
-      ],
-    };
+    return createPublicMcpSuccessResult(issue);
   } catch (error) {
     return toToolErrorResult(error);
   }
@@ -104,15 +100,7 @@ export async function callListIssuesTool(
       sort: input.sort,
     });
 
-    return {
-      isError: false,
-      content: [
-        {
-          type: "text" as const,
-          text: stringifyPublicMcpJson(issues),
-        },
-      ],
-    };
+    return createPublicMcpSuccessResult(issues);
   } catch (error) {
     return toToolErrorResult(error);
   }
@@ -133,6 +121,7 @@ export function registerIssueTools(
         "the response bounded. Use redmine_search for free-text discovery " +
         "when the issue ID is unknown.",
       inputSchema: getIssueInputSchema,
+      outputSchema: getIssueOutputSchema,
     },
     (input) => callGetIssueTool(redmineClient, input),
   );
@@ -147,6 +136,7 @@ export function registerIssueTools(
         "The default limit is 10 and the maximum is 20. This tool returns " +
         "bounded summaries; use redmine_get_issue for details.",
       inputSchema: listIssuesInputSchema,
+      outputSchema: listIssuesOutputSchema,
     },
     (input) => callListIssuesTool(redmineClient, input),
   );

@@ -1,8 +1,8 @@
-
 import type { McpServer } from "@modelcontextprotocol/server";
 
 import { toToolErrorResult } from "../errors.js";
-import { stringifyPublicMcpJson } from "../serialize.js";
+import { currentUserOutputSchema } from "../output-schemas.js";
+import { createPublicMcpSuccessResult } from "../serialize.js";
 import type { RedmineUser } from "../../redmine/types.js";
 
 export interface CurrentUserClient {
@@ -15,15 +15,7 @@ export async function callCurrentUserTool(
   try {
     const user = await redmineClient.getCurrentUser();
 
-    return {
-      isError: false,
-      content: [
-        {
-          type: "text" as const,
-          text: stringifyPublicMcpJson(user),
-        },
-      ],
-    };
+    return createPublicMcpSuccessResult(user);
   } catch (error) {
     return toToolErrorResult(error);
   }
@@ -42,6 +34,7 @@ export function registerCurrentUserTool(
         "identity and internal user ID used by this MCP server. This tool " +
         "retrieves only the currently authenticated user; it does not search " +
         "for arbitrary Redmine users.",
+      outputSchema: currentUserOutputSchema,
     },
     () => callCurrentUserTool(redmineClient),
   );

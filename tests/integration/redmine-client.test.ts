@@ -2,24 +2,29 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   RedmineClient,
-  createRedmineClientFromEnv,
 } from "../../src/redmine/client.js";
 import { RedmineHttpError } from "../../src/redmine/errors.js";
+import {
+  createReadOnlyTestClient,
+  getRedmineReadOnlyTestEnvironment,
+} from "../helpers/redmine-environment.js";
+import {
+  AUTHENTICATION_FIXTURE_SUBJECT,
+  JOURNAL_FIXTURE_SUBJECT,
+  PRIMARY_TEST_PROJECT_IDENTIFIER,
+  findSeededIssue,
+} from "../helpers/redmine-fixtures.js";
 
-const redmineUrl = process.env.REDMINE_URL;
-const redmineApiKey = process.env.REDMINE_API_KEY;
-
-if (!redmineUrl || !redmineApiKey) {
-  throw new Error(
-    "REDMINE_URL and REDMINE_API_KEY are required for integration tests",
-  );
-}
+const {
+  redmineUrl,
+  readOnlyApiKey,
+} = getRedmineReadOnlyTestEnvironment();
 
 describe("RedmineClient integration", () => {
   let client: RedmineClient;
 
   beforeAll(() => {
-    client = createRedmineClientFromEnv();
+    client = createReadOnlyTestClient();
   });
 
   it("retrieves the current seeded Redmine user without exposing the API key", async () => {
@@ -27,7 +32,9 @@ describe("RedmineClient integration", () => {
 
     expect(user.id).toBeGreaterThan(0);
     expect(user.login).toBe("mcp-test");
-    expect(JSON.stringify(user)).not.toContain(redmineApiKey);
+    expect(JSON.stringify(user)).not.toContain(
+      readOnlyApiKey,
+    );
   });
 
   it("returns a typed 401 error for an invalid API key", async () => {
@@ -50,13 +57,15 @@ describe("RedmineClient integration", () => {
       expect(error.status).toBe(401);
       expect(error.method).toBe("GET");
       expect(error.path).toBe("/users/current.json");
-      expect(error.message).not.toContain(invalidApiKey);
+      expect(error.message).not.toContain(
+        invalidApiKey,
+      );
     }
   });
 
   it("projects issue lists to bounded summaries with a default limit of 10", async () => {
     const response = await client.listIssues({
-      projectId: "mcp-test",
+      projectId: PRIMARY_TEST_PROJECT_IDENTIFIER,
     });
 
     expect(response.limit).toBe(10);
@@ -71,17 +80,10 @@ describe("RedmineClient integration", () => {
   });
 
   it("keeps getIssue core-only unless optional associations are requested", async () => {
-    const page = await client.listIssues({
-      projectId: "mcp-test",
-      subject: "Authentication fails",
-    });
-    const target = page.items[0];
-
-    expect(target).toBeDefined();
-
-    if (!target) {
-      throw new Error("Representative issue was not found");
-    }
+    const target = await findSeededIssue(
+      client,
+      AUTHENTICATION_FIXTURE_SUBJECT,
+    );
 
     const issue = await client.getIssue(target.id);
 
@@ -89,92 +91,117 @@ describe("RedmineClient integration", () => {
     expect(issue).not.toHaveProperty("relations");
     expect(issue).not.toHaveProperty("children");
     expect(issue).not.toHaveProperty("attachments");
-    expect(issue).not.toHaveProperty("allowedStatuses");
+    expect(issue).not.toHaveProperty(
+      "allowedStatuses",
+    );
   });
 
   it("retrieves requested issue journals, relations, attachments, and allowed statuses", async () => {
-    const journalPage = await client.listIssues({
-      projectId: "mcp-test",
-      subject: "Add issue listing support",
-    });
-    const journalTarget = journalPage.items[0];
+    const journalTarget = await findSeededIssue(
+      client,
+      JOURNAL_FIXTURE_SUBJECT,
+    );
 
-    expect(journalTarget).toBeDefined();
-
-    if (!journalTarget) {
-      throw new Error("Journal fixture issue was not found");
-    }
-
-    const journalIssue = await client.getIssue(journalTarget.id, {
-      include: ["journals", "attachments", "allowed_statuses"],
-    });
+    const journalIssue = await client.getIssue(
+      journalTarget.id,
+      {
+        include: [
+          "journals",
+          "attachments",
+          "allowed_statuses",
+        ],
+      },
+    );
 
     expect(
       journalIssue.journals?.some(
-        ({ notes }) => notes === "Initial investigation completed.",
+        ({ notes }) =>
+          notes === "Initial investigation completed.",
       ),
     ).toBe(true);
     expect(journalIssue.attachments).toEqual([]);
-    expect(Array.isArray(journalIssue.allowedStatuses)).toBe(true);
+    expect(
+      Array.isArray(journalIssue.allowedStatuses),
+    ).toBe(true);
 
-    const relationPage = await client.listIssues({
-      projectId: "mcp-test",
-      subject: "Authentication fails",
-    });
-    const relationTarget = relationPage.items[0];
+    const relationTarget = await findSeededIssue(
+      client,
+      AUTHENTICATION_FIXTURE_SUBJECT,
+    );
 
-    expect(relationTarget).toBeDefined();
+    const relationIssue = await client.getIssue(
+      relationTarget.id,
+      {
+        include: ["relations"],
+      },
+    );
 
-    if (!relationTarget) {
-      throw new Error("Relation fixture issue was not found");
-    }
-
-    const relationIssue = await client.getIssue(relationTarget.id, {
-      include: ["relations"],
-    });
-
-    expect(relationIssue.relations?.length).toBeGreaterThan(0);
+    expect(
+      relationIssue.relations?.length,
+    ).toBeGreaterThan(0);
   });
 
   it("supports substring matching for the issue subject filter", async () => {
     const response = await client.listIssues({
-      projectId: "mcp-test",
+      projectId: PRIMARY_TEST_PROJECT_IDENTIFIER,
       subject: "invalid API",
       limit: 10,
     });
 
     expect(
       response.items.some(
-        ({ subject }) => subject === "Authentication fails for invalid API token",
+        ({ subject }) =>
+          subject === AUTHENTICATION_FIXTURE_SUBJECT,
       ),
     ).toBe(true);
   });
 
   it("projects project lists to bounded summaries", async () => {
-    const response = await client.listProjects({ limit: 20 });
+    const response = await client.listProjects({
+      limit: 20,
+    });
 
     for (const item of response.items) {
       expect(item).not.toHaveProperty("description");
       expect(item).not.toHaveProperty("trackers");
-      expect(item).not.toHaveProperty("issueCategories");
-      expect(item).not.toHaveProperty("issueCustomFields");
+      expect(item).not.toHaveProperty(
+        "issueCategories",
+      );
+      expect(item).not.toHaveProperty(
+        "issueCustomFields",
+      );
     }
   });
 
   it("retrieves project versions, memberships, and issue priorities", async () => {
-    const versions = await client.listProjectVersions("mcp-test");
-    const memberships = await client.listProjectMemberships("mcp-test", {
-      limit: 100,
-    });
-    const priorities = await client.listIssuePriorities();
+    const versions = await client.listProjectVersions(
+      PRIMARY_TEST_PROJECT_IDENTIFIER,
+    );
+    const memberships =
+      await client.listProjectMemberships(
+        PRIMARY_TEST_PROJECT_IDENTIFIER,
+        {
+          limit: 100,
+        },
+      );
+    const priorities =
+      await client.listIssuePriorities();
 
     expect(Array.isArray(versions)).toBe(true);
-    expect(Array.isArray(memberships.items)).toBe(true);
+    expect(Array.isArray(memberships.items)).toBe(
+      true,
+    );
     expect(priorities.length).toBeGreaterThan(0);
 
-    expect(JSON.stringify(versions)).not.toContain(redmineApiKey);
-    expect(JSON.stringify(memberships)).not.toContain(redmineApiKey);
-    expect(JSON.stringify(priorities)).not.toContain(redmineApiKey);
+    expect(JSON.stringify(versions)).not.toContain(
+      readOnlyApiKey,
+    );
+    expect(
+      JSON.stringify(memberships),
+    ).not.toContain(readOnlyApiKey);
+    expect(JSON.stringify(priorities)).not.toContain(
+      readOnlyApiKey,
+    );
   });
 
   it("uses a default search limit of 10", async () => {

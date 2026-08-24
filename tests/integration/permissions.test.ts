@@ -2,23 +2,33 @@ import { randomUUID } from "node:crypto";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-interface JsonResponse {
-  status: number;
-  body: unknown;
-}
+import type { RedmineClient } from "../../src/redmine/client.js";
+import type { RedmineIssueSummary } from "../../src/redmine/types.js";
+import {
+  createReadOnlyTestClient,
+  createWriterTestClient,
+  getRedmineWriterTestEnvironment,
+} from "../helpers/redmine-environment.js";
+import {
+  AUTHENTICATION_FIXTURE_SUBJECT,
+  PRIMARY_TEST_PROJECT_IDENTIFIER,
+  SECONDARY_TEST_PROJECT_IDENTIFIER,
+  findSeededIssue,
+  findTrackerId,
+} from "../helpers/redmine-fixtures.js";
+import {
+  RedmineTestHttpClient,
+  requireRecord,
+  type RedmineTestHttpResponse,
+} from "../helpers/redmine-http.js";
 
-interface IssueSummary {
+interface CreatedIssue {
   id: number;
   subject: string;
 }
 
-interface IssuesResponse {
-  issues: IssueSummary[];
-}
-
-interface IssueResponse {
+interface IssueVerification {
   issue: {
-    id: number;
     subject: string;
     journals?: Array<{
       notes: string;
@@ -26,295 +36,159 @@ interface IssueResponse {
   };
 }
 
-interface CurrentUserResponse {
-  user: {
-    login: string;
-  };
-}
+const {
+  redmineUrl,
+  readOnlyApiKey,
+  writerApiKey,
+} = getRedmineWriterTestEnvironment();
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
+const readOnlyHttp = new RedmineTestHttpClient({
+  baseUrl: redmineUrl,
+  apiKey: readOnlyApiKey,
+});
 
-  if (!value) {
-    throw new Error(
-      `${name} is required for permission integration tests`,
-    );
-  }
+const writerHttp = new RedmineTestHttpClient({
+  baseUrl: redmineUrl,
+  apiKey: writerApiKey,
+});
 
-  return value;
-}
-
-const redmineUrl = requireEnv("REDMINE_URL");
-const readOnlyApiKey = requireEnv("REDMINE_API_KEY");
-const writerApiKey = requireEnv("REDMINE_WRITE_API_KEY");
-
-function asRecord(
-  value: unknown,
-  label: string,
-): Record<string, unknown> {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value)
-  ) {
-    throw new Error(`${label} must be an object`);
-  }
-
-  return value as Record<string, unknown>;
-}
-
-async function request(
-  apiKey: string,
-  method: "GET" | "POST" | "PUT",
-  path: string,
-  body?: unknown,
-): Promise<JsonResponse> {
-  const url = new URL(
-    path.replace(/^\/+/u, ""),
-    redmineUrl.endsWith("/") ? redmineUrl : `${redmineUrl}/`,
-  );
-
-  let response: Response;
-
-  try {
-    response = await fetch(url, {
-      method,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-Redmine-API-Key": apiKey,
-      },
-      ...(body === undefined
-        ? {}
-        : {
-            body: JSON.stringify(body),
-          }),
-    });
-  } catch (error) {
-    throw new Error(
-      `Redmine request failed before receiving a response: ${method} ${url.pathname}`,
-      { cause: error },
-    );
-  }
-
-  const text = await response.text();
-
-  if (!text) {
-    return {
-      status: response.status,
-      body: null,
-    };
-  }
-
-  try {
-    return {
-      status: response.status,
-      body: JSON.parse(text) as unknown,
-    };
-  } catch {
-    return {
-      status: response.status,
-      body: text,
-    };
-  }
-}
-
-function expectNoCredentialLeak(response: JsonResponse): void {
+function expectNoCredentialLeak(
+  response: RedmineTestHttpResponse,
+): void {
   const serialized = JSON.stringify(response.body);
 
   expect(serialized).not.toContain(readOnlyApiKey);
   expect(serialized).not.toContain(writerApiKey);
-  expect(serialized).not.toContain("X-Redmine-API-Key");
+  expect(serialized).not.toContain(
+    "X-Redmine-API-Key",
+  );
   expect(serialized).not.toContain("Authorization");
 }
 
-function requireIssueResponse(response: JsonResponse): IssueResponse {
-  const record = asRecord(response.body, "issue response");
-  const issue = asRecord(record.issue, "issue response.issue");
+function requireCreatedIssue(
+  response: RedmineTestHttpResponse,
+): CreatedIssue {
+  const body = requireRecord(
+    response.body,
+    "create issue response",
+  );
+  const issue = requireRecord(
+    body.issue,
+    "create issue response.issue",
+  );
 
   if (
     typeof issue.id !== "number" ||
     typeof issue.subject !== "string"
   ) {
-    throw new Error("issue response did not contain id and subject");
+    throw new Error(
+      "create issue response did not contain id and subject",
+    );
   }
 
-  const journals =
-    issue.journals === undefined
-      ? undefined
-      : Array.isArray(issue.journals)
-        ? issue.journals.map((journal) => {
-            const journalRecord = asRecord(
-              journal,
-              "issue response.issue.journals[]",
-            );
+  return {
+    id: issue.id,
+    subject: issue.subject,
+  };
+}
 
-            if (typeof journalRecord.notes !== "string") {
-              throw new Error(
-                "issue journal did not contain notes",
-              );
-            }
+function requireIssueVerification(
+  response: RedmineTestHttpResponse,
+): IssueVerification {
+  const body = requireRecord(
+    response.body,
+    "issue verification response",
+  );
+  const issue = requireRecord(
+    body.issue,
+    "issue verification response.issue",
+  );
 
-            return {
-              notes: journalRecord.notes,
-            };
-          })
-        : undefined;
+  if (typeof issue.subject !== "string") {
+    throw new Error(
+      "issue verification response did not contain subject",
+    );
+  }
+
+  let journals:
+    | Array<{
+        notes: string;
+      }>
+    | undefined;
+
+  if (issue.journals !== undefined) {
+    if (!Array.isArray(issue.journals)) {
+      throw new Error(
+        "issue verification response journals must be an array",
+      );
+    }
+
+    journals = issue.journals.map((journal) => {
+      const journalRecord = requireRecord(
+        journal,
+        "issue verification response.issue.journals[]",
+      );
+
+      if (typeof journalRecord.notes !== "string") {
+        throw new Error(
+          "issue verification journal did not contain notes",
+        );
+      }
+
+      return {
+        notes: journalRecord.notes,
+      };
+    });
+  }
 
   return {
     issue: {
-      id: issue.id,
       subject: issue.subject,
       ...(journals === undefined ? {} : { journals }),
     },
   };
 }
 
-function requireIssuesResponse(response: JsonResponse): IssuesResponse {
-  const record = asRecord(response.body, "issues response");
-
-  if (!Array.isArray(record.issues)) {
-    throw new Error("issues response did not contain issues");
-  }
-
-  return {
-    issues: record.issues.map((issue) => {
-      const issueRecord = asRecord(
-        issue,
-        "issues response.issues[]",
-      );
-
-      if (
-        typeof issueRecord.id !== "number" ||
-        typeof issueRecord.subject !== "string"
-      ) {
-        throw new Error(
-          "issue summary did not contain id and subject",
-        );
-      }
-
-      return {
-        id: issueRecord.id,
-        subject: issueRecord.subject,
-      };
-    }),
-  };
-}
-
-async function findSeededIssue(): Promise<IssueSummary> {
-  const response = await request(
-    readOnlyApiKey,
-    "GET",
-    "/issues.json?project_id=mcp-test&subject=~Authentication%20fails&limit=10",
-  );
-
-  expect(response.status).toBe(200);
-  expectNoCredentialLeak(response);
-
-  const issue = requireIssuesResponse(response).issues.find(
-    ({ subject }) =>
-      subject ===
-      "Authentication fails for invalid API token",
-  );
-
-  if (!issue) {
-    throw new Error("Representative seeded issue was not found");
-  }
-
-  return issue;
-}
-
-async function findBugTrackerId(): Promise<number> {
-  const response = await request(
-    writerApiKey,
-    "GET",
-    "/projects/mcp-test.json?include=trackers",
-  );
-
-  expect(response.status).toBe(200);
-  expectNoCredentialLeak(response);
-
-  const record = asRecord(response.body, "project response");
-  const project = asRecord(
-    record.project,
-    "project response.project",
-  );
-  const trackers = project.trackers;
-
-  if (!Array.isArray(trackers)) {
-    throw new Error("project response did not contain trackers");
-  }
-
-  for (const tracker of trackers) {
-    const trackerRecord = asRecord(
-      tracker,
-      "project response.project.trackers[]",
-    );
-
-    if (
-      trackerRecord.name === "Bug" &&
-      typeof trackerRecord.id === "number"
-    ) {
-      return trackerRecord.id;
-    }
-  }
-
-  throw new Error("Bug tracker was not found");
-}
-
 describe("Redmine read-only / writer permission boundary", () => {
-  let seededIssue: IssueSummary;
+  let readOnlyClient: RedmineClient;
+  let writerClient: RedmineClient;
+  let seededIssue: RedmineIssueSummary;
   let bugTrackerId: number;
 
   beforeAll(async () => {
-    const readOnlyCurrentUser = await request(
-      readOnlyApiKey,
-      "GET",
-      "/users/current.json",
+    readOnlyClient = createReadOnlyTestClient();
+    writerClient = createWriterTestClient();
+
+    const readOnlyCurrentUser =
+      await readOnlyClient.getCurrentUser();
+    const writerCurrentUser =
+      await writerClient.getCurrentUser();
+
+    expect(readOnlyCurrentUser.login).toBe("mcp-test");
+    expect(writerCurrentUser.login).toBe("mcp-writer");
+
+    seededIssue = await findSeededIssue(
+      readOnlyClient,
+      AUTHENTICATION_FIXTURE_SUBJECT,
     );
-    const writerCurrentUser = await request(
-      writerApiKey,
-      "GET",
-      "/users/current.json",
+    bugTrackerId = await findTrackerId(
+      writerClient,
+      PRIMARY_TEST_PROJECT_IDENTIFIER,
+      "Bug",
     );
-
-    expect(readOnlyCurrentUser.status).toBe(200);
-    expect(writerCurrentUser.status).toBe(200);
-
-    const readOnlyUser = asRecord(
-      asRecord(
-        readOnlyCurrentUser.body,
-        "read-only current user response",
-      ).user,
-      "read-only current user response.user",
-    ) as unknown as CurrentUserResponse["user"];
-
-    const writerUser = asRecord(
-      asRecord(
-        writerCurrentUser.body,
-        "writer current user response",
-      ).user,
-      "writer current user response.user",
-    ) as unknown as CurrentUserResponse["user"];
-
-    expect(readOnlyUser.login).toBe("mcp-test");
-    expect(writerUser.login).toBe("mcp-writer");
-
-    seededIssue = await findSeededIssue();
-    bugTrackerId = await findBugTrackerId();
   });
 
   it("rejects create, update, and note operations for the read-only user", async () => {
     const attemptedSubject =
       `Read-only permission test ${randomUUID()}`;
 
-    const createResponse = await request(
-      readOnlyApiKey,
+    const createResponse = await readOnlyHttp.request(
       "POST",
       "/issues.json",
       {
         issue: {
-          project_id: "mcp-test",
+          project_id:
+            PRIMARY_TEST_PROJECT_IDENTIFIER,
           tracker_id: bugTrackerId,
           subject: attemptedSubject,
         },
@@ -324,35 +198,31 @@ describe("Redmine read-only / writer permission boundary", () => {
     expect(createResponse.status).toBe(403);
     expectNoCredentialLeak(createResponse);
 
-    const lookupResponse = await request(
-      readOnlyApiKey,
-      "GET",
-      `/issues.json?project_id=mcp-test&subject=~${encodeURIComponent(
-        attemptedSubject,
-      )}&limit=10`,
-    );
+    const lookupResponse =
+      await readOnlyClient.listIssues({
+        projectId:
+          PRIMARY_TEST_PROJECT_IDENTIFIER,
+        subject: attemptedSubject,
+        limit: 10,
+      });
 
-    expect(lookupResponse.status).toBe(200);
     expect(
-      requireIssuesResponse(lookupResponse).issues.some(
+      lookupResponse.items.some(
         ({ subject }) => subject === attemptedSubject,
       ),
     ).toBe(false);
 
-    const beforeResponse = await request(
-      readOnlyApiKey,
-      "GET",
-      `/issues/${seededIssue.id}.json?include=journals`,
+    const before = await readOnlyClient.getIssue(
+      seededIssue.id,
+      {
+        include: ["journals"],
+      },
     );
 
-    expect(beforeResponse.status).toBe(200);
-
-    const before = requireIssueResponse(beforeResponse);
     const forbiddenSubject =
       `Forbidden update ${randomUUID()}`;
 
-    const updateResponse = await request(
-      readOnlyApiKey,
+    const updateResponse = await readOnlyHttp.request(
       "PUT",
       `/issues/${seededIssue.id}.json`,
       {
@@ -368,8 +238,7 @@ describe("Redmine read-only / writer permission boundary", () => {
     const forbiddenNote =
       `Forbidden note ${randomUUID()}`;
 
-    const noteResponse = await request(
-      readOnlyApiKey,
+    const noteResponse = await readOnlyHttp.request(
       "PUT",
       `/issues/${seededIssue.id}.json`,
       {
@@ -382,20 +251,17 @@ describe("Redmine read-only / writer permission boundary", () => {
     expect(noteResponse.status).toBe(403);
     expectNoCredentialLeak(noteResponse);
 
-    const afterResponse = await request(
-      readOnlyApiKey,
-      "GET",
-      `/issues/${seededIssue.id}.json?include=journals`,
+    const after = await readOnlyClient.getIssue(
+      seededIssue.id,
+      {
+        include: ["journals"],
+      },
     );
 
-    expect(afterResponse.status).toBe(200);
-
-    const after = requireIssueResponse(afterResponse);
-
-    expect(after.issue.subject).toBe(before.issue.subject);
-    expect(after.issue.subject).not.toBe(forbiddenSubject);
+    expect(after.subject).toBe(before.subject);
+    expect(after.subject).not.toBe(forbiddenSubject);
     expect(
-      after.issue.journals?.some(
+      after.journals?.some(
         ({ notes }) => notes === forbiddenNote,
       ),
     ).toBe(false);
@@ -409,13 +275,13 @@ describe("Redmine read-only / writer permission boundary", () => {
     const note =
       `Writer permission note ${randomUUID()}`;
 
-    const createResponse = await request(
-      writerApiKey,
+    const createResponse = await writerHttp.request(
       "POST",
       "/issues.json",
       {
         issue: {
-          project_id: "mcp-test",
+          project_id:
+            PRIMARY_TEST_PROJECT_IDENTIFIER,
           tracker_id: bugTrackerId,
           subject: createdSubject,
           description:
@@ -427,14 +293,14 @@ describe("Redmine read-only / writer permission boundary", () => {
     expect(createResponse.status).toBe(201);
     expectNoCredentialLeak(createResponse);
 
-    const created = requireIssueResponse(createResponse);
+    const created =
+      requireCreatedIssue(createResponse);
 
-    expect(created.issue.subject).toBe(createdSubject);
+    expect(created.subject).toBe(createdSubject);
 
-    const updateResponse = await request(
-      writerApiKey,
+    const updateResponse = await writerHttp.request(
       "PUT",
-      `/issues/${created.issue.id}.json`,
+      `/issues/${created.id}.json`,
       {
         issue: {
           subject: updatedSubject,
@@ -445,10 +311,9 @@ describe("Redmine read-only / writer permission boundary", () => {
     expect(updateResponse.status).toBe(204);
     expectNoCredentialLeak(updateResponse);
 
-    const noteResponse = await request(
-      writerApiKey,
+    const noteResponse = await writerHttp.request(
       "PUT",
-      `/issues/${created.issue.id}.json`,
+      `/issues/${created.id}.json`,
       {
         issue: {
           notes: note,
@@ -459,18 +324,20 @@ describe("Redmine read-only / writer permission boundary", () => {
     expect(noteResponse.status).toBe(204);
     expectNoCredentialLeak(noteResponse);
 
-    const verifyResponse = await request(
-      writerApiKey,
+    const verifyResponse = await writerHttp.request(
       "GET",
-      `/issues/${created.issue.id}.json?include=journals`,
+      `/issues/${created.id}.json?include=journals`,
     );
 
     expect(verifyResponse.status).toBe(200);
     expectNoCredentialLeak(verifyResponse);
 
-    const verified = requireIssueResponse(verifyResponse);
+    const verified =
+      requireIssueVerification(verifyResponse);
 
-    expect(verified.issue.subject).toBe(updatedSubject);
+    expect(verified.issue.subject).toBe(
+      updatedSubject,
+    );
     expect(
       verified.issue.journals?.some(
         ({ notes }) => notes === note,
@@ -479,10 +346,9 @@ describe("Redmine read-only / writer permission boundary", () => {
   });
 
   it("keeps the writer scoped away from the secondary private project", async () => {
-    const response = await request(
-      writerApiKey,
+    const response = await writerHttp.request(
       "GET",
-      "/projects/mcp-secondary.json",
+      `/projects/${SECONDARY_TEST_PROJECT_IDENTIFIER}.json`,
     );
 
     expect([403, 404]).toContain(response.status);

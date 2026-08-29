@@ -242,12 +242,59 @@ describe("Context comparison", () => {
     );
     const report = formatContextComparison(result);
 
-    expect(report).toContain("regression [large_regression]");
+    expect(report).toContain("Context Budget Report");
+    expect(report).toContain(
+      "Scenario",
+    );
+    expect(report).toContain(
+      "regression",
+    );
+    expect(report).toContain(
+      "large_regression",
+    );
+    expect(report).toContain(
+      "Context regression detected:",
+    );
     expect(report).toContain("total.bytes baseline=1000 current=1300");
     expect(report).toContain("delta=+300");
     expect(report).toContain("percentage=+30.0%");
     expect(report).toContain("threshold=256/+5.0%");
+    expect(report).toContain("Result: FAIL");
     expect(report).not.toContain("structuredContent");
+  });
+
+  it("formats an unchanged comparison as a passing summary", () => {
+    const baselineMeasurement = measurement("tools/list");
+    const result = compareContextMeasurements(
+      createContextBaseline([baselineMeasurement]),
+      [baselineMeasurement],
+    );
+    const report = formatContextComparison(result);
+
+    expect(report).toContain("tools/list");
+    expect(report).toContain("no_meaningful_change");
+    expect(report).toContain("0 (0.0%)");
+    expect(report).toContain("Result: PASS");
+    expect(report).not.toContain(
+      "Context regression detected:",
+    );
+  });
+
+  it("reports scenario changes as requiring a baseline update", () => {
+    const result = compareContextMeasurements(
+      createContextBaseline([measurement("removed")]),
+      [measurement("added")],
+    );
+    const report = formatContextComparison(result);
+
+    expect(report).toContain("removed");
+    expect(report).toContain("missing_scenario");
+    expect(report).toContain("added");
+    expect(report).toContain("new_scenario");
+    expect(report).toContain(
+      "Baseline update required for new or missing scenarios.",
+    );
+    expect(report).toContain("Result: FAIL");
   });
 
   it("blocks diagnostic output containing a configured secret", () => {

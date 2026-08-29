@@ -337,6 +337,55 @@ function formatPercentage(value: number | null): string {
   return value > 0 ? `+${formatted}%` : `${formatted}%`;
 }
 
+function formatTokenDelta(
+  comparison: ContextMetricComparison,
+): string {
+  return `${formatDelta(comparison.absolute_delta)} (${formatPercentage(comparison.percentage_delta)})`;
+}
+
+function formatSummaryTable(
+  comparison: ContextComparisonResult,
+): string[] {
+  const headers = [
+    "Scenario",
+    "Tokens",
+    "Baseline",
+    "Delta",
+    "Status",
+  ];
+  const rows = comparison.scenarios.map((scenario) => {
+    const tokens = scenario.scopes?.total.estimated_tokens;
+
+    return [
+      scenario.scenario,
+      tokens ? String(tokens.current) : "-",
+      tokens ? String(tokens.baseline) : "-",
+      tokens ? formatTokenDelta(tokens) : "-",
+      scenario.status,
+    ];
+  });
+  const widths = headers.map((header, index) =>
+    Math.max(
+      header.length,
+      ...rows.map((row) => row[index]?.length ?? 0),
+    ),
+  );
+  const formatRow = (row: string[]): string =>
+    row
+      .map((value, index) =>
+        index === 0 || index === 4
+          ? value.padEnd(widths[index] ?? value.length)
+          : value.padStart(widths[index] ?? value.length),
+      )
+      .join("  ");
+
+  return [
+    formatRow(headers),
+    widths.map((width) => "-".repeat(width)).join("  "),
+    ...rows.map(formatRow),
+  ];
+}
+
 function formatMetric(
   scope: ContextScope,
   metric: ContextMetric,
@@ -356,39 +405,53 @@ export function formatContextComparison(
   comparison: ContextComparisonResult,
 ): string {
   const lines = [
-    "Context comparison:",
+    "Context Budget Report",
+    "",
+    ...formatSummaryTable(comparison),
+    "",
     `Regression policy: bytes=${comparison.policy.minimum_absolute_increase.bytes}, characters=${comparison.policy.minimum_absolute_increase.characters}, estimated_tokens=${comparison.policy.minimum_absolute_increase.estimated_tokens}, percentage=+${comparison.policy.minimum_percentage_increase.toFixed(1)}%`,
   ];
 
-  for (const scenario of comparison.scenarios) {
-    lines.push(`${scenario.scenario} [${scenario.status}]`);
+  const regressions = comparison.scenarios.filter(
+    ({ status }) => status === "large_regression",
+  );
 
-    if (!scenario.scopes) {
-      continue;
-    }
+  if (regressions.length > 0) {
+    lines.push("", "Context regression detected:");
 
-    for (const metric of CONTEXT_METRICS) {
-      lines.push(
-        formatMetric(
-          "total",
-          metric,
-          scenario.scopes.total[metric],
-        ),
-      );
-    }
+    for (const scenario of regressions) {
+      lines.push(scenario.scenario);
 
-    for (const scope of CONTEXT_SCOPES.slice(1)) {
-      for (const metric of CONTEXT_METRICS) {
-        const metricComparison = scenario.scopes[scope][metric];
+      if (!scenario.scopes) {
+        continue;
+      }
 
-        if (metricComparison.is_regression) {
-          lines.push(
-            formatMetric(scope, metric, metricComparison),
-          );
+      for (const scope of CONTEXT_SCOPES) {
+        for (const metric of CONTEXT_METRICS) {
+          const metricComparison = scenario.scopes[scope][metric];
+
+          if (metricComparison.is_regression) {
+            lines.push(
+              formatMetric(scope, metric, metricComparison),
+            );
+          }
         }
       }
     }
   }
+
+  if (comparison.requires_baseline_update) {
+    lines.push(
+      "",
+      "Baseline update required for new or missing scenarios.",
+    );
+  }
+
+  const passed =
+    !comparison.has_regressions &&
+    !comparison.requires_baseline_update;
+
+  lines.push("", `Result: ${passed ? "PASS" : "FAIL"}`);
 
   return lines.join("\n");
 }

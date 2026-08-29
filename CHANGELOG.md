@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added a human-readable Context Budget Report with scenario deltas, regression details, and an explicit PASS/FAIL result.
+- Added the context baseline comparison to CircleCI using a clean deterministic Redmine fixture.
+
 ## [0.1.1] - 2026-08-24
 
 ### Added

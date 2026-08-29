@@ -121,14 +121,28 @@ npm run context:measure
 ```
 
 This command resets the deterministic local Redmine fixture before measuring
-and compares the result with the machine-readable baseline artifact. Update
-the baseline only after reviewing an intentional change:
+and compares the result with the machine-readable baseline artifact. It prints
+a scenario summary containing current and baseline token estimates, deltas,
+statuses, and the final PASS/FAIL result.
+
+The comparison fails when a large regression is detected, when the baseline
+artifact is invalid, or when scenarios have been added or removed without a
+reviewed baseline update. Small changes remain visible in the report without
+automatically failing the check.
+
+CircleCI runs the same command after MCP E2E tests. Because the command resets
+Redmine first, integration and E2E state cannot leak into the measurement.
+
+Update the baseline only after reviewing an intentional change:
 
 ```bash
 npm run context:baseline:update
 ```
 
-Neither command calls an external LLM or pricing API.
+The normal CI workflow never updates the baseline. Baseline changes remain
+ordinary repository diffs that must be reviewed. Neither command calls an
+external LLM or pricing API, and reports contain measurements rather than raw
+Redmine responses or credentials.
 
 The exact measured scenarios are defined by the test suite. Context policy and
 the reason for measuring bytes are documented in ADR-005.

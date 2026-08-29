@@ -87,6 +87,10 @@ jobs:
           command: npm run test:e2e
 
       - run:
+          name: Run context budget regression check
+          command: npm run context:measure
+
+      - run:
           name: Reset Redmine for reproducibility check
           command: npm run redmine:reset
 

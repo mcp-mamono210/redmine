@@ -1,0 +1,14 @@
+[mcp_servers.redmine]
+command = "npx"
+args = ["-y", "@onozaty/redmine-mcp-server"]
+
+env_vars = [
+  "REDMINE_URL",
+  "REDMINE_API_KEY",
+  "REDMINE_MCP_READ_ONLY"
+]
+
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+default_tools_approval_mode = "writes"

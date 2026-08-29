@@ -120,6 +120,10 @@ Context efficiency is measured deterministically using serialized UTF-8 bytes.
 npm run context:measure
 ```
 
+This command resets the deterministic local Redmine fixture before measuring
+and writes the machine-readable baseline artifact. It does not call an
+external LLM or pricing API.
+
 The exact measured scenarios are defined by the test suite. Context policy and
 the reason for measuring bytes are documented in ADR-005.
 

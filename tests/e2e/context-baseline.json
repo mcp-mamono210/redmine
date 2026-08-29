@@ -1,0 +1,161 @@
+{
+  "format_version": 1,
+  "token_estimate": {
+    "method": "utf8_bytes_divided_by_4_rounded_up",
+    "bytes_per_token": 4
+  },
+  "scenarios": [
+    {
+      "scenario": "tools/list",
+      "items": 6,
+      "total": {
+        "bytes": 16476,
+        "characters": 16476,
+        "estimated_tokens": 4119
+      },
+      "content_text": {
+        "bytes": 0,
+        "characters": 0,
+        "estimated_tokens": 0
+      },
+      "structured_content": {
+        "bytes": 0,
+        "characters": 0,
+        "estimated_tokens": 0
+      }
+    },
+    {
+      "scenario": "redmine_get_current_user",
+      "items": 1,
+      "total": {
+        "bytes": 216,
+        "characters": 216,
+        "estimated_tokens": 54
+      },
+      "content_text": {
+        "bytes": 63,
+        "characters": 63,
+        "estimated_tokens": 16
+      },
+      "structured_content": {
+        "bytes": 63,
+        "characters": 63,
+        "estimated_tokens": 16
+      }
+    },
+    {
+      "scenario": "redmine_list_issues_default",
+      "items": 3,
+      "total": {
+        "bytes": 2324,
+        "characters": 2324,
+        "estimated_tokens": 581
+      },
+      "content_text": {
+        "bytes": 1034,
+        "characters": 1034,
+        "estimated_tokens": 259
+      },
+      "structured_content": {
+        "bytes": 1034,
+        "characters": 1034,
+        "estimated_tokens": 259
+      }
+    },
+    {
+      "scenario": "redmine_search_default",
+      "items": 1,
+      "total": {
+        "bytes": 708,
+        "characters": 708,
+        "estimated_tokens": 177
+      },
+      "content_text": {
+        "bytes": 301,
+        "characters": 301,
+        "estimated_tokens": 76
+      },
+      "structured_content": {
+        "bytes": 301,
+        "characters": 301,
+        "estimated_tokens": 76
+      }
+    },
+    {
+      "scenario": "redmine_get_issue_core",
+      "items": 1,
+      "total": {
+        "bytes": 1368,
+        "characters": 1368,
+        "estimated_tokens": 342
+      },
+      "content_text": {
+        "bytes": 600,
+        "characters": 600,
+        "estimated_tokens": 150
+      },
+      "structured_content": {
+        "bytes": 600,
+        "characters": 600,
+        "estimated_tokens": 150
+      }
+    },
+    {
+      "scenario": "redmine_get_issue_plus_journals",
+      "items": 1,
+      "total": {
+        "bytes": 1678,
+        "characters": 1678,
+        "estimated_tokens": 420
+      },
+      "content_text": {
+        "bytes": 744,
+        "characters": 744,
+        "estimated_tokens": 186
+      },
+      "structured_content": {
+        "bytes": 744,
+        "characters": 744,
+        "estimated_tokens": 186
+      }
+    },
+    {
+      "scenario": "redmine_get_issue_plus_allowed_statuses",
+      "items": 1,
+      "total": {
+        "bytes": 1414,
+        "characters": 1414,
+        "estimated_tokens": 354
+      },
+      "content_text": {
+        "bytes": 622,
+        "characters": 622,
+        "estimated_tokens": 156
+      },
+      "structured_content": {
+        "bytes": 622,
+        "characters": 622,
+        "estimated_tokens": 156
+      }
+    },
+    {
+      "scenario": "redmine_get_project_stable_envelope",
+      "items": 1,
+      "total": {
+        "bytes": 1856,
+        "characters": 1856,
+        "estimated_tokens": 464
+      },
+      "content_text": {
+        "bytes": 810,
+        "characters": 810,
+        "estimated_tokens": 203
+      },
+      "structured_content": {
+        "bytes": 810,
+        "characters": 810,
+        "estimated_tokens": 203
+      }
+    }
+  ]
+}

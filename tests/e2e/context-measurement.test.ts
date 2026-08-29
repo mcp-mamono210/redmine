@@ -1,9 +1,18 @@
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
+  createContextBaseline,
   measureContext,
   type ContextMeasurement,
 } from "../helpers/context-measurement.js";
+import {
+  AUTHENTICATION_FIXTURE_SUBJECT,
+  JOURNAL_FIXTURE_SUBJECT,
+  PRIMARY_TEST_PROJECT_IDENTIFIER,
+} from "../helpers/redmine-fixtures.js";
 import {
   connectE2eClient,
   requireTextContent,
@@ -11,10 +20,10 @@ import {
 
 const EXPECTED_CONTEXT_SCENARIOS = [
   "tools/list",
+  "redmine_get_current_user",
   "redmine_list_issues_default",
   "redmine_search_default",
   "redmine_get_issue_core",
-  "redmine_get_issue_journal_fixture_core",
   "redmine_get_issue_plus_journals",
   "redmine_get_issue_plus_allowed_statuses",
   "redmine_get_project_stable_envelope",
@@ -80,18 +89,34 @@ function expectStructuredMatchesText(result: {
   );
 }
 
-function printBaseline(
+async function emitBaseline(
   measurements: ContextMeasurement[],
-): void {
+  secrets: string[],
+): Promise<void> {
+  const baseline = createContextBaseline(measurements);
+  const serialized = `${JSON.stringify(baseline, null, 2)}\n`;
+
+  for (const secret of secrets) {
+    expect(serialized).not.toContain(secret);
+  }
+
   console.info(
     "Context measurement baseline:\n" +
-      JSON.stringify(measurements, null, 2),
+      serialized,
   );
+
+  if (process.env.UPDATE_CONTEXT_BASELINE === "1") {
+    await writeFile(
+      resolve("tests/e2e/context-baseline.json"),
+      serialized,
+      "utf8",
+    );
+  }
 }
 
 describe("MCP context measurement baseline", () => {
   it("measures the complete deterministic read-only scenario set", async () => {
-    const { client } = await connectE2eClient(
+    const { client, redmineApiKey } = await connectE2eClient(
       "redmine-mcp-context-measurement-e2e-client",
     );
 
@@ -108,10 +133,26 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
+      const currentUserResult = await client.callTool({
+        name: "redmine_get_current_user",
+        arguments: {},
+      });
+
+      expect(currentUserResult.isError).not.toBe(true);
+      expectStructuredMatchesText(currentUserResult);
+
+      measurements.push(
+        measureContext(
+          "redmine_get_current_user",
+          currentUserResult,
+          1,
+        ),
+      );
+
       const issueListResult = await client.callTool({
         name: "redmine_list_issues",
         arguments: {
-          project_id: "mcp-test",
+          project_id: PRIMARY_TEST_PROJECT_IDENTIFIER,
         },
       });
 
@@ -135,8 +176,7 @@ describe("MCP context measurement baseline", () => {
 
       const targetIssue = issueList.items.find(
         ({ subject }) =>
-          subject ===
-          "Authentication fails for invalid API token",
+          subject === AUTHENTICATION_FIXTURE_SUBJECT,
       );
 
       expect(targetIssue).toBeDefined();
@@ -192,8 +232,8 @@ describe("MCP context measurement baseline", () => {
       const journalListResult = await client.callTool({
         name: "redmine_list_issues",
         arguments: {
-          project_id: "mcp-test",
-          subject: "Add issue listing support",
+          project_id: PRIMARY_TEST_PROJECT_IDENTIFIER,
+          subject: JOURNAL_FIXTURE_SUBJECT,
         },
       });
 
@@ -251,15 +291,12 @@ describe("MCP context measurement baseline", () => {
           1,
         );
 
-      measurements.push(
-        journalCoreMeasurement,
-        journalDetailMeasurement,
-      );
+      measurements.push(journalDetailMeasurement);
 
       expect(
-        journalDetailMeasurement.bytes,
+        journalDetailMeasurement.total.bytes,
       ).toBeGreaterThan(
-        journalCoreMeasurement.bytes,
+        journalCoreMeasurement.total.bytes,
       );
 
       const allowedStatusesResult =
@@ -307,7 +344,7 @@ describe("MCP context measurement baseline", () => {
       const targetProject =
         projectList.items.find(
           ({ identifier }) =>
-            identifier === "mcp-test",
+            identifier === PRIMARY_TEST_PROJECT_IDENTIFIER,
         );
 
       expect(targetProject).toBeDefined();
@@ -350,14 +387,35 @@ describe("MCP context measurement baseline", () => {
 
       for (const measurement of measurements) {
         expect(
-          measurement.bytes,
+          measurement.total.bytes,
+        ).toBeGreaterThan(0);
+        expect(
+          measurement.total.characters,
+        ).toBeGreaterThan(0);
+        expect(
+          measurement.total.estimated_tokens,
         ).toBeGreaterThan(0);
         expect(
           measurement.items,
         ).toBeGreaterThanOrEqual(0);
       }
 
-      printBaseline(measurements);
+      for (const measurement of measurements.slice(1)) {
+        expect(
+          measurement.content_text.bytes,
+        ).toBeGreaterThan(0);
+        expect(
+          measurement.structured_content.bytes,
+        ).toBeGreaterThan(0);
+      }
+
+      await emitBaseline(
+        measurements,
+        [
+          redmineApiKey,
+          process.env.REDMINE_WRITE_API_KEY,
+        ].filter((value): value is string => Boolean(value)),
+      );
     } finally {
       await client.close();
     }

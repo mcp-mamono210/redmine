@@ -1,17 +1,29 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 
 import type { RedmineClient } from "../redmine/client.js";
-import { registerCurrentUserTool } from "./tools/current-user.js";
-import { registerIssueTools } from "./tools/issues.js";
-import { registerProjectTools } from "./tools/projects.js";
-import { registerSearchTool } from "./tools/search.js";
+import { getPublishedToolRegistry } from "./tool-registry.js";
+
+export interface RegisterToolsOptions {
+  writeEnabled: boolean;
+}
+
+export function registerTools(
+  server: McpServer,
+  redmineClient: RedmineClient,
+  options: RegisterToolsOptions,
+): void {
+  for (const entry of getPublishedToolRegistry(
+    options.writeEnabled,
+  )) {
+    entry.register(server, redmineClient);
+  }
+}
 
 export function registerReadOnlyTools(
   server: McpServer,
   redmineClient: RedmineClient,
 ): void {
-  registerCurrentUserTool(server, redmineClient);
-  registerIssueTools(server, redmineClient);
-  registerProjectTools(server, redmineClient);
-  registerSearchTool(server, redmineClient);
+  registerTools(server, redmineClient, {
+    writeEnabled: false,
+  });
 }

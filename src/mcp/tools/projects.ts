@@ -158,7 +158,9 @@ function toCustomFieldResponse(
   };
 }
 
-function toVersionResponse(version: RedmineVersion): ProjectVersionResponse {
+function toVersionResponse(
+  version: RedmineVersion,
+): ProjectVersionResponse {
   return {
     id: version.id,
     name: version.name,
@@ -175,7 +177,9 @@ function toVersionResponse(version: RedmineVersion): ProjectVersionResponse {
   };
 }
 
-function toMemberResponse(member: RedmineMembership): ProjectMemberResponse {
+function toMemberResponse(
+  member: RedmineMembership,
+): ProjectMemberResponse {
   return {
     id: member.id,
     ...(member.user !== undefined ? { user: member.user } : {}),
@@ -226,13 +230,15 @@ export async function callGetProjectTool(
       ]);
 
     if (versionsResult.status === "fulfilled") {
-      envelope.versions = versionsResult.value.map(toVersionResponse);
+      envelope.versions =
+        versionsResult.value.map(toVersionResponse);
     } else {
       envelope.warnings.push("versions: unavailable");
     }
 
     if (membershipsResult.status === "fulfilled") {
-      envelope.members = membershipsResult.value.items.map(toMemberResponse);
+      envelope.members =
+        membershipsResult.value.items.map(toMemberResponse);
 
       if (
         membershipsResult.value.totalCount >
@@ -274,7 +280,7 @@ export async function callListProjectsTool(
   }
 }
 
-export function registerProjectTools(
+export function registerGetProjectTool(
   server: McpServer,
   redmineClient: ProjectToolClient,
 ): void {
@@ -295,7 +301,12 @@ export function registerProjectTools(
     },
     (input) => callGetProjectTool(redmineClient, input),
   );
+}
 
+export function registerListProjectsTool(
+  server: McpServer,
+  redmineClient: ProjectToolClient,
+): void {
   server.registerTool(
     "redmine_list_projects",
     {
@@ -312,4 +323,12 @@ export function registerProjectTools(
     },
     (input) => callListProjectsTool(redmineClient, input),
   );
+}
+
+export function registerProjectTools(
+  server: McpServer,
+  redmineClient: ProjectToolClient,
+): void {
+  registerGetProjectTool(server, redmineClient);
+  registerListProjectsTool(server, redmineClient);
 }

@@ -106,7 +106,7 @@ export async function callListIssuesTool(
   }
 }
 
-export function registerIssueTools(
+export function registerGetIssueTool(
   server: McpServer,
   redmineClient: IssueToolClient,
 ): void {
@@ -129,7 +129,12 @@ export function registerIssueTools(
     },
     (input) => callGetIssueTool(redmineClient, input),
   );
+}
 
+export function registerListIssuesTool(
+  server: McpServer,
+  redmineClient: IssueToolClient,
+): void {
   server.registerTool(
     "redmine_list_issues",
     {
@@ -148,4 +153,12 @@ export function registerIssueTools(
     },
     (input) => callListIssuesTool(redmineClient, input),
   );
+}
+
+export function registerIssueTools(
+  server: McpServer,
+  redmineClient: IssueToolClient,
+): void {
+  registerGetIssueTool(server, redmineClient);
+  registerListIssuesTool(server, redmineClient);
 }

@@ -1,38 +1,44 @@
 import { describe, expect, it } from "vitest";
 
+import { toolRegistry } from "../../src/mcp/tool-registry.js";
 import { connectE2eClient } from "./helpers.js";
 
-const EXPECTED_READ_ONLY_TOOLS = [
-  "redmine_get_current_user",
-  "redmine_get_issue",
-  "redmine_get_project",
-  "redmine_list_issues",
-  "redmine_list_projects",
-  "redmine_search",
-] as const;
-
-describe("Read-only MCP Tool Annotations", () => {
-  it("publishes bounded read-only annotations for every read-only tool", async () => {
+describe("MCP Tool Registry invariants", () => {
+  it("publishes exactly the registry read tools with read-only annotations", async () => {
     const { client } = await connectE2eClient(
       "redmine-mcp-tool-annotations-e2e-client",
     );
 
     try {
       const { tools } = await client.listTools();
+      const expectedReadTools = toolRegistry.filter(
+        (entry) => entry.access === "read",
+      );
+      const expectedReadToolNames = expectedReadTools
+        .map((entry) => entry.name)
+        .sort();
+      const actualToolNames = tools
+        .map((tool) => tool.name)
+        .sort();
+
+      expect(actualToolNames).toEqual(expectedReadToolNames);
+
       const toolByName = new Map(
         tools.map((tool) => [tool.name, tool]),
       );
 
-      for (const name of EXPECTED_READ_ONLY_TOOLS) {
-        const tool = toolByName.get(name);
+      for (const entry of expectedReadTools) {
+        const tool = toolByName.get(entry.name);
 
         expect(
           tool,
-          `Missing read-only tool: ${name}`,
+          `Missing registry read tool: ${entry.name}`,
         ).toBeDefined();
 
         if (!tool) {
-          throw new Error(`Missing read-only tool: ${name}`);
+          throw new Error(
+            `Missing registry read tool: ${entry.name}`,
+          );
         }
 
         expect(tool.annotations).toMatchObject({

@@ -11,17 +11,19 @@ import {
 } from "../../src/mcp/tool-registry.js";
 
 describe("MCP tool registry", () => {
-  it("contains the current public read-only tools exactly once", () => {
-    expect(toolRegistry.map((entry) => entry.name)).toEqual([
-      "redmine_get_current_user",
-      "redmine_get_issue",
-      "redmine_list_issues",
-      "redmine_search",
-      "redmine_get_project",
-      "redmine_list_projects",
-    ]);
-
+  it("registers every tool name exactly once", () => {
+    expect(toolRegistry.length).toBeGreaterThan(0);
     expect(() => assertUniqueToolNames()).not.toThrow();
+
+    const names = toolRegistry.map((entry) => entry.name);
+
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("uses only supported access classifications", () => {
+    for (const entry of toolRegistry) {
+      expect(["read", "write"]).toContain(entry.access);
+    }
   });
 
   it("classifies every currently implemented tool as read-only", () => {

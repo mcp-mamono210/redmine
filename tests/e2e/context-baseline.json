@@ -44,7 +44,7 @@
       }
     },
     {
-      "scenario": "redmine_list_issues_default",
+      "scenario": "redmine_list_issues_10",
       "items": 3,
       "total": {
         "bytes": 2324,
@@ -63,7 +63,26 @@
       }
     },
     {
-      "scenario": "redmine_search_default",
+      "scenario": "redmine_list_issues_20",
+      "items": 3,
+      "total": {
+        "bytes": 2324,
+        "characters": 2324,
+        "estimated_tokens": 581
+      },
+      "content_text": {
+        "bytes": 1034,
+        "characters": 1034,
+        "estimated_tokens": 259
+      },
+      "structured_content": {
+        "bytes": 1034,
+        "characters": 1034,
+        "estimated_tokens": 259
+      }
+    },
+    {
+      "scenario": "redmine_search_10",
       "items": 1,
       "total": {
         "bytes": 708,
@@ -79,6 +98,63 @@
         "bytes": 301,
         "characters": 301,
         "estimated_tokens": 76
+      }
+    },
+    {
+      "scenario": "redmine_search_20",
+      "items": 1,
+      "total": {
+        "bytes": 708,
+        "characters": 708,
+        "estimated_tokens": 177
+      },
+      "content_text": {
+        "bytes": 301,
+        "characters": 301,
+        "estimated_tokens": 76
+      },
+      "structured_content": {
+        "bytes": 301,
+        "characters": 301,
+        "estimated_tokens": 76
+      }
+    },
+    {
+      "scenario": "redmine_list_projects_default",
+      "items": 2,
+      "total": {
+        "bytes": 458,
+        "characters": 458,
+        "estimated_tokens": 115
+      },
+      "content_text": {
+        "bytes": 177,
+        "characters": 177,
+        "estimated_tokens": 45
+      },
+      "structured_content": {
+        "bytes": 177,
+        "characters": 177,
+        "estimated_tokens": 45
+      }
+    },
+    {
+      "scenario": "redmine_list_projects_max",
+      "items": 2,
+      "total": {
+        "bytes": 460,
+        "characters": 460,
+        "estimated_tokens": 115
+      },
+      "content_text": {
+        "bytes": 178,
+        "characters": 178,
+        "estimated_tokens": 45
+      },
+      "structured_content": {
+        "bytes": 178,
+        "characters": 178,
+        "estimated_tokens": 45
       }
     },
     {
@@ -155,6 +231,44 @@
         "bytes": 810,
         "characters": 810,
         "estimated_tokens": 203
+      }
+    },
+    {
+      "scenario": "workflow_search_get_issue",
+      "items": 2,
+      "total": {
+        "bytes": 2076,
+        "characters": 2076,
+        "estimated_tokens": 519
+      },
+      "content_text": {
+        "bytes": 901,
+        "characters": 901,
+        "estimated_tokens": 226
+      },
+      "structured_content": {
+        "bytes": 901,
+        "characters": 901,
+        "estimated_tokens": 226
+      }
+    },
+    {
+      "scenario": "workflow_project_issue_detail",
+      "items": 4,
+      "total": {
+        "bytes": 6006,
+        "characters": 6006,
+        "estimated_tokens": 1502
+      },
+      "content_text": {
+        "bytes": 2621,
+        "characters": 2621,
+        "estimated_tokens": 657
+      },
+      "structured_content": {
+        "bytes": 2621,
+        "characters": 2621,
+        "estimated_tokens": 657
       }
     }
   ]

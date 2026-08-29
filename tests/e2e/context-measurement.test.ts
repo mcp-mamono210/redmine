@@ -11,6 +11,7 @@ import {
 import {
   createContextBaseline,
   measureContext,
+  measureContextWorkflow,
   type ContextMeasurement,
 } from "../helpers/context-measurement.js";
 import {
@@ -26,12 +27,18 @@ import {
 const EXPECTED_CONTEXT_SCENARIOS = [
   "tools/list",
   "redmine_get_current_user",
-  "redmine_list_issues_default",
-  "redmine_search_default",
+  "redmine_list_issues_10",
+  "redmine_list_issues_20",
+  "redmine_search_10",
+  "redmine_search_20",
+  "redmine_list_projects_default",
+  "redmine_list_projects_max",
   "redmine_get_issue_core",
   "redmine_get_issue_plus_journals",
   "redmine_get_issue_plus_allowed_statuses",
   "redmine_get_project_stable_envelope",
+  "workflow_search_get_issue",
+  "workflow_project_issue_detail",
 ] as const;
 
 const CONTEXT_BASELINE_PATH = resolve(
@@ -59,6 +66,7 @@ interface ProjectSummary {
 
 interface ProjectListResponse {
   items: ProjectSummary[];
+  limit: number;
 }
 
 function requireStructuredContent(result: {
@@ -156,7 +164,7 @@ async function processBaseline(
 }
 
 describe("MCP context measurement baseline", () => {
-  it("measures the complete deterministic read-only scenario set", async () => {
+  it("measures the finalized deterministic read-only scenario set", async () => {
     const harness = await createMcpE2eHarness({
       clientName: "redmine-mcp-context-measurement-e2e-client",
       env: {
@@ -192,32 +200,57 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      const issueListResult = await harness.callTool(
+      const issueList10Result = await harness.callTool(
         "redmine_list_issues",
         {
           project_id: PRIMARY_TEST_PROJECT_IDENTIFIER,
+          limit: 10,
         },
       );
 
-      expect(issueListResult.isError).not.toBe(true);
-      expectStructuredMatchesText(issueListResult);
+      expect(issueList10Result.isError).not.toBe(true);
+      expectStructuredMatchesText(issueList10Result);
 
-      const issueList =
-        parseToolJson<IssueListResponse>(
-          issueListResult.content,
-        );
+      const issueList10 = parseToolJson<IssueListResponse>(
+        issueList10Result.content,
+      );
 
-      expect(issueList.limit).toBe(10);
+      expect(issueList10.limit).toBe(10);
 
       measurements.push(
         measureContext(
-          "redmine_list_issues_default",
-          issueListResult,
-          issueList.items.length,
+          "redmine_list_issues_10",
+          issueList10Result,
+          issueList10.items.length,
         ),
       );
 
-      const targetIssue = issueList.items.find(
+      const issueList20Result = await harness.callTool(
+        "redmine_list_issues",
+        {
+          project_id: PRIMARY_TEST_PROJECT_IDENTIFIER,
+          limit: 20,
+        },
+      );
+
+      expect(issueList20Result.isError).not.toBe(true);
+      expectStructuredMatchesText(issueList20Result);
+
+      const issueList20 = parseToolJson<IssueListResponse>(
+        issueList20Result.content,
+      );
+
+      expect(issueList20.limit).toBe(20);
+
+      measurements.push(
+        measureContext(
+          "redmine_list_issues_20",
+          issueList20Result,
+          issueList20.items.length,
+        ),
+      );
+
+      const targetIssue = issueList10.items.find(
         ({ subject }) =>
           subject === AUTHENTICATION_FIXTURE_SUBJECT,
       );
@@ -230,29 +263,120 @@ describe("MCP context measurement baseline", () => {
         );
       }
 
-      const searchResult = await harness.callTool(
+      const search10Result = await harness.callTool(
         "redmine_search",
         {
           query: "authentication",
+          limit: 10,
         },
       );
 
-      expect(searchResult.isError).not.toBe(true);
-      expectStructuredMatchesText(searchResult);
+      expect(search10Result.isError).not.toBe(true);
+      expectStructuredMatchesText(search10Result);
 
-      const search = parseToolJson<SearchResponse>(
-        searchResult.content,
+      const search10 = parseToolJson<SearchResponse>(
+        search10Result.content,
       );
 
-      expect(search.limit).toBe(10);
+      expect(search10.limit).toBe(10);
 
       measurements.push(
         measureContext(
-          "redmine_search_default",
-          searchResult,
-          search.items.length,
+          "redmine_search_10",
+          search10Result,
+          search10.items.length,
         ),
       );
+
+      const search20Result = await harness.callTool(
+        "redmine_search",
+        {
+          query: "authentication",
+          limit: 20,
+        },
+      );
+
+      expect(search20Result.isError).not.toBe(true);
+      expectStructuredMatchesText(search20Result);
+
+      const search20 = parseToolJson<SearchResponse>(
+        search20Result.content,
+      );
+
+      expect(search20.limit).toBe(20);
+
+      measurements.push(
+        measureContext(
+          "redmine_search_20",
+          search20Result,
+          search20.items.length,
+        ),
+      );
+
+      const projectListDefaultResult =
+        await harness.callTool(
+          "redmine_list_projects",
+        );
+
+      expect(
+        projectListDefaultResult.isError,
+      ).not.toBe(true);
+      expectStructuredMatchesText(
+        projectListDefaultResult,
+      );
+
+      const projectListDefault =
+        parseToolJson<ProjectListResponse>(
+          projectListDefaultResult.content,
+        );
+
+      measurements.push(
+        measureContext(
+          "redmine_list_projects_default",
+          projectListDefaultResult,
+          projectListDefault.items.length,
+        ),
+      );
+
+      const projectListMaxResult =
+        await harness.callTool(
+          "redmine_list_projects",
+          {
+            limit: 100,
+          },
+        );
+
+      expect(projectListMaxResult.isError).not.toBe(true);
+      expectStructuredMatchesText(projectListMaxResult);
+
+      const projectListMax =
+        parseToolJson<ProjectListResponse>(
+          projectListMaxResult.content,
+        );
+
+      expect(projectListMax.limit).toBe(100);
+
+      measurements.push(
+        measureContext(
+          "redmine_list_projects_max",
+          projectListMaxResult,
+          projectListMax.items.length,
+        ),
+      );
+
+      const targetProject =
+        projectListDefault.items.find(
+          ({ identifier }) =>
+            identifier === PRIMARY_TEST_PROJECT_IDENTIFIER,
+        );
+
+      expect(targetProject).toBeDefined();
+
+      if (!targetProject) {
+        throw new Error(
+          "MCP Test Project was not found",
+        );
+      }
 
       const coreIssueResult = await harness.callTool(
         "redmine_get_issue",
@@ -264,13 +388,13 @@ describe("MCP context measurement baseline", () => {
       expect(coreIssueResult.isError).not.toBe(true);
       expectStructuredMatchesText(coreIssueResult);
 
-      const coreIssueMeasurement = measureContext(
-        "redmine_get_issue_core",
-        coreIssueResult,
-        1,
+      measurements.push(
+        measureContext(
+          "redmine_get_issue_core",
+          coreIssueResult,
+          1,
+        ),
       );
-
-      measurements.push(coreIssueMeasurement);
 
       const journalListResult = await harness.callTool(
         "redmine_list_issues",
@@ -304,9 +428,7 @@ describe("MCP context measurement baseline", () => {
         },
       );
 
-      expect(
-        journalCoreResult.isError,
-      ).not.toBe(true);
+      expect(journalCoreResult.isError).not.toBe(true);
       expectStructuredMatchesText(journalCoreResult);
 
       const journalDetailResult = await harness.callTool(
@@ -317,9 +439,7 @@ describe("MCP context measurement baseline", () => {
         },
       );
 
-      expect(
-        journalDetailResult.isError,
-      ).not.toBe(true);
+      expect(journalDetailResult.isError).not.toBe(true);
       expectStructuredMatchesText(journalDetailResult);
 
       const journalCoreMeasurement = measureContext(
@@ -327,12 +447,11 @@ describe("MCP context measurement baseline", () => {
         journalCoreResult,
         1,
       );
-      const journalDetailMeasurement =
-        measureContext(
-          "redmine_get_issue_plus_journals",
-          journalDetailResult,
-          1,
-        );
+      const journalDetailMeasurement = measureContext(
+        "redmine_get_issue_plus_journals",
+        journalDetailResult,
+        1,
+      );
 
       measurements.push(journalDetailMeasurement);
 
@@ -366,50 +485,14 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      const projectListResult =
-        await harness.callTool(
-          "redmine_list_projects",
-          {
-            limit: 25,
-          },
-        );
+      const projectResult = await harness.callTool(
+        "redmine_get_project",
+        {
+          project_id: targetProject.identifier,
+        },
+      );
 
-      expect(
-        projectListResult.isError,
-      ).not.toBe(true);
-      expectStructuredMatchesText(projectListResult);
-
-      const projectList =
-        parseToolJson<ProjectListResponse>(
-          projectListResult.content,
-        );
-
-      const targetProject =
-        projectList.items.find(
-          ({ identifier }) =>
-            identifier === PRIMARY_TEST_PROJECT_IDENTIFIER,
-        );
-
-      expect(targetProject).toBeDefined();
-
-      if (!targetProject) {
-        throw new Error(
-          "MCP Test Project was not found",
-        );
-      }
-
-      const projectResult =
-        await harness.callTool(
-          "redmine_get_project",
-          {
-            project_id:
-              targetProject.identifier,
-          },
-        );
-
-      expect(
-        projectResult.isError,
-      ).not.toBe(true);
+      expect(projectResult.isError).not.toBe(true);
       expectStructuredMatchesText(projectResult);
 
       measurements.push(
@@ -420,10 +503,30 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      expect(
-        measurements.map(
-          ({ scenario }) => scenario,
+      measurements.push(
+        measureContextWorkflow(
+          "workflow_search_get_issue",
+          [
+            search10Result,
+            coreIssueResult,
+          ],
         ),
+      );
+
+      measurements.push(
+        measureContextWorkflow(
+          "workflow_project_issue_detail",
+          [
+            projectListDefaultResult,
+            projectResult,
+            issueList10Result,
+            coreIssueResult,
+          ],
+        ),
+      );
+
+      expect(
+        measurements.map(({ scenario }) => scenario),
       ).toEqual([
         ...EXPECTED_CONTEXT_SCENARIOS,
       ]);

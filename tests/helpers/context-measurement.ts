@@ -36,6 +36,39 @@ function measureText(value: string): ContextSize {
   };
 }
 
+function addContextSizes(
+  sizes: readonly ContextSize[],
+): ContextSize {
+  return sizes.reduce<ContextSize>(
+    (total, size) => ({
+      bytes: total.bytes + size.bytes,
+      characters: total.characters + size.characters,
+      estimated_tokens:
+        total.estimated_tokens + size.estimated_tokens,
+    }),
+    {
+      bytes: 0,
+      characters: 0,
+      estimated_tokens: 0,
+    },
+  );
+}
+
+function validateMeasurementMetadata(
+  scenario: string,
+  items: number,
+): void {
+  if (!scenario) {
+    throw new Error("Measurement scenario is required");
+  }
+
+  if (!Number.isInteger(items) || items < 0) {
+    throw new Error(
+      "Measurement item count must be a non-negative integer",
+    );
+  }
+}
+
 export function measureSerializedValue(
   value: unknown,
 ): ContextSize {
@@ -89,13 +122,7 @@ export function measureContext(
   value: unknown,
   items: number,
 ): ContextMeasurement {
-  if (!scenario) {
-    throw new Error("Measurement scenario is required");
-  }
-
-  if (!Number.isInteger(items) || items < 0) {
-    throw new Error("Measurement item count must be a non-negative integer");
-  }
+  validateMeasurementMetadata(scenario, items);
 
   const structuredContent = getStructuredContent(value);
 
@@ -108,6 +135,33 @@ export function measureContext(
       structuredContent === undefined
         ? measureText("")
         : measureSerializedValue(structuredContent),
+  };
+}
+
+export function measureContextWorkflow(
+  scenario: string,
+  values: readonly unknown[],
+): ContextMeasurement {
+  validateMeasurementMetadata(scenario, values.length);
+
+  const components = values.map((value) =>
+    measureContext("workflow_component", value, 0),
+  );
+
+  return {
+    scenario,
+    items: values.length,
+    total: addContextSizes(
+      components.map(({ total }) => total),
+    ),
+    content_text: addContextSizes(
+      components.map(({ content_text }) => content_text),
+    ),
+    structured_content: addContextSizes(
+      components.map(
+        ({ structured_content }) => structured_content,
+      ),
+    ),
   };
 }
 

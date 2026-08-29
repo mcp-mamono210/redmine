@@ -5,6 +5,7 @@ import {
   TOKEN_ESTIMATE_BYTES_PER_TOKEN,
   createContextBaseline,
   measureContext,
+  measureContextWorkflow,
   measureSerializedBytes,
   measureSerializedValue,
 } from "../helpers/context-measurement.js";
@@ -92,6 +93,87 @@ describe("Context measurement", () => {
     });
   });
 
+  it("sums separately serialized MCP responses for workflow measurements", () => {
+    const firstStructuredContent = {
+      items: [{ id: 1 }],
+    };
+    const secondStructuredContent = {
+      id: 1,
+      subject: "Authentication issue",
+    };
+    const first = {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(firstStructuredContent),
+        },
+      ],
+      structuredContent: firstStructuredContent,
+    };
+    const second = {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(secondStructuredContent),
+        },
+      ],
+      structuredContent: secondStructuredContent,
+    };
+
+    const firstMeasurement = measureContext(
+      "first",
+      first,
+      1,
+    );
+    const secondMeasurement = measureContext(
+      "second",
+      second,
+      1,
+    );
+    const workflow = measureContextWorkflow(
+      "workflow_search_get_issue",
+      [first, second],
+    );
+
+    expect(workflow).toEqual({
+      scenario: "workflow_search_get_issue",
+      items: 2,
+      total: {
+        bytes:
+          firstMeasurement.total.bytes +
+          secondMeasurement.total.bytes,
+        characters:
+          firstMeasurement.total.characters +
+          secondMeasurement.total.characters,
+        estimated_tokens:
+          firstMeasurement.total.estimated_tokens +
+          secondMeasurement.total.estimated_tokens,
+      },
+      content_text: {
+        bytes:
+          firstMeasurement.content_text.bytes +
+          secondMeasurement.content_text.bytes,
+        characters:
+          firstMeasurement.content_text.characters +
+          secondMeasurement.content_text.characters,
+        estimated_tokens:
+          firstMeasurement.content_text.estimated_tokens +
+          secondMeasurement.content_text.estimated_tokens,
+      },
+      structured_content: {
+        bytes:
+          firstMeasurement.structured_content.bytes +
+          secondMeasurement.structured_content.bytes,
+        characters:
+          firstMeasurement.structured_content.characters +
+          secondMeasurement.structured_content.characters,
+        estimated_tokens:
+          firstMeasurement.structured_content.estimated_tokens +
+          secondMeasurement.structured_content.estimated_tokens,
+      },
+    });
+  });
+
   it("creates a deterministic machine-readable baseline envelope", () => {
     const scenarios = [
       measureContext("tools/list", { tools: [] }, 0),
@@ -113,6 +195,9 @@ describe("Context measurement", () => {
     );
     expect(() => measureContext("invalid", {}, -1)).toThrow(
       "Measurement item count must be a non-negative integer",
+    );
+    expect(() => measureContextWorkflow("", [])).toThrow(
+      "Measurement scenario is required",
     );
   });
 

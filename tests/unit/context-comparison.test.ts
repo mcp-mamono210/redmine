@@ -104,6 +104,110 @@ describe("Context comparison", () => {
     expect(result.scenarios[0]?.status).toBe("small_change");
   });
 
+  it("does not regress one unit below the absolute threshold", () => {
+    const baselineMeasurement = measurement(
+      "absolute-threshold-minus-one",
+      size(5_000, 5_000, 1_250),
+    );
+    const currentMeasurement = measurement(
+      "absolute-threshold-minus-one",
+      size(5_255, 5_255, 1_313),
+    );
+
+    const result = compareContextMeasurements(
+      createContextBaseline([baselineMeasurement]),
+      [currentMeasurement],
+    );
+
+    expect(result.has_regressions).toBe(false);
+    expect(result.scenarios[0]?.status).toBe("small_change");
+    expect(
+      result.scenarios[0]?.scopes?.total.bytes.is_regression,
+    ).toBe(false);
+  });
+
+  it("regresses exactly at both absolute and percentage thresholds", () => {
+    const baselineMeasurement = measurement(
+      "exact-threshold",
+      size(5_120, 5_120, 1_280),
+    );
+    const currentMeasurement = measurement(
+      "exact-threshold",
+      size(5_376, 5_376, 1_344),
+    );
+
+    const result = compareContextMeasurements(
+      createContextBaseline([baselineMeasurement]),
+      [currentMeasurement],
+    );
+    const total = result.scenarios[0]?.scopes?.total;
+
+    expect(result.has_regressions).toBe(true);
+    expect(result.scenarios[0]?.status).toBe("large_regression");
+    expect(total?.bytes).toMatchObject({
+      absolute_delta: 256,
+      percentage_delta: 5,
+      is_regression: true,
+    });
+    expect(total?.characters.is_regression).toBe(true);
+    expect(total?.estimated_tokens).toMatchObject({
+      absolute_delta: 64,
+      percentage_delta: 5,
+      is_regression: true,
+    });
+  });
+
+  it("regresses one unit above the absolute threshold when percentage also exceeds the threshold", () => {
+    const baselineMeasurement = measurement(
+      "threshold-plus-one",
+      size(5_000, 5_000, 1_250),
+    );
+    const currentMeasurement = measurement(
+      "threshold-plus-one",
+      size(5_257, 5_257, 1_315),
+    );
+
+    const result = compareContextMeasurements(
+      createContextBaseline([baselineMeasurement]),
+      [currentMeasurement],
+    );
+
+    expect(result.has_regressions).toBe(true);
+    expect(result.scenarios[0]?.status).toBe("large_regression");
+    expect(
+      result.scenarios[0]?.scopes?.total.bytes.is_regression,
+    ).toBe(true);
+    expect(
+      result.scenarios[0]?.scopes?.total.estimated_tokens.is_regression,
+    ).toBe(true);
+  });
+
+  it("requires both absolute and percentage thresholds to be reached", () => {
+    const baselineMeasurement = measurement(
+      "and-policy",
+      size(10_000, 10_000, 2_500),
+    );
+    const currentMeasurement = measurement(
+      "and-policy",
+      size(10_256, 10_256, 2_564),
+    );
+
+    const result = compareContextMeasurements(
+      createContextBaseline([baselineMeasurement]),
+      [currentMeasurement],
+    );
+    const total = result.scenarios[0]?.scopes?.total;
+
+    expect(total?.bytes.absolute_delta).toBe(256);
+    expect(total?.bytes.percentage_delta).toBeCloseTo(2.56);
+    expect(total?.bytes.is_regression).toBe(false);
+    expect(total?.estimated_tokens.absolute_delta).toBe(64);
+    expect(total?.estimated_tokens.percentage_delta).toBeCloseTo(2.56);
+    expect(total?.estimated_tokens.is_regression).toBe(false);
+    expect(result.has_regressions).toBe(false);
+    expect(result.scenarios[0]?.status).toBe("small_change");
+  });
+
   it("detects a large regression using explicit absolute and percentage thresholds", () => {
     const baselineMeasurement = measurement("regression");
     const currentMeasurement = measurement(
@@ -132,6 +236,35 @@ describe("Context comparison", () => {
       is_regression: true,
     });
     expect(total?.estimated_tokens.is_regression).toBe(true);
+  });
+
+  it("detects a regression in a non-total scope", () => {
+    const baselineMeasurement = measurement(
+      "structured-regression",
+      size(10_000, 10_000, 2_500),
+      size(100),
+      size(1_000, 1_000, 250),
+    );
+    const currentMeasurement = measurement(
+      "structured-regression",
+      size(10_000, 10_000, 2_500),
+      size(100),
+      size(1_300, 1_300, 325),
+    );
+
+    const result = compareContextMeasurements(
+      createContextBaseline([baselineMeasurement]),
+      [currentMeasurement],
+    );
+
+    expect(result.has_regressions).toBe(true);
+    expect(result.scenarios[0]?.status).toBe("large_regression");
+    expect(
+      result.scenarios[0]?.scopes?.total.bytes.is_regression,
+    ).toBe(false);
+    expect(
+      result.scenarios[0]?.scopes?.structured_content.bytes.is_regression,
+    ).toBe(true);
   });
 
   it("treats context reductions as a small non-regressing change", () => {
@@ -243,19 +376,13 @@ describe("Context comparison", () => {
     const report = formatContextComparison(result);
 
     expect(report).toContain("Context Budget Report");
+    expect(report).toContain("Scenario");
+    expect(report).toContain("regression");
+    expect(report).toContain("large_regression");
+    expect(report).toContain("Context regression detected:");
     expect(report).toContain(
-      "Scenario",
+      "total.bytes baseline=1000 current=1300",
     );
-    expect(report).toContain(
-      "regression",
-    );
-    expect(report).toContain(
-      "large_regression",
-    );
-    expect(report).toContain(
-      "Context regression detected:",
-    );
-    expect(report).toContain("total.bytes baseline=1000 current=1300");
     expect(report).toContain("delta=+300");
     expect(report).toContain("percentage=+30.0%");
     expect(report).toContain("threshold=256/+5.0%");

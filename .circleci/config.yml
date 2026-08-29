@@ -86,12 +86,20 @@ jobs:
           name: Run MCP end-to-end tests
           command: npm run test:e2e
 
+      # context:measure 自身が Redmine reset と build を実行する。
+      # CircleCI 側で追加 reset を行わず、ローカルと CI で同じ canonical command を使う。
       - run:
-          name: Run context budget regression check
+          name: Enforce context budget regression gate
+          command: npm run context:measure
+
+      # 同一 commit / deterministic seed から同じ baseline comparison が
+      # 再現できることを CI 上でも確認する。
+      - run:
+          name: Verify context budget reproducibility
           command: npm run context:measure
 
       - run:
-          name: Reset Redmine for reproducibility check
+          name: Reset Redmine for integration reproducibility check
           command: npm run redmine:reset
 
       - run:

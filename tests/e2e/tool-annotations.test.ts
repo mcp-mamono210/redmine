@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { toolRegistry } from "../../src/mcp/tool-registry.js";
-import { connectE2eClient } from "./helpers.js";
+import { createMcpE2eHarness } from "./helpers.js";
 
 describe("MCP Tool Registry invariants", () => {
   it("publishes exactly the registry read tools with read-only annotations", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-tool-annotations-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName: "redmine-mcp-tool-annotations-e2e-client",
+      env: {
+        REDMINE_WRITE_ENABLED: "false",
+      },
+    });
 
     try {
-      const { tools } = await client.listTools();
+      const { tools } = await harness.listTools();
       const expectedReadTools = toolRegistry.filter(
         (entry) => entry.access === "read",
       );
@@ -54,7 +57,7 @@ describe("MCP Tool Registry invariants", () => {
         );
       }
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 });

@@ -19,7 +19,7 @@ import {
   PRIMARY_TEST_PROJECT_IDENTIFIER,
 } from "../helpers/redmine-fixtures.js";
 import {
-  connectE2eClient,
+  createMcpE2eHarness,
   requireTextContent,
 } from "./helpers.js";
 
@@ -157,14 +157,17 @@ async function processBaseline(
 
 describe("MCP context measurement baseline", () => {
   it("measures the complete deterministic read-only scenario set", async () => {
-    const { client, redmineApiKey } = await connectE2eClient(
-      "redmine-mcp-context-measurement-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName: "redmine-mcp-context-measurement-e2e-client",
+      env: {
+        REDMINE_WRITE_ENABLED: "false",
+      },
+    });
 
     try {
       const measurements: ContextMeasurement[] = [];
 
-      const toolsResult = await client.listTools();
+      const toolsResult = await harness.listTools();
 
       measurements.push(
         measureContext(
@@ -174,10 +177,9 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      const currentUserResult = await client.callTool({
-        name: "redmine_get_current_user",
-        arguments: {},
-      });
+      const currentUserResult = await harness.callTool(
+        "redmine_get_current_user",
+      );
 
       expect(currentUserResult.isError).not.toBe(true);
       expectStructuredMatchesText(currentUserResult);
@@ -190,12 +192,12 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      const issueListResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const issueListResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: PRIMARY_TEST_PROJECT_IDENTIFIER,
         },
-      });
+      );
 
       expect(issueListResult.isError).not.toBe(true);
       expectStructuredMatchesText(issueListResult);
@@ -228,12 +230,12 @@ describe("MCP context measurement baseline", () => {
         );
       }
 
-      const searchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const searchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "authentication",
         },
-      });
+      );
 
       expect(searchResult.isError).not.toBe(true);
       expectStructuredMatchesText(searchResult);
@@ -252,12 +254,12 @@ describe("MCP context measurement baseline", () => {
         ),
       );
 
-      const coreIssueResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const coreIssueResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: targetIssue.id,
         },
-      });
+      );
 
       expect(coreIssueResult.isError).not.toBe(true);
       expectStructuredMatchesText(coreIssueResult);
@@ -270,13 +272,13 @@ describe("MCP context measurement baseline", () => {
 
       measurements.push(coreIssueMeasurement);
 
-      const journalListResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const journalListResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: PRIMARY_TEST_PROJECT_IDENTIFIER,
           subject: JOURNAL_FIXTURE_SUBJECT,
         },
-      });
+      );
 
       expect(journalListResult.isError).not.toBe(true);
       expectStructuredMatchesText(journalListResult);
@@ -295,25 +297,25 @@ describe("MCP context measurement baseline", () => {
         );
       }
 
-      const journalCoreResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const journalCoreResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: journalTarget.id,
         },
-      });
+      );
 
       expect(
         journalCoreResult.isError,
       ).not.toBe(true);
       expectStructuredMatchesText(journalCoreResult);
 
-      const journalDetailResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const journalDetailResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: journalTarget.id,
           include: ["journals"],
         },
-      });
+      );
 
       expect(
         journalDetailResult.isError,
@@ -341,13 +343,13 @@ describe("MCP context measurement baseline", () => {
       );
 
       const allowedStatusesResult =
-        await client.callTool({
-          name: "redmine_get_issue",
-          arguments: {
+        await harness.callTool(
+          "redmine_get_issue",
+          {
             issue_id: targetIssue.id,
             include: ["allowed_statuses"],
           },
-        });
+        );
 
       expect(
         allowedStatusesResult.isError,
@@ -365,12 +367,12 @@ describe("MCP context measurement baseline", () => {
       );
 
       const projectListResult =
-        await client.callTool({
-          name: "redmine_list_projects",
-          arguments: {
+        await harness.callTool(
+          "redmine_list_projects",
+          {
             limit: 25,
           },
-        });
+        );
 
       expect(
         projectListResult.isError,
@@ -397,13 +399,13 @@ describe("MCP context measurement baseline", () => {
       }
 
       const projectResult =
-        await client.callTool({
-          name: "redmine_get_project",
-          arguments: {
+        await harness.callTool(
+          "redmine_get_project",
+          {
             project_id:
               targetProject.identifier,
           },
-        });
+        );
 
       expect(
         projectResult.isError,
@@ -453,12 +455,12 @@ describe("MCP context measurement baseline", () => {
       await processBaseline(
         measurements,
         [
-          redmineApiKey,
+          harness.redmineApiKey,
           process.env.REDMINE_WRITE_API_KEY,
         ].filter((value): value is string => Boolean(value)),
       );
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 });

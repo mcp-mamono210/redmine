@@ -1,175 +1,62 @@
-# Redmine MCP Server
+## Phase 31-2 compatibility fix
 
-Redmine MCP Server is a TypeScript implementation of a Model Context Protocol
-(MCP) server for Redmine.
+### 原因
 
-The latest released version is **v0.1.1**.
-
-The repository may contain changes for the next unreleased version. Exact
-public MCP behavior for the current released read-only contract is documented
-in:
+`connectE2eClient()` を `tests/e2e/helpers.ts` から削除した時点で、
+以下の既存 E2E がまだ import していた。
 
 ```text
-docs/contracts/read-only-mcp-contract.md
+issues.test.ts
+projects.test.ts
+read-only-contract.test.ts
+read-only-workflow.test.ts
+search.test.ts
+structured-output.test.ts
 ```
 
-## Design goals
+このため TypeScript の import 解決が失敗し、その結果 ESLint の type-aware rule が
+`client`, `callTool()`, `listTools()` の型を `error typed` として扱い、
+305件の二次エラーが発生した。
+
+### 修正
+
+`connectE2eClient()` を compatibility wrapper として復元する。
+
+内部では Phase 31-1 の `createMcpE2eHarness()` を利用するため、
+Server / transport lifecycle の実装は重複させない。
+
+戻り値は明示的に以下とする。
+
+```ts
+export interface E2eClientContext {
+  client: Client;
+  redmineApiKey: string;
+}
+```
+
+これにより既存 E2E の `client.listTools()` / `client.callTool()` の型解決を維持する。
+
+### 重要
+
+これは Harness を撤回する修正ではない。
 
 ```text
-Correct
-+
-Secure
-+
-Context-efficient
+既存 test
+  ↓
+connectE2eClient() compatibility wrapper
+  ↓
+createMcpE2eHarness()
+  ↓
+Client / stdio transport
 ```
 
-The MCP surface is intentionally narrow and domain-oriented. It is not a
-generic Redmine REST proxy.
+残存6ファイルを Harness API へ移行した後で、
+`connectE2eClient()` を削除すればよい。
 
-## Documentation roles
-
-Use the documentation in this order:
-
-1. `README.md` — project overview and development entry point
-2. `docs/contracts/read-only-mcp-contract.md` — exact public MCP contract
-3. `docs/adr/README.md` — ADR index and status
-4. relevant ADR files — decision rationale and rejected alternatives
-
-Do not duplicate exact tool lists, pagination limits, include values, or
-response fields in overview documents. Those values belong in the contract
-document.
-
-Repository automation and coding agents should also read `AGENTS.md`.
-
-## Runtime requirements
-
-The exact supported Node.js runtime is defined by:
+### 確認
 
 ```text
-.nvmrc
-```
-
-Current pinned runtime:
-
-```text
-Node.js 24.19.0
-```
-
-Use the same runtime locally and in CI:
-
-```bash
-nvm install
-nvm use
-node --version
-npm --version
-npm ci
-```
-
-`package.json` declares the same runtime through `engines.node`. CircleCI
-installs and verifies the runtime from `.nvmrc` before running npm commands.
-
-Docker and Docker Compose are required for integration and MCP E2E tests.
-
-## Architecture
-
-```text
-src/
-├── mcp/
-│   ├── errors.ts
-│   ├── register-tools.ts
-│   ├── serialize.ts
-│   └── tools/
-├── redmine/
-│   ├── client.ts
-│   ├── errors.ts
-│   ├── schemas.ts
-│   └── types.ts
-└── server.ts
-```
-
-Responsibilities:
-
-- `src/redmine/` handles Redmine HTTP transport, validation, and internal
-  TypeScript models.
-- `src/mcp/tools/` defines MCP tool behavior.
-- `src/mcp/serialize.ts` owns the public JSON naming boundary.
-- `src/mcp/errors.ts` maps backend failures to sanitized MCP application
-  errors.
-- stdout is reserved for MCP protocol traffic.
-
-## Read-only workflow
-
-The read-only design separates compact discovery from detailed retrieval:
-
-```text
-discover / list
-↓
-select resource
-↓
-retrieve detail only when needed
-```
-
-Exact tool names and request/response contracts are defined only in
-`docs/contracts/read-only-mcp-contract.md`.
-
-## Context measurement
-
-Context efficiency is measured deterministically using serialized UTF-8 bytes.
-
-```bash
-npm run context:measure
-```
-
-This command resets the deterministic local Redmine fixture before measuring
-and compares the result with the machine-readable baseline artifact. It prints
-a scenario summary containing current and baseline token estimates, deltas,
-statuses, and the final PASS/FAIL result.
-
-The comparison fails when a large regression is detected, when the baseline
-artifact is invalid, or when scenarios have been added or removed without a
-reviewed baseline update. Small changes remain visible in the report without
-automatically failing the check.
-
-CircleCI runs the same command after MCP E2E tests. Because the command resets
-Redmine first, integration and E2E state cannot leak into the measurement.
-
-Update the baseline only after reviewing an intentional change:
-
-```bash
-npm run context:baseline:update
-```
-
-The normal CI workflow never updates the baseline. Baseline changes remain
-ordinary repository diffs that must be reviewed. Neither command calls an
-external LLM or pricing API, and reports contain measurements rather than raw
-Redmine responses or credentials.
-
-The exact measured scenarios are defined by the test suite. Context policy and
-the reason for measuring bytes are documented in ADR-005.
-
-## Local Redmine lifecycle
-
-```bash
-npm run redmine:start
-npm run redmine:seed
-npm run redmine:reset
-npm run redmine:stop
-```
-
-The Docker environment uses deterministic synthetic fixtures. Production data
-and production credentials must not be copied into the test environment.
-
-## Quality checks
-
-```bash
 npm run lint
 npm run typecheck
-npm run build
-npm run test:unit
-npm run test:integration
 npm run test:e2e
 ```
-
-## License
-
-MIT

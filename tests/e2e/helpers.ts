@@ -16,23 +16,6 @@ export interface McpE2eHarnessOptions {
   env?: Record<string, string | undefined>;
 }
 
-export interface McpE2eHarness {
-  client: Client;
-  redmineApiKey: string;
-  listTools: () => ReturnType<Client["listTools"]>;
-  callTool: (
-    name: string,
-    arguments_?: Record<string, unknown>,
-  ) => ReturnType<Client["callTool"]>;
-  getTool: (
-    name: string,
-  ) => Promise<
-    Awaited<ReturnType<Client["listTools"]>>["tools"][number] | undefined
-  >;
-  hasTool: (name: string) => Promise<boolean>;
-  close: () => Promise<void>;
-}
-
 export function requireEnvironmentVariable(name: string): string {
   const value = process.env[name];
 
@@ -65,7 +48,7 @@ function buildServerEnvironment(
 
 export async function createMcpE2eHarness(
   options: McpE2eHarnessOptions,
-): Promise<McpE2eHarness> {
+) {
   const redmineApiKey = requireEnvironmentVariable("REDMINE_API_KEY");
   const client = new Client({
     name: options.clientName,
@@ -120,11 +103,25 @@ export async function createMcpE2eHarness(
   };
 }
 
+export type McpE2eHarness = Awaited<
+  ReturnType<typeof createMcpE2eHarness>
+>;
+
+/**
+ * Compatibility entry point for E2E tests that have not yet migrated to
+ * createMcpE2eHarness().
+ *
+ * Phase 31-2 can migrate these callers incrementally. Keep the returned
+ * Client type explicit so type-aware ESLint can resolve listTools/callTool.
+ */
 export async function connectE2eClient(
   clientName: string,
 ): Promise<E2eClientContext> {
   const harness = await createMcpE2eHarness({
     clientName,
+    env: {
+      REDMINE_WRITE_ENABLED: "false",
+    },
   });
 
   return {

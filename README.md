@@ -1,62 +1,210 @@
-## Phase 31-2 compatibility fix
+# Redmine MCP Server
 
-### 原因
+A TypeScript MCP server for accessing Redmine through a bounded, read-oriented interface.
 
-`connectE2eClient()` を `tests/e2e/helpers.ts` から削除した時点で、
-以下の既存 E2E がまだ import していた。
+The project is designed around predictable MCP contracts, structured output, deterministic testing, and explicit control of context cost.
 
-```text
-issues.test.ts
-projects.test.ts
-read-only-contract.test.ts
-read-only-workflow.test.ts
-search.test.ts
-structured-output.test.ts
+## Status
+
+Current package version: `0.1.1`
+
+The currently published MCP Tool Registry is read-only. Write access infrastructure and guards are being developed separately and are not exposed as write tools by the current registry.
+
+## Requirements
+
+- Node.js `24.19.0`
+- npm
+- Docker with Docker Compose support for the local Redmine test environment
+- A Redmine instance with the REST API enabled for normal server use
+
+The Node.js version is pinned by `.nvmrc` and `package.json`.
+
+## Installation
+
+Install dependencies and build the server:
+
+```bash
+npm ci
+npm run build
 ```
 
-このため TypeScript の import 解決が失敗し、その結果 ESLint の type-aware rule が
-`client`, `callTool()`, `listTools()` の型を `error typed` として扱い、
-305件の二次エラーが発生した。
+Start the stdio MCP server:
 
-### 修正
-
-`connectE2eClient()` を compatibility wrapper として復元する。
-
-内部では Phase 31-1 の `createMcpE2eHarness()` を利用するため、
-Server / transport lifecycle の実装は重複させない。
-
-戻り値は明示的に以下とする。
-
-```ts
-export interface E2eClientContext {
-  client: Client;
-  redmineApiKey: string;
-}
+```bash
+npm start
 ```
 
-これにより既存 E2E の `client.listTools()` / `client.callTool()` の型解決を維持する。
+## Configuration
 
-### 重要
+The server reads its Redmine connection settings from environment variables.
 
-これは Harness を撤回する修正ではない。
+| Variable | Required | Description |
+| --- | --- | --- |
+| `REDMINE_URL` | Yes | Base URL of the Redmine instance |
+| `REDMINE_API_KEY` | Yes | Redmine API key used by the MCP server |
+| `REDMINE_TIMEOUT_MS` | No | Positive integer request timeout in milliseconds; defaults to 10000 |
+| `REDMINE_WRITE_ENABLED` | No | Write Tool publication guard. Accepts only `true` or `false`; defaults to `false` |
+| `REDMINE_ALLOWED_PROJECTS` | No | Comma-separated project allowlist used by the write guard |
 
-```text
-既存 test
-  ↓
-connectE2eClient() compatibility wrapper
-  ↓
-createMcpE2eHarness()
-  ↓
-Client / stdio transport
+Example:
+
+```bash
+export REDMINE_URL="https://redmine.example.com"
+export REDMINE_API_KEY="<redmine-api-key>"
+npm start
 ```
 
-残存6ファイルを Harness API へ移行した後で、
-`connectE2eClient()` を削除すればよい。
+Do not commit production credentials to the repository.
 
-### 確認
+## MCP Tools
+
+The current Tool Registry publishes the following read-only tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `redmine_get_current_user` | Get the Redmine user associated with the configured API key |
+| `redmine_get_issue` | Get issue detail with explicitly requested optional associations |
+| `redmine_list_issues` | List bounded issue summaries |
+| `redmine_search` | Search Redmine with bounded results |
+| `redmine_get_project` | Get project detail and aggregated project metadata |
+| `redmine_list_projects` | List bounded project summaries |
+
+The Tool Registry is the source of truth for which tools are currently published.
+
+## Response Design
+
+The MCP interface is intentionally designed to limit unnecessary context consumption.
+
+The main principles are:
+
+- list operations return summaries rather than full resource detail;
+- list and search operations use bounded pagination;
+- optional issue associations are returned only when explicitly requested;
+- MCP responses provide structured output;
+- project metadata aggregation is bounded and supports partial-result warnings where appropriate.
+
+This keeps common discovery workflows smaller than returning complete Redmine API payloads for every request.
+
+## Write Guard
+
+Write Tool publication is controlled by `REDMINE_WRITE_ENABLED`.
+
+When the variable is omitted or set to:
 
 ```text
+false
+```
+
+write entries are excluded from the published Tool Registry.
+
+`REDMINE_ALLOWED_PROJECTS` provides a comma-separated project allowlist for write operations.
+
+The current registry contains read-only tools only, so enabling the write guard does not by itself add write tools that are not implemented and registered.
+
+## Local Redmine Test Environment
+
+The repository includes a Docker-based Redmine environment for deterministic integration and MCP E2E testing.
+
+Start Redmine:
+
+```bash
+npm run redmine:start
+```
+
+Seed the running environment:
+
+```bash
+npm run redmine:seed
+```
+
+Rebuild the environment from the deterministic seed:
+
+```bash
+npm run redmine:reset
+```
+
+Stop the environment:
+
+```bash
+npm run redmine:stop
+```
+
+`redmine:reset` is important between test suites that mutate Redmine state and suites that expect the canonical deterministic fixture.
+
+## Testing
+
+Static and unit checks:
+
+```bash
 npm run lint
 npm run typecheck
-npm run test:e2e
+npm run test:unit
 ```
+
+Integration and E2E tests require the local Redmine test environment and test credentials expected by the deterministic seed.
+
+A typical full local sequence is:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+npm run test:unit
+
+npm run redmine:reset
+npm run test:integration
+
+npm run redmine:reset
+npm run test:e2e
+
+npm run context:measure
+npm run build
+```
+
+The integration suite contains write-boundary tests and can mutate Redmine state. Reset Redmine before running the E2E suite so that E2E assertions start from the canonical fixture.
+
+## Context Budget
+
+Context cost is treated as a regression-sensitive quality characteristic.
+
+Measure the current deterministic scenarios against the committed baseline:
+
+```bash
+npm run context:measure
+```
+
+This command resets Redmine, builds the server, measures the context scenarios, and compares them with the committed baseline.
+
+It does not update the baseline.
+
+When a context-cost change is intentional, explicitly regenerate the baseline:
+
+```bash
+npm run context:baseline:update
+```
+
+Review the resulting baseline diff before committing it.
+
+CI must not automatically accept or update a changed Context Budget baseline.
+
+## CI
+
+CircleCI validates the project using the same canonical npm commands used locally.
+
+The CI pipeline covers:
+
+- ESLint
+- TypeScript type checking
+- build
+- unit tests
+- integration tests
+- MCP end-to-end tests
+- Context Budget regression measurement
+
+Redmine is reset at test-suite boundaries where deterministic state is required.
+
+## Development Notes
+
+Implementation-specific migration notes, temporary compatibility fixes, and debugging records should be tracked in Redmine tickets, commits, tests, or architecture documentation rather than replacing this README.
+
+The README is intended to remain the stable entry point for users and contributors.

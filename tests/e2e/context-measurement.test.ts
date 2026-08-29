@@ -1,8 +1,13 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  assertContextReportContainsNoSecrets,
+  compareContextMeasurements,
+  formatContextComparison,
+} from "../helpers/context-comparison.js";
 import {
   createContextBaseline,
   measureContext,
@@ -28,6 +33,10 @@ const EXPECTED_CONTEXT_SCENARIOS = [
   "redmine_get_issue_plus_allowed_statuses",
   "redmine_get_project_stable_envelope",
 ] as const;
+
+const CONTEXT_BASELINE_PATH = resolve(
+  "tests/e2e/context-baseline.json",
+);
 
 interface IssueSummary {
   id: number;
@@ -89,29 +98,61 @@ function expectStructuredMatchesText(result: {
   );
 }
 
-async function emitBaseline(
+async function processBaseline(
   measurements: ContextMeasurement[],
   secrets: string[],
 ): Promise<void> {
   const baseline = createContextBaseline(measurements);
   const serialized = `${JSON.stringify(baseline, null, 2)}\n`;
 
-  for (const secret of secrets) {
-    expect(serialized).not.toContain(secret);
-  }
-
-  console.info(
-    "Context measurement baseline:\n" +
-      serialized,
-  );
+  assertContextReportContainsNoSecrets(serialized, secrets);
 
   if (process.env.UPDATE_CONTEXT_BASELINE === "1") {
     await writeFile(
-      resolve("tests/e2e/context-baseline.json"),
+      CONTEXT_BASELINE_PATH,
       serialized,
       "utf8",
     );
+    console.info(
+      `Context baseline updated: ${CONTEXT_BASELINE_PATH}`,
+    );
+    return;
   }
+
+  if (process.env.COMPARE_CONTEXT_BASELINE === "1") {
+    let baselineJson: unknown;
+
+    try {
+      baselineJson = JSON.parse(
+        await readFile(CONTEXT_BASELINE_PATH, "utf8"),
+      ) as unknown;
+    } catch (error) {
+      throw new Error(
+        "Context baseline could not be read; run npm run context:baseline:update",
+        { cause: error },
+      );
+    }
+
+    const comparison = compareContextMeasurements(
+      baselineJson,
+      measurements,
+    );
+    const report = formatContextComparison(comparison);
+
+    assertContextReportContainsNoSecrets(report, secrets);
+    console.info(report);
+
+    expect(
+      comparison.requires_baseline_update,
+      `${report}\nRun npm run context:baseline:update after reviewing the scenario changes.`,
+    ).toBe(false);
+    expect(comparison.has_regressions, report).toBe(false);
+    return;
+  }
+
+  console.info(
+    "Current context measurement:\n" + serialized,
+  );
 }
 
 describe("MCP context measurement baseline", () => {
@@ -409,7 +450,7 @@ describe("MCP context measurement baseline", () => {
         ).toBeGreaterThan(0);
       }
 
-      await emitBaseline(
+      await processBaseline(
         measurements,
         [
           redmineApiKey,

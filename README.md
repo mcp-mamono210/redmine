@@ -121,8 +121,14 @@ npm run context:measure
 ```
 
 This command resets the deterministic local Redmine fixture before measuring
-and writes the machine-readable baseline artifact. It does not call an
-external LLM or pricing API.
+and compares the result with the machine-readable baseline artifact. Update
+the baseline only after reviewing an intentional change:
+
+```bash
+npm run context:baseline:update
+```
+
+Neither command calls an external LLM or pricing API.
 
 The exact measured scenarios are defined by the test suite. Context policy and
 the reason for measuring bytes are documented in ADR-005.

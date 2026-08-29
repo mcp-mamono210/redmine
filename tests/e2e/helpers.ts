@@ -11,6 +11,28 @@ export interface E2eClientContext {
   redmineApiKey: string;
 }
 
+export interface McpE2eHarnessOptions {
+  clientName: string;
+  env?: Record<string, string | undefined>;
+}
+
+export interface McpE2eHarness {
+  client: Client;
+  redmineApiKey: string;
+  listTools: () => ReturnType<Client["listTools"]>;
+  callTool: (
+    name: string,
+    arguments_?: Record<string, unknown>,
+  ) => ReturnType<Client["callTool"]>;
+  getTool: (
+    name: string,
+  ) => Promise<
+    Awaited<ReturnType<Client["listTools"]>>["tools"][number] | undefined
+  >;
+  hasTool: (name: string) => Promise<boolean>;
+  close: () => Promise<void>;
+}
+
 export function requireEnvironmentVariable(name: string): string {
   const value = process.env[name];
 
@@ -21,32 +43,93 @@ export function requireEnvironmentVariable(name: string): string {
   return value;
 }
 
-export async function connectE2eClient(
-  clientName: string,
-): Promise<E2eClientContext> {
-  const redmineUrl = requireEnvironmentVariable("REDMINE_URL");
-  const redmineApiKey = requireEnvironmentVariable("REDMINE_API_KEY");
+function buildServerEnvironment(
+  overrides: Record<string, string | undefined> = {},
+): Record<string, string> {
+  const environment: Record<string, string> = {
+    ...getDefaultEnvironment(),
+    REDMINE_URL: requireEnvironmentVariable("REDMINE_URL"),
+    REDMINE_API_KEY: requireEnvironmentVariable("REDMINE_API_KEY"),
+  };
 
+  for (const [name, value] of Object.entries(overrides)) {
+    if (value === undefined) {
+      delete environment[name];
+    } else {
+      environment[name] = value;
+    }
+  }
+
+  return environment;
+}
+
+export async function createMcpE2eHarness(
+  options: McpE2eHarnessOptions,
+): Promise<McpE2eHarness> {
+  const redmineApiKey = requireEnvironmentVariable("REDMINE_API_KEY");
   const client = new Client({
-    name: clientName,
+    name: options.clientName,
     version: "0.0.1",
   });
 
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [resolve("dist/src/index.js")],
-    env: {
-      ...getDefaultEnvironment(),
-      REDMINE_URL: redmineUrl,
-      REDMINE_API_KEY: redmineApiKey,
-    },
+    env: buildServerEnvironment(options.env),
   });
 
-  await client.connect(transport);
+  let closed = false;
+
+  const close = async (): Promise<void> => {
+    if (closed) {
+      return;
+    }
+
+    closed = true;
+    await client.close();
+  };
+
+  try {
+    await client.connect(transport);
+  } catch (error) {
+    await close().catch(() => undefined);
+    throw error;
+  }
 
   return {
     client,
     redmineApiKey,
+    listTools: () => client.listTools(),
+    callTool: (
+      name: string,
+      arguments_: Record<string, unknown> = {},
+    ) =>
+      client.callTool({
+        name,
+        arguments: arguments_,
+      }),
+    getTool: async (name: string) => {
+      const { tools } = await client.listTools();
+      return tools.find((tool) => tool.name === name);
+    },
+    hasTool: async (name: string) => {
+      const { tools } = await client.listTools();
+      return tools.some((tool) => tool.name === name);
+    },
+    close,
+  };
+}
+
+export async function connectE2eClient(
+  clientName: string,
+): Promise<E2eClientContext> {
+  const harness = await createMcpE2eHarness({
+    clientName,
+  });
+
+  return {
+    client: harness.client,
+    redmineApiKey: harness.redmineApiKey,
   };
 }
 

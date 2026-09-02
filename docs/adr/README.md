@@ -25,8 +25,9 @@ the contract document.
 | ADR-006 | Use deterministic synthetic Redmine fixtures | Accepted |
 | ADR-007 | Enforce a read-only least-privilege security boundary | Accepted |
 | ADR-008 | Keep distribution independent from public registry publication | Accepted |
-| ADR-009 | Use JSON text responses before structured output | Accepted |
+| ADR-009 | Use JSON text responses before structured output | Superseded by ADR-011 |
 | ADR-010 | Provide deterministic local Redmine lifecycle commands | Accepted |
+| ADR-011 | Publish outputSchema and structuredContent for Read-only Tools | Accepted |
 
 ## Status values
 

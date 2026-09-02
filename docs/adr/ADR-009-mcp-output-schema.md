@@ -1,7 +1,7 @@
 
 # ADR-009: Use JSON text responses before structured output
 
-Status: Accepted  
+Status: Superseded by ADR-011  
 Date: 2026-08-23
 
 ## Context

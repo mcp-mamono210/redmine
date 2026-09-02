@@ -1,9 +1,9 @@
 # Read-only MCP Contract
 
-Status: v0.2.0 release candidate  
-Contract target: v0.2.0  
+Status: Released  
+Contract version: v0.1.1  
 Latest released version: v0.1.1  
-Last synchronized: 2026-09-03
+Last synchronized: 2026-08-24
 
 This document is the canonical documentation for the exact read-only MCP
 behavior released in v0.1.1.
@@ -40,65 +40,10 @@ allowed_statuses          allowedStatuses
 created_on                createdOn
 ```
 
-Successful Read-only Tool responses expose the same public object in two
-representations:
+Successful tool responses are currently serialized as JSON in
+`content[0].text`.
 
-- JSON serialized in `content[0].text`
-- MCP `structuredContent`
-
-Every currently published Read-only Tool declares an `outputSchema`.
-
-The JSON text and `structuredContent` MUST represent the same public data.
-Both representations use the same `snake_case` field names defined by the
-public MCP contract. Internal TypeScript `camelCase` names remain an
-implementation detail.
-
-Application errors keep the existing error contract: the tool result is marked
-with `isError: true` and the bounded, sanitized application error envelope is
-serialized in text content. The successful `outputSchema` /
-`structuredContent` contract does not redefine the error envelope.
-
-## Structured output contract
-
-The six currently published Read-only Tools expose `outputSchema` in
-`tools/list` and return `structuredContent` on successful calls.
-
-Contract requirements:
-
-```text
-outputSchema
-  -> describes the successful public response object for the Tool
-
-content[0].text
-  -> JSON serialization of the successful public response object
-
-structuredContent
-  -> the same successful public response object represented structurally
-
-public field naming
-  -> snake_case in both text JSON and structuredContent
-
-internal TypeScript naming
-  -> camelCase is allowed internally but must not leak into either public
-     representation
-```
-
-For a successful Tool call, parsing `content[0].text` as JSON MUST produce a
-value equivalent to `structuredContent`.
-
-The current Read-only Tool surface covered by this contract is:
-
-```text
-redmine_get_current_user
-redmine_get_issue
-redmine_list_issues
-redmine_get_project
-redmine_list_projects
-redmine_search
-```
-
-Schema changes that alter a public successful response shape require contract
-review and corresponding regression-test updates.
+`outputSchema` and `structuredContent` are not part of this contract.
 
 ## Tool surface
 
@@ -274,7 +219,7 @@ The response contains project summaries only.
 
 ### `redmine_get_project`
 
-Purpose: retrieve project detail and the currently supported project metadata.
+Purpose: retrieve project detail and bounded aggregated project metadata.
 
 Response envelope:
 
@@ -284,39 +229,76 @@ Response envelope:
   "trackers": [],
   "categories": [],
   "custom_fields": [],
-  "versions": null,
-  "members": null,
-  "priorities": null,
+  "versions": [],
+  "members": [],
+  "priorities": [],
   "warnings": []
 }
 ```
 
-Semantics:
+The envelope keys are stable. `versions`, `members`, and `priorities` are
+nullable because each optional metadata request can fail independently.
+
+Value semantics:
 
 ```text
-null
-  -> not fetched / not implemented by this contract
-
 []
-  -> fetched successfully and no entries were returned
+  -> the metadata request succeeded and returned zero entries
+
+null
+  -> the corresponding optional metadata request failed
+
+non-empty array
+  -> the metadata request succeeded and returned entries
 ```
 
-For this contract:
+Metadata sources:
 
 ```text
 trackers
 categories
 custom_fields
-  -> populated from the Redmine Project API
+  -> populated with the core Redmine Project request
 
 versions
-members
-priorities
-  -> reserved as null
+  -> populated from the project versions request
 
-warnings
-  -> reserved for future partial-failure reporting and currently []
+members
+  -> populated from the project memberships request
+     using one bounded page with limit = 100
+
+priorities
+  -> populated from the issue-priorities request
 ```
+
+Optional metadata is aggregated independently. A failure while retrieving
+`versions`, `members`, or `priorities` does not fail the whole Tool call after
+the core project has been retrieved successfully. The failed field remains
+`null`, successfully retrieved metadata remains available, and `warnings`
+contains a bounded public warning.
+
+The current unavailable warning strings are:
+
+```text
+versions: unavailable
+members: unavailable
+priorities: unavailable
+```
+
+Multiple optional metadata failures are reported independently in `warnings`.
+Backend exception messages, API keys, Authorization values, and other secret
+details must not be copied into these warnings.
+
+Membership aggregation is intentionally bounded to one page. If Redmine
+reports more memberships than were returned in that bounded page, the returned
+`members` array contains the retrieved entries and `warnings` includes:
+
+```text
+members: truncated to <returned_count> of <total_count>
+```
+
+A failure of the core project request is not a partial result. It fails the Tool
+call through the normal public error contract.
 
 ## Error contract
 
@@ -372,13 +354,8 @@ No hard byte threshold is part of the v0.1.1 contract.
 
 ## Regression coverage
 
-The contract is protected by the read-only contract/workflow E2E tests, the
-structured-output E2E tests, and the tool-specific unit, integration, and E2E
-tests.
-
-In particular, regression coverage verifies that all published Read-only Tools
-declare `outputSchema` and that successful text JSON and `structuredContent`
-remain equivalent.
+The contract is protected by the read-only contract/workflow E2E tests and the
+tool-specific unit, integration, and E2E tests.
 
 When this document changes, the corresponding executable regression contract
 must change in the same ticket.

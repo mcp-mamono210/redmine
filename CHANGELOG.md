@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a human-readable Context Budget Report with scenario deltas, regression details, and an explicit PASS/FAIL result.
 - Added the context baseline comparison to CircleCI using a clean deterministic Redmine fixture.
 
+### Changed
+
+- Documented the v0.2.0 `redmine_get_project` metadata aggregation contract: successful `versions`, `members`, and `priorities` requests return arrays, per-section failures return `null` with sanitized bounded warnings, and memberships are aggregated with a bounded page plus truncation warning.
+
 ## [0.1.1] - 2026-08-24
 
 ### Added

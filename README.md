@@ -6,7 +6,10 @@ The project is designed around predictable MCP contracts, structured output, det
 
 ## Status
 
-Current package version: `0.1.1`
+Current package version: `0.2.0`
+
+Release status: v0.2.0 release candidate. Git tagging, GitHub Release creation,
+and the final release operation remain outside this preparation change.
 
 The currently published MCP Tool Registry is read-only. Write access infrastructure and guards are being developed separately and are not exposed as write tools by the current registry.
 

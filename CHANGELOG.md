@@ -7,14 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes have been recorded after the v0.2.0 release candidate.
+
+## [0.2.0] - Release candidate
+
 ### Added
 
-- Added a human-readable Context Budget Report with scenario deltas, regression details, and an explicit PASS/FAIL result.
-- Added the context baseline comparison to CircleCI using a clean deterministic Redmine fixture.
+- Added `outputSchema` declarations and equivalent `structuredContent` results for all six published Read-only Tools while retaining JSON text responses.
+- Added bounded `redmine_get_project` aggregation for versions, memberships, and issue priorities, including partial-result warnings and membership truncation reporting.
+- Added read/write Tool Registry classification, duplicate-name validation, write-publication filtering, and project allowlist guards without publishing write tools in v0.2.0.
+- Added deterministic writer-role fixtures and permission-boundary coverage for read-only and writer credentials.
+- Added a shared MCP E2E Harness and migrated the Read-only Tool workflows to it.
+- Added committed Context Budget baselines for Tool discovery, representative Tool responses, heavy/include responses, and multi-call workflows.
+- Added Context Budget regression classification, a human-readable comparison report, explicit baseline-update commands, and a CircleCI release gate.
+- Added MCP Tool annotations for the published Read-only Tool surface.
 
 ### Changed
 
-- Documented the v0.2.0 `redmine_get_project` metadata aggregation contract: successful `versions`, `members`, and `priorities` requests return arrays, per-section failures return `null` with sanitized bounded warnings, and memberships are aggregated with a bounded page plus truncation warning.
+- Changed `redmine_get_project` so successful optional metadata requests return arrays while independently failed sections return `null` with bounded, sanitized warnings.
+- Centralized MCP Tool registration and publication decisions in the Tool Registry.
+- Serialized Redmine-dependent integration and E2E suites and added explicit Redmine reset boundaries so deterministic fixtures are not shared across suites.
+- Added repeated Context Budget, integration, and MCP E2E execution to CircleCI to detect order-dependent or one-time-success behavior.
+- Normalized null or missing Redmine custom-field values to an empty string at the client schema boundary.
+
+### Security
+
+- Kept write Tool publication disabled by default and separate from the read-only Redmine credential boundary.
+- Prevented Context Budget diagnostics and baselines from including raw MCP responses or configured secrets.
+- Preserved bounded, sanitized application errors independently from the successful structured-output contract.
 
 ## [0.1.1] - 2026-08-24
 

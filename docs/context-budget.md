@@ -1,6 +1,6 @@
 # Context Budget
 
-Status: Draft  
+Status: v0.2.0 release candidate  
 Target release: v0.2.0  
 Baseline format version: 1
 

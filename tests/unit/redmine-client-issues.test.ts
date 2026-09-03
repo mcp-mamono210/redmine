@@ -31,6 +31,82 @@ function toUrl(input: string | URL | Request): URL {
 }
 
 describe("RedmineClient issue include contract", () => {
+  it("normalizes null custom field values to the public empty-string representation", async () => {
+    const fetchImpl: typeof fetch = () =>
+      Promise.resolve(
+        new Response(
+          rawIssue({
+            custom_fields: [
+              {
+                id: 10,
+                name: "release_tag",
+                value: null,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+      );
+
+    const client = new RedmineClient({
+      baseUrl,
+      apiKey,
+      fetchImpl,
+    });
+
+    const issue = await client.getIssue(42);
+
+    expect(issue.customFields).toEqual([
+      {
+        id: 10,
+        name: "release_tag",
+        value: "",
+      },
+    ]);
+  });
+
+  it("accepts null custom field values in bounded issue lists", async () => {
+    const issue = JSON.parse(rawIssue()) as {
+      issue: Record<string, unknown>;
+    };
+    const fetchImpl: typeof fetch = () =>
+      Promise.resolve(
+        Response.json({
+          issues: [
+            {
+              ...issue.issue,
+              custom_fields: [
+                {
+                  id: 10,
+                  name: "release_tag",
+                  value: null,
+                },
+              ],
+            },
+          ],
+          total_count: 1,
+          offset: 0,
+          limit: 10,
+        }),
+      );
+
+    const client = new RedmineClient({
+      baseUrl,
+      apiKey,
+      fetchImpl,
+    });
+
+    const result = await client.listIssues();
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).not.toHaveProperty("customFields");
+  });
+
   it("omits the include query parameter by default", async () => {
     let requestUrl: URL | undefined;
 

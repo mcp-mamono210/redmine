@@ -23,7 +23,10 @@ export const customFieldSchema = z
   .object({
     id: z.number().int(),
     name: z.string(),
-    value: z.union([z.string(), z.array(z.string())]).default(""),
+    value: z
+      .union([z.string(), z.array(z.string())])
+      .nullish()
+      .transform((value) => value ?? ""),
   })
   .passthrough();
 

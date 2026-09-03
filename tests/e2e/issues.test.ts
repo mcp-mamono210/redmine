@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { connectE2eClient, requireTextContent } from "./helpers.js";
+import {
+  createMcpE2eHarness,
+  requireTextContent,
+} from "./helpers.js";
 
 const AUTHENTICATION_SUBJECT =
   "Authentication fails for invalid API token";
@@ -43,18 +46,18 @@ function expectNoCamelCaseIssueKeys(
 
 describe("Issue read-only MCP E2E", () => {
   it("keeps subject matching partial, list responses summarized, and get_issue core-only by default", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-issues-core-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName: "redmine-mcp-issues-core-e2e-client",
+    });
 
     try {
-      const listResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const listResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           subject: "invalid API",
         },
-      });
+      );
 
       expect(listResult.isError).not.toBe(true);
 
@@ -90,12 +93,12 @@ describe("Issue read-only MCP E2E", () => {
         throw new Error("Representative issue was not found");
       }
 
-      const getResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const getResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: target.id,
         },
-      });
+      );
 
       expect(getResult.isError).not.toBe(true);
 
@@ -109,23 +112,24 @@ describe("Issue read-only MCP E2E", () => {
       expectOptionalAssociationsAbsent(detail);
       expectNoCamelCaseIssueKeys(detail);
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 
   it("returns only the explicitly requested optional issue association", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-issue-single-includes-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-issue-single-includes-e2e-client",
+    });
 
     try {
-      const journalListResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const journalListResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           subject: JOURNAL_SUBJECT,
         },
-      });
+      );
 
       expect(journalListResult.isError).not.toBe(true);
 
@@ -145,13 +149,13 @@ describe("Issue read-only MCP E2E", () => {
         throw new Error("Journal fixture issue was not found");
       }
 
-      const journalsResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const journalsResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: journalTarget.id,
           include: ["journals"],
         },
-      });
+      );
 
       expect(journalsResult.isError).not.toBe(true);
 
@@ -168,13 +172,13 @@ describe("Issue read-only MCP E2E", () => {
       ).toBe(true);
       expectOptionalAssociationsAbsent(journalsDetail, ["journals"]);
 
-      const attachmentsResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const attachmentsResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: journalTarget.id,
           include: ["attachments"],
         },
-      });
+      );
 
       expect(attachmentsResult.isError).not.toBe(true);
 
@@ -190,13 +194,13 @@ describe("Issue read-only MCP E2E", () => {
         ["attachments"],
       );
 
-      const childrenResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const childrenResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: journalTarget.id,
           include: ["children"],
         },
-      });
+      );
 
       expect(childrenResult.isError).not.toBe(true);
 
@@ -213,13 +217,13 @@ describe("Issue read-only MCP E2E", () => {
       expect(childrenDetail.children ?? []).toEqual([]);
       expectOptionalAssociationsAbsent(childrenDetail, ["children"]);
 
-      const allowedStatusesResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const allowedStatusesResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: journalTarget.id,
           include: ["allowed_statuses"],
         },
-      });
+      );
 
       expect(allowedStatusesResult.isError).not.toBe(true);
 
@@ -238,13 +242,13 @@ describe("Issue read-only MCP E2E", () => {
       );
       expectNoCamelCaseIssueKeys(allowedStatusesDetail);
 
-      const relationListResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const relationListResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           subject: "Authentication fails",
         },
-      });
+      );
 
       expect(relationListResult.isError).not.toBe(true);
 
@@ -264,13 +268,13 @@ describe("Issue read-only MCP E2E", () => {
         throw new Error("Relation fixture issue was not found");
       }
 
-      const relationsResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const relationsResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: relationTarget.id,
           include: ["relations"],
         },
-      });
+      );
 
       expect(relationsResult.isError).not.toBe(true);
 
@@ -284,23 +288,24 @@ describe("Issue read-only MCP E2E", () => {
       expectOptionalAssociationsAbsent(relationsDetail, ["relations"]);
       expectNoCamelCaseIssueKeys(relationsDetail);
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 
   it("supports multiple explicit includes without adding unrequested associations", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-issue-multiple-includes-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-issue-multiple-includes-e2e-client",
+    });
 
     try {
-      const listResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const listResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           subject: JOURNAL_SUBJECT,
         },
-      });
+      );
 
       expect(listResult.isError).not.toBe(true);
 
@@ -320,13 +325,13 @@ describe("Issue read-only MCP E2E", () => {
         throw new Error("Journal fixture issue was not found");
       }
 
-      const result = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const result = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: target.id,
           include: ["journals", "allowed_statuses"],
         },
-      });
+      );
 
       expect(result.isError).not.toBe(true);
 
@@ -351,23 +356,24 @@ describe("Issue read-only MCP E2E", () => {
       ]);
       expectNoCamelCaseIssueKeys(detail);
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 
   it("rejects unsupported get_issue include values at the MCP schema boundary", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-issue-include-validation-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-issue-include-validation-e2e-client",
+    });
 
     try {
-      const invalidResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const invalidResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: 1,
           include: ["watchers"],
         },
-      });
+      );
 
       expect(invalidResult.isError).toBe(true);
 
@@ -377,7 +383,7 @@ describe("Issue read-only MCP E2E", () => {
 
       expect(invalidText).toContain("Input validation error");
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 });

@@ -163,6 +163,11 @@ npm run build
 
 The integration suite contains write-boundary tests and can mutate Redmine state. Reset Redmine before running the E2E suite so that E2E assertions start from the canonical fixture.
 
+Redmine-dependent integration and E2E test files run serially. Unit tests may
+run in parallel because they do not use the shared Redmine environment. This
+keeps the shared fixture deterministic without introducing per-test cleanup or
+granting additional Redmine permissions.
+
 ## Context Budget
 
 Context cost is treated as a regression-sensitive quality characteristic.
@@ -202,6 +207,9 @@ The CI pipeline covers:
 - Context Budget regression measurement
 
 Redmine is reset at test-suite boundaries where deterministic state is required.
+CI also repeats the Context Budget measurement and re-runs the integration and
+MCP E2E suites after fresh resets. These checks verify that results do not
+depend on state left by a previous suite or on a one-time successful seed.
 
 ## Development Notes
 

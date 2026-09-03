@@ -6,11 +6,6 @@ import {
   StdioClientTransport,
 } from "@modelcontextprotocol/client/stdio";
 
-export interface E2eClientContext {
-  client: Client;
-  redmineApiKey: string;
-}
-
 export interface McpE2eHarnessOptions {
   clientName: string;
   env?: Record<string, string | undefined>;
@@ -33,6 +28,7 @@ function buildServerEnvironment(
     ...getDefaultEnvironment(),
     REDMINE_URL: requireEnvironmentVariable("REDMINE_URL"),
     REDMINE_API_KEY: requireEnvironmentVariable("REDMINE_API_KEY"),
+    REDMINE_WRITE_ENABLED: "false",
   };
 
   for (const [name, value] of Object.entries(overrides)) {
@@ -80,7 +76,6 @@ export async function createMcpE2eHarness(
   }
 
   return {
-    client,
     redmineApiKey,
     listTools: () => client.listTools(),
     callTool: (
@@ -106,29 +101,6 @@ export async function createMcpE2eHarness(
 export type McpE2eHarness = Awaited<
   ReturnType<typeof createMcpE2eHarness>
 >;
-
-/**
- * Compatibility entry point for E2E tests that have not yet migrated to
- * createMcpE2eHarness().
- *
- * Phase 31-2 can migrate these callers incrementally. Keep the returned
- * Client type explicit so type-aware ESLint can resolve listTools/callTool.
- */
-export async function connectE2eClient(
-  clientName: string,
-): Promise<E2eClientContext> {
-  const harness = await createMcpE2eHarness({
-    clientName,
-    env: {
-      REDMINE_WRITE_ENABLED: "false",
-    },
-  });
-
-  return {
-    client: harness.client,
-    redmineApiKey: harness.redmineApiKey,
-  };
-}
 
 export function requireTextContent(
   content: Array<

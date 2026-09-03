@@ -20,11 +20,14 @@ describe("MCP tool registry", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("uses only supported access classifications", () => {
-    for (const entry of toolRegistry) {
+  it.each(toolRegistry)(
+    "defines complete metadata for $name",
+    (entry) => {
+      expect(entry.name).toMatch(/^redmine_[a-z0-9_]+$/);
       expect(["read", "write"]).toContain(entry.access);
-    }
-  });
+      expect(entry.register).toBeTypeOf("function");
+    },
+  );
 
   it("classifies every currently implemented tool as read-only", () => {
     expect(

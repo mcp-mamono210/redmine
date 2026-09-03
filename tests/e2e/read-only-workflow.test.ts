@@ -1,19 +1,11 @@
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
 
+import { toolRegistry } from "../../src/mcp/tool-registry.js";
 import {
-  connectE2eClient,
+  createMcpE2eHarness,
   requireTextContent,
 } from "./helpers.js";
-
-const EXPECTED_READ_ONLY_TOOLS = [
-  "redmine_get_current_user",
-  "redmine_get_issue",
-  "redmine_get_project",
-  "redmine_list_issues",
-  "redmine_list_projects",
-  "redmine_search",
-] as const;
 
 const currentUserSchema = z.object({
   id: z.number().int().positive(),
@@ -130,21 +122,23 @@ function parseToolJson<T>(
 
 describe("Read-only MCP E2E contract", () => {
   it("completes the read-only workflows over stdio", async () => {
-    const { client, redmineApiKey } = await connectE2eClient(
-      "redmine-mcp-read-only-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName: "redmine-mcp-read-only-e2e-client",
+    });
 
     try {
-      const { tools } = await client.listTools();
+      const { tools } = await harness.listTools();
       const actualToolNames = tools.map(({ name }) => name).sort();
-      const expectedToolNames = [...EXPECTED_READ_ONLY_TOOLS].sort();
+      const expectedToolNames = toolRegistry
+        .filter((entry) => entry.access === "read")
+        .map((entry) => entry.name)
+        .sort();
 
       expect(actualToolNames).toEqual(expectedToolNames);
 
-      const currentUserResult = await client.callTool({
-        name: "redmine_get_current_user",
-        arguments: {},
-      });
+      const currentUserResult = await harness.callTool(
+        "redmine_get_current_user",
+      );
 
       expect(currentUserResult.isError).not.toBe(true);
 
@@ -157,15 +151,17 @@ describe("Read-only MCP E2E contract", () => {
       );
 
       expect(currentUser.login).toBe("mcp-test");
-      expect(currentUserText).not.toContain(redmineApiKey);
+      expect(currentUserText).not.toContain(
+        harness.redmineApiKey,
+      );
 
-      const searchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const searchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "authentication",
           limit: 20,
         },
-      });
+      );
 
       expect(searchResult.isError).not.toBe(true);
 
@@ -190,15 +186,17 @@ describe("Read-only MCP E2E contract", () => {
         );
       }
 
-      expect(searchText).not.toContain(redmineApiKey);
-      expect(searchTarget.url).not.toContain(redmineApiKey);
+      expect(searchText).not.toContain(harness.redmineApiKey);
+      expect(searchTarget.url).not.toContain(
+        harness.redmineApiKey,
+      );
 
-      const searchIssueResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const searchIssueResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: searchTarget.id,
         },
-      });
+      );
 
       expect(searchIssueResult.isError).not.toBe(true);
 
@@ -217,15 +215,17 @@ describe("Read-only MCP E2E contract", () => {
       expect(searchIssue.project.name).toBe("MCP Test Project");
       expect(searchIssue.tracker.name).toBe("Bug");
       expect(searchIssue.status.name).toBe("New");
-      expect(searchIssueText).not.toContain(redmineApiKey);
+      expect(searchIssueText).not.toContain(
+        harness.redmineApiKey,
+      );
 
-      const issueListResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const issueListResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           limit: 20,
         },
-      });
+      );
 
       expect(issueListResult.isError).not.toBe(true);
 
@@ -249,14 +249,16 @@ describe("Read-only MCP E2E contract", () => {
         );
       }
 
-      expect(issueListText).not.toContain(redmineApiKey);
+      expect(issueListText).not.toContain(
+        harness.redmineApiKey,
+      );
 
-      const listedIssueResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const listedIssueResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: listedIssue.id,
         },
-      });
+      );
 
       expect(listedIssueResult.isError).not.toBe(true);
 
@@ -272,14 +274,16 @@ describe("Read-only MCP E2E contract", () => {
       expect(listedIssueDetail.subject).toBe(
         "Authentication fails for invalid API token",
       );
-      expect(listedIssueText).not.toContain(redmineApiKey);
+      expect(listedIssueText).not.toContain(
+        harness.redmineApiKey,
+      );
 
-      const projectListResult = await client.callTool({
-        name: "redmine_list_projects",
-        arguments: {
+      const projectListResult = await harness.callTool(
+        "redmine_list_projects",
+        {
           limit: 25,
         },
-      });
+      );
 
       expect(projectListResult.isError).not.toBe(true);
 
@@ -303,14 +307,16 @@ describe("Read-only MCP E2E contract", () => {
       }
 
       expect(project.name).toBe("MCP Test Project");
-      expect(projectListText).not.toContain(redmineApiKey);
+      expect(projectListText).not.toContain(
+        harness.redmineApiKey,
+      );
 
-      const projectResult = await client.callTool({
-        name: "redmine_get_project",
-        arguments: {
+      const projectResult = await harness.callTool(
+        "redmine_get_project",
+        {
           project_id: project.identifier,
         },
-      });
+      );
 
       expect(projectResult.isError).not.toBe(true);
 
@@ -343,16 +349,16 @@ describe("Read-only MCP E2E contract", () => {
       expect(Array.isArray(projectDetail.priorities)).toBe(true);
       expect(projectDetail.priorities.length).toBeGreaterThan(0);
       expect(projectDetail.warnings).toEqual([]);
-      expect(projectText).not.toContain(redmineApiKey);
+      expect(projectText).not.toContain(harness.redmineApiKey);
 
-      const scopedSearchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const scopedSearchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "Secondary",
           project_id: "mcp-secondary",
           limit: 20,
         },
-      });
+      );
 
       expect(scopedSearchResult.isError).not.toBe(true);
 
@@ -378,9 +384,11 @@ describe("Read-only MCP E2E contract", () => {
           ),
         ),
       ).toBe(false);
-      expect(scopedSearchText).not.toContain(redmineApiKey);
+      expect(scopedSearchText).not.toContain(
+        harness.redmineApiKey,
+      );
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 });

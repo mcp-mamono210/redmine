@@ -107,6 +107,14 @@ jobs:
           command: npm run test:integration
 
       - run:
+          name: Reset Redmine for MCP E2E reproducibility check
+          command: npm run redmine:reset
+
+      - run:
+          name: Re-run MCP end-to-end tests after reset
+          command: npm run test:e2e
+
+      - run:
           name: Stop Redmine test environment
           command: npm run redmine:stop
           when: always

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  connectE2eClient,
+  createMcpE2eHarness,
   requireTextContent,
 } from "./helpers.js";
 
@@ -226,12 +226,13 @@ function expectSnakeCaseKeys(
 
 describe("Read-only MCP public contract", () => {
   it("keeps tools/list names, descriptions, required fields, bounds, and include enum stable", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-read-only-contract-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-read-only-contract-e2e-client",
+    });
 
     try {
-      const { tools } = await client.listTools();
+      const { tools } = await harness.listTools();
       const toolByName = new Map(
         tools.map((tool) => [tool.name, tool]),
       );
@@ -290,22 +291,23 @@ describe("Read-only MCP public contract", () => {
         [...EXPECTED_ISSUE_INCLUDE_VALUES].sort(),
       );
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 
   it("enforces list and search pagination defaults and maximum bounds", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-pagination-contract-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-pagination-contract-e2e-client",
+    });
 
     try {
-      const defaultIssueResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const defaultIssueResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
         },
-      });
+      );
 
       expect(defaultIssueResult.isError).not.toBe(true);
 
@@ -315,13 +317,13 @@ describe("Read-only MCP public contract", () => {
 
       expect(defaultIssueResponse.limit).toBe(10);
 
-      const maximumIssueResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const maximumIssueResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           limit: 20,
         },
-      });
+      );
 
       expect(maximumIssueResult.isError).not.toBe(true);
 
@@ -331,22 +333,22 @@ describe("Read-only MCP public contract", () => {
 
       expect(maximumIssueResponse.limit).toBe(20);
 
-      const overLimitIssueResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const overLimitIssueResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           limit: 21,
         },
-      });
+      );
 
       expect(overLimitIssueResult.isError).toBe(true);
 
-      const defaultSearchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const defaultSearchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "Authentication",
         },
-      });
+      );
 
       expect(defaultSearchResult.isError).not.toBe(true);
 
@@ -356,13 +358,13 @@ describe("Read-only MCP public contract", () => {
 
       expect(defaultSearchResponse.limit).toBe(10);
 
-      const maximumSearchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const maximumSearchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "Authentication",
           limit: 20,
         },
-      });
+      );
 
       expect(maximumSearchResult.isError).not.toBe(true);
 
@@ -372,50 +374,51 @@ describe("Read-only MCP public contract", () => {
 
       expect(maximumSearchResponse.limit).toBe(20);
 
-      const overLimitSearchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const overLimitSearchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "Authentication",
           limit: 21,
         },
-      });
+      );
 
       expect(overLimitSearchResult.isError).toBe(true);
 
-      const maximumProjectResult = await client.callTool({
-        name: "redmine_list_projects",
-        arguments: {
+      const maximumProjectResult = await harness.callTool(
+        "redmine_list_projects",
+        {
           limit: 100,
         },
-      });
+      );
 
       expect(maximumProjectResult.isError).not.toBe(true);
 
-      const overLimitProjectResult = await client.callTool({
-        name: "redmine_list_projects",
-        arguments: {
+      const overLimitProjectResult = await harness.callTool(
+        "redmine_list_projects",
+        {
           limit: 101,
         },
-      });
+      );
 
       expect(overLimitProjectResult.isError).toBe(true);
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 
   it("keeps issue and project list responses summarized and snake_case", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-summary-contract-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-summary-contract-e2e-client",
+    });
 
     try {
-      const issueResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const issueResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
         },
-      });
+      );
 
       expect(issueResult.isError).not.toBe(true);
 
@@ -452,12 +455,12 @@ describe("Read-only MCP public contract", () => {
         expect(issue).not.toHaveProperty("author");
       }
 
-      const projectResult = await client.callTool({
-        name: "redmine_list_projects",
-        arguments: {
+      const projectResult = await harness.callTool(
+        "redmine_list_projects",
+        {
           limit: 25,
         },
-      });
+      );
 
       expect(projectResult.isError).not.toBe(true);
 
@@ -491,7 +494,7 @@ describe("Read-only MCP public contract", () => {
         expect(project).not.toHaveProperty("warnings");
       }
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 });

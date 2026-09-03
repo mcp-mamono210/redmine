@@ -1,23 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { connectE2eClient, requireTextContent } from "./helpers.js";
+import {
+  createMcpE2eHarness,
+  requireTextContent,
+} from "./helpers.js";
 
 const AUTHENTICATION_SUBJECT =
   "Authentication fails for invalid API token";
 
 describe("Search read-only MCP E2E", () => {
   it("discovers an issue by free text and retrieves its detail by discovered ID", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-search-issue-workflow-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-search-issue-workflow-e2e-client",
+    });
 
     try {
-      const searchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const searchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "authentication",
         },
-      });
+      );
 
       expect(searchResult.isError).not.toBe(true);
 
@@ -55,12 +59,12 @@ describe("Search read-only MCP E2E", () => {
         );
       }
 
-      const getResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const getResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: target.id,
         },
-      });
+      );
 
       expect(getResult.isError).not.toBe(true);
 
@@ -79,7 +83,7 @@ describe("Search read-only MCP E2E", () => {
       expect(detail).not.toHaveProperty("attachments");
       expect(detail).not.toHaveProperty("allowed_statuses");
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 });

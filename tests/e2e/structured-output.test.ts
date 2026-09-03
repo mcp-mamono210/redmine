@@ -1,18 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { toolRegistry } from "../../src/mcp/tool-registry.js";
 import {
-  connectE2eClient,
+  createMcpE2eHarness,
   requireTextContent,
 } from "./helpers.js";
-
-const EXPECTED_STRUCTURED_TOOLS = [
-  "redmine_get_current_user",
-  "redmine_get_issue",
-  "redmine_get_project",
-  "redmine_list_issues",
-  "redmine_list_projects",
-  "redmine_search",
-] as const;
 
 interface IssueSummary {
   id: number;
@@ -98,17 +90,22 @@ function expectStructuredMatchesText(result: {
 
 describe("MCP Structured Output E2E", () => {
   it("publishes output schemas for every read-only tool", async () => {
-    const { client } = await connectE2eClient(
-      "redmine-mcp-structured-output-tools-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-structured-output-tools-e2e-client",
+    });
 
     try {
-      const { tools } = await client.listTools();
+      const { tools } = await harness.listTools();
       const toolByName = new Map(
         tools.map((tool) => [tool.name, tool]),
       );
 
-      for (const name of EXPECTED_STRUCTURED_TOOLS) {
+      const readToolNames = toolRegistry
+        .filter((entry) => entry.access === "read")
+        .map((entry) => entry.name);
+
+      for (const name of readToolNames) {
         const tool = toolByName.get(name);
 
         expect(
@@ -126,42 +123,42 @@ describe("MCP Structured Output E2E", () => {
         ).toBeDefined();
       }
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 
   it("returns matching text and structured output for all read-only tools", async () => {
-    const { client, redmineApiKey } = await connectE2eClient(
-      "redmine-mcp-structured-output-results-e2e-client",
-    );
+    const harness = await createMcpE2eHarness({
+      clientName:
+        "redmine-mcp-structured-output-results-e2e-client",
+    });
 
     try {
-      const currentUserResult = await client.callTool({
-        name: "redmine_get_current_user",
-        arguments: {},
-      });
+      const currentUserResult = await harness.callTool(
+        "redmine_get_current_user",
+      );
 
       expect(currentUserResult.isError).not.toBe(true);
 
       expectStructuredMatchesText(
         currentUserResult,
-        redmineApiKey,
+        harness.redmineApiKey,
       );
 
-      const issueListResult = await client.callTool({
-        name: "redmine_list_issues",
-        arguments: {
+      const issueListResult = await harness.callTool(
+        "redmine_list_issues",
+        {
           project_id: "mcp-test",
           limit: 20,
         },
-      });
+      );
 
       expect(issueListResult.isError).not.toBe(true);
 
       const issueList =
         expectStructuredMatchesText(
           issueListResult,
-          redmineApiKey,
+          harness.redmineApiKey,
         ) as unknown as IssueListResponse;
 
       const issue = issueList.items.find(
@@ -178,52 +175,52 @@ describe("MCP Structured Output E2E", () => {
         );
       }
 
-      const issueResult = await client.callTool({
-        name: "redmine_get_issue",
-        arguments: {
+      const issueResult = await harness.callTool(
+        "redmine_get_issue",
+        {
           issue_id: issue.id,
           include: ["allowed_statuses"],
         },
-      });
+      );
 
       expect(issueResult.isError).not.toBe(true);
 
       const issueStructured = expectStructuredMatchesText(
         issueResult,
-        redmineApiKey,
+        harness.redmineApiKey,
       );
 
       expect(issueStructured).toHaveProperty(
         "allowed_statuses",
       );
 
-      const searchResult = await client.callTool({
-        name: "redmine_search",
-        arguments: {
+      const searchResult = await harness.callTool(
+        "redmine_search",
+        {
           query: "authentication",
         },
-      });
+      );
 
       expect(searchResult.isError).not.toBe(true);
 
       expectStructuredMatchesText(
         searchResult,
-        redmineApiKey,
+        harness.redmineApiKey,
       );
 
-      const projectListResult = await client.callTool({
-        name: "redmine_list_projects",
-        arguments: {
+      const projectListResult = await harness.callTool(
+        "redmine_list_projects",
+        {
           limit: 25,
         },
-      });
+      );
 
       expect(projectListResult.isError).not.toBe(true);
 
       const projectList =
         expectStructuredMatchesText(
           projectListResult,
-          redmineApiKey,
+          harness.redmineApiKey,
         ) as unknown as ProjectListResponse;
 
       const project = projectList.items.find(
@@ -239,19 +236,19 @@ describe("MCP Structured Output E2E", () => {
         );
       }
 
-      const projectResult = await client.callTool({
-        name: "redmine_get_project",
-        arguments: {
+      const projectResult = await harness.callTool(
+        "redmine_get_project",
+        {
           project_id: project.identifier,
         },
-      });
+      );
 
       expect(projectResult.isError).not.toBe(true);
 
       const projectStructured =
         expectStructuredMatchesText(
           projectResult,
-          redmineApiKey,
+          harness.redmineApiKey,
         );
 
       expect(projectStructured).toHaveProperty("project");
@@ -267,7 +264,7 @@ describe("MCP Structured Output E2E", () => {
       );
       expect(projectStructured).toHaveProperty("warnings");
     } finally {
-      await client.close();
+      await harness.close();
     }
   });
 });

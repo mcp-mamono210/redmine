@@ -171,6 +171,8 @@ granting additional Redmine permissions.
 ## Context Budget
 
 Context cost is treated as a regression-sensitive quality characteristic.
+The complete measurement, regression, baseline-update, and CI contract is
+documented in [`docs/context-budget.md`](docs/context-budget.md).
 
 Measure the current deterministic scenarios against the committed baseline:
 

@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 
 import type { RedmineClient } from "../redmine/client.js";
+import type { WriteGuard } from "./write-guard.js";
 import { registerCurrentUserTool } from "./tools/current-user.js";
 import {
   registerGetIssueTool,
@@ -20,6 +21,7 @@ export interface ToolRegistryEntry {
   register(
     server: McpServer,
     redmineClient: RedmineClient,
+    writeGuard: WriteGuard,
   ): void;
 }
 

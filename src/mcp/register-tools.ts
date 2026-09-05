@@ -1,10 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 
 import type { RedmineClient } from "../redmine/client.js";
+import { WriteGuard } from "./write-guard.js";
 import { getPublishedToolRegistry } from "./tool-registry.js";
 
 export interface RegisterToolsOptions {
-  writeEnabled: boolean;
+  writeGuard: WriteGuard;
 }
 
 export function registerTools(
@@ -13,9 +14,9 @@ export function registerTools(
   options: RegisterToolsOptions,
 ): void {
   for (const entry of getPublishedToolRegistry(
-    options.writeEnabled,
+    options.writeGuard.canRegisterWriteTools(),
   )) {
-    entry.register(server, redmineClient);
+    entry.register(server, redmineClient, options.writeGuard);
   }
 }
 
@@ -24,6 +25,9 @@ export function registerReadOnlyTools(
   redmineClient: RedmineClient,
 ): void {
   registerTools(server, redmineClient, {
-    writeEnabled: false,
+    writeGuard: new WriteGuard({
+      writeEnabled: false,
+      allowedProjects: [],
+    }),
   });
 }

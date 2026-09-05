@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/server";
+import packageJson from "../package.json" with { type: "json" };
 
 import { loadWriteGuardConfig } from "./config.js";
 import { registerTools } from "./mcp/register-tools.js";
@@ -32,7 +33,7 @@ export function createServer(
 ): McpServer {
   const server = new McpServer({
     name: "redmine-mcp-server",
-    version: "0.1.0",
+    version: packageJson.version,
   });
 
   registerTools(server, redmineClient, {

@@ -77,6 +77,7 @@ export async function createMcpE2eHarness(
 
   return {
     redmineApiKey,
+    getServerVersion: () => client.getServerVersion(),
     listTools: () => client.listTools(),
     callTool: (
       name: string,

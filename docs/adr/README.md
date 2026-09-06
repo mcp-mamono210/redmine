@@ -30,6 +30,7 @@ the contract document.
 | ADR-011 | Publish outputSchema and structuredContent for Read-only Tools | Accepted |
 | ADR-012 | Use a strict versioned Markdown Agent Brief contract | Accepted |
 | ADR-013 | Use a bounded deterministic Redmine projection for Agent Brief generation | Accepted |
+| ADR-014 | Classify CI changes by repository responsibility with a fail-safe full gate | Accepted |
 
 ## Status values
 
@@ -69,6 +70,9 @@ Agent Brief artifact contract facts
 
 Agent Brief generation input contract facts
   -> docs/contracts/agent-brief-generation-input-contract.md
+
+CI change-classification contract facts
+  -> docs/contracts/ci-change-classification-contract.md
 
 Decision rationale
   -> relevant ADR

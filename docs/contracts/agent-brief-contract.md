@@ -1,6 +1,6 @@
 # Agent Brief Contract
 
-Status: Draft  
+Status: v0.3.0 canonical contract  
 Target release: v0.3.0  
 Current format version: `1`
 
@@ -11,7 +11,7 @@ in Phase 35. An Agent Brief converts a human-oriented Redmine Issue into a
 bounded implementation contract that a coding agent can execute without making
 additional product or contract decisions.
 
-This draft does not change the v0.2.0 MCP Tool surface. It defines an artifact
+This contract does not change the v0.2.0 MCP Tool surface. It defines an artifact
 contract for later v0.3.0 phases.
 
 ## Responsibility boundary

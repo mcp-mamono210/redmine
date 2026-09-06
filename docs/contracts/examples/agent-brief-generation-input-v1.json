@@ -1,0 +1,70 @@
+{
+  "format_version": 1,
+  "source": {
+    "redmine_issue_id": 1234,
+    "source_updated_on": "2026-09-06T00:00:00Z",
+    "project": {
+      "id": 10,
+      "name": "Example Project"
+    },
+    "tracker": {
+      "id": 2,
+      "name": "Feature"
+    },
+    "fixed_version": {
+      "id": 29,
+      "name": "0.3.0"
+    },
+    "subject": "Define bounded Brief generation input",
+    "description": "Create a deterministic projection that keeps current requirements and excludes runtime state."
+  },
+  "requirement_custom_fields": [
+    {
+      "id": 12,
+      "name": "Acceptance Criteria",
+      "value": "The same source state produces the same generation input."
+    }
+  ],
+  "journal_notes": [
+    {
+      "id": 100,
+      "created_on": "2026-09-05T10:00:00Z",
+      "notes": "Clarification: relation bodies are not recursively expanded."
+    },
+    {
+      "id": 104,
+      "created_on": "2026-09-06T00:00:00Z",
+      "notes": "Use the Phase 35 Agent Brief Contract as the downstream artifact boundary."
+    }
+  ],
+  "relations": [
+    {
+      "id": 55,
+      "relation_type": "relates",
+      "related_issue_id": 1200
+    }
+  ],
+  "children": [
+    {
+      "id": 1235,
+      "subject": "Implement bounded context projection",
+      "tracker": {
+        "id": 2,
+        "name": "Feature"
+      }
+    }
+  ],
+  "projection": {
+    "requirement_custom_field_ids": [
+      12
+    ],
+    "redacted_paths": [],
+    "truncated_paths": [],
+    "omitted": {
+      "requirement_custom_fields": 0,
+      "journal_notes": 0,
+      "relations": 0,
+      "children": 0
+    }
+  }
+}

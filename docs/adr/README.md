@@ -29,6 +29,7 @@ the contract document.
 | ADR-010 | Provide deterministic local Redmine lifecycle commands | Accepted |
 | ADR-011 | Publish outputSchema and structuredContent for Read-only Tools | Accepted |
 | ADR-012 | Use a strict versioned Markdown Agent Brief contract | Accepted |
+| ADR-013 | Use a bounded deterministic Redmine projection for Agent Brief generation | Accepted |
 
 ## Status values
 
@@ -60,15 +61,21 @@ ADR.
 If documents disagree:
 
 ```text
-Public contract facts
+Public read-only MCP contract facts
   -> docs/contracts/read-only-mcp-contract.md
+
+Agent Brief artifact contract facts
+  -> docs/contracts/agent-brief-contract.md
+
+Agent Brief generation input contract facts
+  -> docs/contracts/agent-brief-generation-input-contract.md
 
 Decision rationale
   -> relevant ADR
 
 Implementation
-  -> source and regression tests must implement the contract
+  -> source and regression tests must implement the relevant contract
 ```
 
-A disagreement between the contract and implementation is a defect and should
-be resolved explicitly rather than guessed around.
+A disagreement between a contract and implementation is a defect and should be
+resolved explicitly rather than guessed around.

@@ -31,6 +31,7 @@ the contract document.
 | ADR-012 | Use a strict versioned Markdown Agent Brief contract | Accepted |
 | ADR-013 | Use a bounded deterministic Redmine projection for Agent Brief generation | Accepted |
 | ADR-014 | Classify CI changes by repository responsibility with a fail-safe full gate | Accepted |
+| ADR-015 | Split CI verification by runtime need and isolate stateful jobs | Accepted |
 
 ## Status values
 
@@ -73,6 +74,9 @@ Agent Brief generation input contract facts
 
 CI change-classification contract facts
   -> docs/contracts/ci-change-classification-contract.md
+
+CI parallel-execution contract facts
+  -> docs/contracts/ci-parallel-execution-contract.md
 
 Decision rationale
   -> relevant ADR

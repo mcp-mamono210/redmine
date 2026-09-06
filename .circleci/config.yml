@@ -1,5 +1,10 @@
 version: 2.1
 
+parameters:
+  run_reproducibility:
+    type: boolean
+    default: false
+
 commands:
   setup_docker_node:
     steps:
@@ -29,13 +34,8 @@ commands:
           command: |
             NODE_VERSION="$(cat .nvmrc)"
             PROJECT_DIR="$PWD"
-
-            # CircleCI machine image にプリインストールされている nvm を使用する。
             export NVM_DIR="/opt/circleci/.nvm"
 
-            # .nvmrc がまだインストールされていない Node.js を指している場合、
-            # project directory で nvm.sh を読み込むと exit 3 になることがある。
-            # .nvmrc の存在しないディレクトリで nvm を初期化する。
             cd /tmp
             . "$NVM_DIR/nvm.sh"
             cd "$PROJECT_DIR"
@@ -43,7 +43,6 @@ commands:
             nvm install "$NODE_VERSION"
             nvm use "$NODE_VERSION"
 
-            # 後続の CircleCI run step でも同じ Node.js runtime を使用する。
             {
               echo 'export NVM_DIR="/opt/circleci/.nvm"'
               echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
@@ -123,15 +122,6 @@ jobs:
           name: Run integration tests
           command: npm run test:integration
 
-      # CI-3 で cadence を再評価するまでは、既存の reproducibility check を維持する。
-      - run:
-          name: Reset Redmine for integration reproducibility check
-          command: npm run redmine:reset
-
-      - run:
-          name: Re-run integration tests after reset
-          command: npm run test:integration
-
       - stop_redmine
 
   e2e:
@@ -147,21 +137,16 @@ jobs:
       - setup_machine_node
 
       - run:
+          name: Build TypeScript for MCP E2E tests
+          command: npm run build
+
+      - run:
           name: Reset Redmine before MCP E2E tests
           command: npm run redmine:reset
 
       - run:
           name: Run MCP end-to-end tests
-          command: npm run test:e2e
-
-      # CI-3 で cadence を再評価するまでは、既存の reproducibility check を維持する。
-      - run:
-          name: Reset Redmine for MCP E2E reproducibility check
-          command: npm run redmine:reset
-
-      - run:
-          name: Re-run MCP end-to-end tests after reset
-          command: npm run test:e2e
+          command: npm run test:e2e:ci
 
       - stop_redmine
 
@@ -177,24 +162,46 @@ jobs:
     steps:
       - setup_machine_node
 
-      # context:measure 自身が Redmine reset と build を実行する。
-      # CI-3 で command composition を再評価するまでは canonical command を維持する。
+      - run:
+          name: Build TypeScript for context measurement
+          command: npm run build
+
+      - run:
+          name: Reset Redmine before context measurement
+          command: npm run redmine:reset
+
       - run:
           name: Enforce context budget regression gate
-          command: npm run context:measure
-
-      - run:
-          name: Verify context budget reproducibility
-          command: npm run context:measure
+          command: npm run context:measure:ci
 
       - stop_redmine
+
+  reproducibility:
+    machine:
+      image: ubuntu-2404:current
+
+    environment:
+      REDMINE_URL: http://localhost:3000
+      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
+      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
+
+    steps:
+      - setup_machine_node
+
+      - run:
+          name: Run deterministic reproducibility gate
+          command: npm run ci:reproducibility
 
 workflows:
   test:
     jobs:
-      # requires を設定しないことで、独立した verification job を並列実行する。
       - static
       - unit
       - integration
       - e2e
       - context_budget
+
+  reproducibility:
+    when: << pipeline.parameters.run_reproducibility >>
+    jobs:
+      - reproducibility

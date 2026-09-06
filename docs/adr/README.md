@@ -32,6 +32,7 @@ the contract document.
 | ADR-013 | Use a bounded deterministic Redmine projection for Agent Brief generation | Accepted |
 | ADR-014 | Classify CI changes by repository responsibility with a fail-safe full gate | Accepted |
 | ADR-015 | Split CI verification by runtime need and isolate stateful jobs | Accepted |
+| ADR-016 | Separate single-pass normal CI from an explicit reproducibility gate | Accepted |
 
 ## Status values
 
@@ -77,6 +78,9 @@ CI change-classification contract facts
 
 CI parallel-execution contract facts
   -> docs/contracts/ci-parallel-execution-contract.md
+
+CI reproducibility/cadence contract facts
+  -> docs/contracts/ci-reproducibility-execution-contract.md
 
 Decision rationale
   -> relevant ADR

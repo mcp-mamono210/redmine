@@ -75,14 +75,15 @@ describe("CI parallel execution topology", () => {
     }
   });
 
-  it("schedules split verification jobs without workflow requires dependencies", () => {
+  it("schedules split normal verification jobs without workflow requires dependencies", () => {
     const workflows = extractTopLevelBlock(config, "workflows");
+    const normalWorkflow = workflows.split("\n\n  reproducibility:")[0] ?? workflows;
 
     for (const jobName of ["static", "unit", "integration", "e2e", "context_budget"]) {
-      expect(workflows).toContain(`      - ${jobName}`);
+      expect(normalWorkflow).toContain(`      - ${jobName}`);
     }
 
-    expect(workflows).not.toContain("requires:");
+    expect(normalWorkflow).not.toContain("requires:");
   });
 
   it("keeps unit verification independent from Redmine lifecycle commands", () => {
@@ -93,23 +94,21 @@ describe("CI parallel execution topology", () => {
     expect(unitJob).not.toContain("redmine:stop");
   });
 
-  it("gives integration and e2e their own reset, repeated verification, and cleanup", () => {
+  it("keeps one normal reset boundary in each stateful verification job", () => {
     const integrationJob = extractJob(config, "integration");
     const e2eJob = extractJob(config, "e2e");
-
-    expect(integrationJob.match(/npm run redmine:reset/gu)).toHaveLength(2);
-    expect(integrationJob.match(/npm run test:integration/gu)).toHaveLength(2);
-    expect(integrationJob).toContain("- stop_redmine");
-
-    expect(e2eJob.match(/npm run redmine:reset/gu)).toHaveLength(2);
-    expect(e2eJob.match(/npm run test:e2e/gu)).toHaveLength(2);
-    expect(e2eJob).toContain("- stop_redmine");
-  });
-
-  it("keeps Context Budget verification isolated and repeated until CI-3", () => {
     const contextJob = extractJob(config, "context_budget");
 
-    expect(contextJob.match(/npm run context:measure/gu)).toHaveLength(2);
+    expect(integrationJob.match(/npm run redmine:reset/gu)).toHaveLength(1);
+    expect(integrationJob.match(/npm run test:integration/gu)).toHaveLength(1);
+    expect(integrationJob).toContain("- stop_redmine");
+
+    expect(e2eJob.match(/npm run redmine:reset/gu)).toHaveLength(1);
+    expect(e2eJob.match(/npm run test:e2e:ci/gu)).toHaveLength(1);
+    expect(e2eJob).toContain("- stop_redmine");
+
+    expect(contextJob.match(/npm run redmine:reset/gu)).toHaveLength(1);
+    expect(contextJob.match(/npm run context:measure:ci/gu)).toHaveLength(1);
     expect(contextJob).toContain("- stop_redmine");
   });
 

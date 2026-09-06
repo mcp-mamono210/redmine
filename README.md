@@ -161,7 +161,6 @@ npm run redmine:reset
 npm run test:e2e
 
 npm run context:measure
-npm run build
 ```
 
 The integration suite contains write-boundary tests and can mutate Redmine state. Reset Redmine before running the E2E suite so that E2E assertions start from the canonical fixture.
@@ -170,6 +169,10 @@ Redmine-dependent integration and E2E test files run serially. Unit tests may
 run in parallel because they do not use the shared Redmine environment. This
 keeps the shared fixture deterministic without introducing per-test cleanup or
 granting additional Redmine permissions.
+
+`test:e2e` remains the canonical local command and performs its required build.
+CI uses the narrower `test:e2e:ci` primitive after the job has explicitly built
+and reset its own isolated environment.
 
 ## Context Budget
 
@@ -183,9 +186,12 @@ Measure the current deterministic scenarios against the committed baseline:
 npm run context:measure
 ```
 
-This command resets Redmine, builds the server, measures the context scenarios, and compares them with the committed baseline.
+This canonical local command resets Redmine, builds the server, measures the
+context scenarios, and compares them with the committed baseline. It does not
+update the baseline.
 
-It does not update the baseline.
+CI uses `context:measure:ci` only after the job has explicitly prepared its own
+build and deterministic Redmine state.
 
 When a context-cost change is intentional, explicitly regenerate the baseline:
 
@@ -199,22 +205,36 @@ CI must not automatically accept or update a changed Context Budget baseline.
 
 ## CI
 
-CircleCI validates the project using the same canonical npm commands used locally.
+CircleCI separates static, Unit, Integration, MCP E2E, and Context Budget
+verification into independent jobs.
 
-The CI pipeline covers:
+Normal CI executes each required verification domain once. The stateful jobs
+use isolated machine executors and reset their own Redmine environment before
+their verification pass.
+
+The normal CI pipeline covers:
 
 - ESLint
 - TypeScript type checking
-- build
-- unit tests
-- integration tests
+- build verification
+- Unit tests
+- Integration tests
 - MCP end-to-end tests
 - Context Budget regression measurement
 
-Redmine is reset at test-suite boundaries where deterministic state is required.
-CI also repeats the Context Budget measurement and re-runs the integration and
-MCP E2E suites after fresh resets. These checks verify that results do not
-depend on state left by a previous suite or on a one-time successful seed.
+Repeated deterministic verification is not deleted. It is moved to the explicit
+reproducibility gate:
+
+```bash
+npm run ci:reproducibility
+```
+
+That gate repeats Integration, E2E, and Context Budget verification twice from
+fresh deterministic Redmine resets. CircleCI exposes it through the opt-in
+`run_reproducibility` pipeline parameter, which defaults to `false`.
+
+The later release-routing contract decides when release-candidate and release
+pipelines automatically require this explicit gate.
 
 ## Development Notes
 

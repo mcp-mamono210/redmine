@@ -1,0 +1,254 @@
+version: 2.1
+
+parameters:
+  run_static:
+    type: boolean
+    default: false
+  run_unit:
+    type: boolean
+    default: false
+  run_integration:
+    type: boolean
+    default: false
+  run_e2e:
+    type: boolean
+    default: false
+  run_context_budget:
+    type: boolean
+    default: false
+  run_docs_only:
+    type: boolean
+    default: false
+  run_manual_reproducibility:
+    type: boolean
+    default: false
+  run_full_release_gate:
+    type: boolean
+    default: false
+
+commands:
+  setup_docker_node:
+    steps:
+      - checkout
+
+      - run:
+          name: Verify pinned Node.js runtime
+          command: |
+            expected_node_version="$(cat .nvmrc)"
+            actual_node_version="$(node -p 'process.versions.node')"
+            echo "Node.js: $(node --version)"
+            echo "npm: $(npm --version)"
+            test "$actual_node_version" = "$expected_node_version"
+
+      - run:
+          name: Install Node.js dependencies
+          command: npm ci
+
+  setup_machine_node:
+    steps:
+      - checkout
+
+      - run:
+          name: Install pinned Node.js runtime
+          command: |
+            NODE_VERSION="$(cat .nvmrc)"
+            PROJECT_DIR="$PWD"
+            export NVM_DIR="/opt/circleci/.nvm"
+
+            cd /tmp
+            . "$NVM_DIR/nvm.sh"
+            cd "$PROJECT_DIR"
+
+            nvm install "$NODE_VERSION"
+            nvm use "$NODE_VERSION"
+
+            {
+              echo 'export NVM_DIR="/opt/circleci/.nvm"'
+              echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
+              echo 'nvm use --silent "$(cat .nvmrc)" >/dev/null'
+            } >> "$BASH_ENV"
+
+      - run:
+          name: Verify pinned Node.js runtime
+          command: |
+            expected_node_version="$(cat .nvmrc)"
+            actual_node_version="$(node -p 'process.versions.node')"
+            echo "Node.js: $(node --version)"
+            echo "npm: $(npm --version)"
+            test "$actual_node_version" = "$expected_node_version"
+
+      - run:
+          name: Install Node.js dependencies
+          command: npm ci
+
+  stop_redmine:
+    steps:
+      - run:
+          name: Stop Redmine test environment
+          command: npm run redmine:stop
+          when: always
+
+jobs:
+  docs_only:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Documentation-only CI
+          command: echo "No runtime verification domains selected by CI change classification."
+
+  static:
+    docker:
+      - image: cimg/node:24.19.0
+    steps:
+      - setup_docker_node
+      - run:
+          name: Run ESLint
+          command: npm run lint
+      - run:
+          name: Run TypeScript type check
+          command: npm run typecheck
+      - run:
+          name: Build TypeScript
+          command: npm run build
+
+  unit:
+    docker:
+      - image: cimg/node:24.19.0
+    steps:
+      - setup_docker_node
+      - run:
+          name: Run unit tests
+          command: npm run test:unit
+
+  integration:
+    machine:
+      image: ubuntu-2404:current
+    environment:
+      REDMINE_URL: http://localhost:3000
+      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
+      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
+    steps:
+      - setup_machine_node
+      - run:
+          name: Reset Redmine before integration tests
+          command: npm run redmine:reset
+      - run:
+          name: Run integration tests
+          command: npm run test:integration
+      - stop_redmine
+
+  e2e:
+    machine:
+      image: ubuntu-2404:current
+    environment:
+      REDMINE_URL: http://localhost:3000
+      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
+      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
+    steps:
+      - setup_machine_node
+      - run:
+          name: Build TypeScript for MCP E2E tests
+          command: npm run build
+      - run:
+          name: Reset Redmine before MCP E2E tests
+          command: npm run redmine:reset
+      - run:
+          name: Run MCP end-to-end tests
+          command: npm run test:e2e:ci
+      - stop_redmine
+
+  context_budget:
+    machine:
+      image: ubuntu-2404:current
+    environment:
+      REDMINE_URL: http://localhost:3000
+      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
+      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
+    steps:
+      - setup_machine_node
+      - run:
+          name: Build TypeScript for context measurement
+          command: npm run build
+      - run:
+          name: Reset Redmine before context measurement
+          command: npm run redmine:reset
+      - run:
+          name: Enforce context budget regression gate
+          command: npm run context:measure:ci
+      - stop_redmine
+
+  reproducibility:
+    machine:
+      image: ubuntu-2404:current
+    environment:
+      REDMINE_URL: http://localhost:3000
+      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
+      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
+    steps:
+      - setup_machine_node
+      - run:
+          name: Run deterministic reproducibility gate
+          command: npm run ci:reproducibility
+
+  release_gate:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Confirm full release quality gate
+          command: echo "All required release verification jobs completed successfully."
+
+workflows:
+  docs_only:
+    when: << pipeline.parameters.run_docs_only >>
+    jobs:
+      - docs_only
+
+  static_verification:
+    when: << pipeline.parameters.run_static >>
+    jobs:
+      - static
+
+  unit_verification:
+    when: << pipeline.parameters.run_unit >>
+    jobs:
+      - unit
+
+  integration_verification:
+    when: << pipeline.parameters.run_integration >>
+    jobs:
+      - integration
+
+  e2e_verification:
+    when: << pipeline.parameters.run_e2e >>
+    jobs:
+      - e2e
+
+  context_budget_verification:
+    when: << pipeline.parameters.run_context_budget >>
+    jobs:
+      - context_budget
+
+  manual_reproducibility:
+    when: << pipeline.parameters.run_manual_reproducibility >>
+    jobs:
+      - reproducibility
+
+  release_full_quality_gate:
+    when: << pipeline.parameters.run_full_release_gate >>
+    jobs:
+      - static
+      - unit
+      - integration
+      - e2e
+      - context_budget
+      - reproducibility
+      - release_gate:
+          requires:
+            - static
+            - unit
+            - integration
+            - e2e
+            - context_budget
+            - reproducibility

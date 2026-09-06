@@ -1,207 +1,62 @@
 version: 2.1
 
+setup: true
+
 parameters:
+  ci_execution_context:
+    type: string
+    default: normal
   run_reproducibility:
     type: boolean
     default: false
 
-commands:
-  setup_docker_node:
-    steps:
-      - checkout
-
-      - run:
-          name: Verify pinned Node.js runtime
-          command: |
-            expected_node_version="$(cat .nvmrc)"
-            actual_node_version="$(node -p 'process.versions.node')"
-
-            echo "Node.js: $(node --version)"
-            echo "npm: $(npm --version)"
-
-            test "$actual_node_version" = "$expected_node_version"
-
-      - run:
-          name: Install Node.js dependencies
-          command: npm ci
-
-  setup_machine_node:
-    steps:
-      - checkout
-
-      - run:
-          name: Install pinned Node.js runtime
-          command: |
-            NODE_VERSION="$(cat .nvmrc)"
-            PROJECT_DIR="$PWD"
-            export NVM_DIR="/opt/circleci/.nvm"
-
-            cd /tmp
-            . "$NVM_DIR/nvm.sh"
-            cd "$PROJECT_DIR"
-
-            nvm install "$NODE_VERSION"
-            nvm use "$NODE_VERSION"
-
-            {
-              echo 'export NVM_DIR="/opt/circleci/.nvm"'
-              echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
-              echo 'nvm use --silent "$(cat .nvmrc)" >/dev/null'
-            } >> "$BASH_ENV"
-
-      - run:
-          name: Verify pinned Node.js runtime
-          command: |
-            expected_node_version="$(cat .nvmrc)"
-            actual_node_version="$(node -p 'process.versions.node')"
-
-            echo "Node.js: $(node --version)"
-            echo "npm: $(npm --version)"
-
-            test "$actual_node_version" = "$expected_node_version"
-
-      - run:
-          name: Install Node.js dependencies
-          command: npm ci
-
-  stop_redmine:
-    steps:
-      - run:
-          name: Stop Redmine test environment
-          command: npm run redmine:stop
-          when: always
+orbs:
+  continuation: circleci/continuation@1.1.0
 
 jobs:
-  static:
+  route:
     docker:
       - image: cimg/node:24.19.0
 
-    steps:
-      - setup_docker_node
-
-      - run:
-          name: Run ESLint
-          command: npm run lint
-
-      - run:
-          name: Run TypeScript type check
-          command: npm run typecheck
-
-      - run:
-          name: Build TypeScript
-          command: npm run build
-
-  unit:
-    docker:
-      - image: cimg/node:24.19.0
-
-    steps:
-      - setup_docker_node
-
-      - run:
-          name: Run unit tests
-          command: npm run test:unit
-
-  integration:
-    machine:
-      image: ubuntu-2404:current
-
     environment:
-      REDMINE_URL: http://localhost:3000
-      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
-      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
+      CI_BASE_REVISION: main
+      CI_REQUESTED_EXECUTION_CONTEXT: << pipeline.parameters.ci_execution_context >>
+      CI_REQUESTED_REPRODUCIBILITY: << pipeline.parameters.run_reproducibility >>
 
     steps:
-      - setup_machine_node
+      - checkout
 
       - run:
-          name: Reset Redmine before integration tests
-          command: npm run redmine:reset
+          name: Verify pinned Node.js runtime
+          command: |
+            expected_node_version="$(cat .nvmrc)"
+            actual_node_version="$(node -p 'process.versions.node')"
+            test "$actual_node_version" = "$expected_node_version"
 
       - run:
-          name: Run integration tests
-          command: npm run test:integration
-
-      - stop_redmine
-
-  e2e:
-    machine:
-      image: ubuntu-2404:current
-
-    environment:
-      REDMINE_URL: http://localhost:3000
-      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
-      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
-
-    steps:
-      - setup_machine_node
+          name: Install Node.js dependencies
+          command: npm ci
 
       - run:
-          name: Build TypeScript for MCP E2E tests
+          name: Build CI routing implementation
           command: npm run build
 
       - run:
-          name: Reset Redmine before MCP E2E tests
-          command: npm run redmine:reset
+          name: Resolve verification routing
+          command: |
+            node scripts/ci/route-pipeline.mjs /tmp/continuation-parameters.json
+            cat /tmp/continuation-parameters.json
 
-      - run:
-          name: Run MCP end-to-end tests
-          command: npm run test:e2e:ci
-
-      - stop_redmine
-
-  context_budget:
-    machine:
-      image: ubuntu-2404:current
-
-    environment:
-      REDMINE_URL: http://localhost:3000
-      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
-      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
-
-    steps:
-      - setup_machine_node
-
-      - run:
-          name: Build TypeScript for context measurement
-          command: npm run build
-
-      - run:
-          name: Reset Redmine before context measurement
-          command: npm run redmine:reset
-
-      - run:
-          name: Enforce context budget regression gate
-          command: npm run context:measure:ci
-
-      - stop_redmine
-
-  reproducibility:
-    machine:
-      image: ubuntu-2404:current
-
-    environment:
-      REDMINE_URL: http://localhost:3000
-      REDMINE_API_KEY: 0123456789abcdef0123456789abcdef01234567
-      REDMINE_WRITE_API_KEY: fedcba9876543210fedcba9876543210fedcba98
-
-    steps:
-      - setup_machine_node
-
-      - run:
-          name: Run deterministic reproducibility gate
-          command: npm run ci:reproducibility
+      - continuation/continue:
+          configuration_path: .circleci/continue_config.yml
+          parameters: /tmp/continuation-parameters.json
 
 workflows:
-  test:
+  setup:
     jobs:
-      - static
-      - unit
-      - integration
-      - e2e
-      - context_budget
-
-  reproducibility:
-    when: << pipeline.parameters.run_reproducibility >>
-    jobs:
-      - reproducibility
+      - route:
+          filters:
+            branches:
+              only: /.*/
+            tags:
+              only: /.*/

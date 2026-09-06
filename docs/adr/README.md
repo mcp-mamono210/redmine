@@ -28,6 +28,7 @@ the contract document.
 | ADR-009 | Use JSON text responses before structured output | Superseded by ADR-011 |
 | ADR-010 | Provide deterministic local Redmine lifecycle commands | Accepted |
 | ADR-011 | Publish outputSchema and structuredContent for Read-only Tools | Accepted |
+| ADR-012 | Use a strict versioned Markdown Agent Brief contract | Accepted |
 
 ## Status values
 

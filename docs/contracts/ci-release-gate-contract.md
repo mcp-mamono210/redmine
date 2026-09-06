@@ -68,6 +68,26 @@ table.
 
 `.circleci/config.yml` is the setup configuration.
 
+Parameters that can be supplied when the pipeline is triggered through the
+CircleCI Web UI or API are declared in both the setup and continuation
+configurations with the same name, type, and default:
+
+```text
+ci_execution_context = normal
+run_reproducibility = false
+```
+
+This continuation-side declaration is an acceptance boundary required by
+CircleCI dynamic configuration. The continuation workflows do not route from
+these trigger parameters directly. The setup phase resolves them into the
+dedicated `run_*` continuation parameters.
+
+The setup continuation call therefore does **not** pass
+`ci_execution_context` or `run_reproducibility` again. This avoids conflicting
+pipeline-parameter behavior when a Web/API trigger supplied a non-default value.
+
+The setup job:
+
 The setup job:
 
 1. checks out the requested revision;

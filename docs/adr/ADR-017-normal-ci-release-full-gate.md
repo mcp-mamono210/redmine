@@ -28,6 +28,13 @@ configuration using boolean routing parameters.
 Normal pipelines run only the verification domains returned by CI-1.
 Ordinary-documentation-only changes run a lightweight marker workflow.
 
+Trigger/API parameters that are accepted by the setup configuration are also
+declared in the continuation configuration with matching names, types, and
+defaults. The setup phase consumes them and passes only resolved `run_*`
+parameters to the continuation call. This preserves CircleCI dynamic-config
+parameter compatibility without making the continuation routing depend on the
+raw trigger values.
+
 Release candidates are requested explicitly with
 `ci_execution_context=release_candidate`.
 

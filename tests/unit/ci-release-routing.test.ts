@@ -81,6 +81,21 @@ describe("CI normal/release routing", () => {
     expect(routeScript).toContain("dist/src/ci/pipeline-routing.js");
   });
 
+  it("declares trigger parameters in both dynamic-config phases without routing from them twice", () => {
+    for (const config of [setupConfig, continuationConfig]) {
+      expect(config).toContain("ci_execution_context:");
+      expect(config).toContain("run_reproducibility:");
+    }
+
+    expect(continuationConfig).toContain("ci_execution_context:\n    type: string\n    default: normal");
+    expect(continuationConfig).toContain("run_reproducibility:\n    type: boolean\n    default: false");
+
+    // The continuation call receives only the resolved run_* JSON file.
+    // Raw trigger parameters must not be added to that JSON.
+    expect(routeScript).not.toContain('"ci_execution_context"');
+    expect(routeScript).not.toContain('"run_reproducibility"');
+  });
+
   it("requires every full-gate job before release_gate can succeed", () => {
     expect(continuationConfig).toContain("release_full_quality_gate:");
     for (const job of [

@@ -1,6 +1,18 @@
 version: 2.1
 
 parameters:
+  # Trigger/API compatibility parameters.
+  # These are declared here so values supplied to the setup pipeline are
+  # accepted by CircleCI when the dynamic pipeline is continued.
+  # Continuation routing does not read these values directly; the setup phase
+  # resolves them into the run_* parameters below.
+  ci_execution_context:
+    type: string
+    default: normal
+  run_reproducibility:
+    type: boolean
+    default: false
+
   run_static:
     type: boolean
     default: false

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import packageJson from "../package.json" with { type: "json" };
 
 import { AgentBriefApprovalHandler } from "./agent-brief/approval-handler.js";
+import { AgentBriefApprovalIdempotencyHandler } from "./agent-brief/approval-idempotency.js";
 import { AgentBriefLifecycleMetadataBoundary } from "./agent-brief/lifecycle-metadata.js";
 import { readAgentBriefRevision } from "./agent-brief/persistence.js";
 import {
@@ -44,7 +45,7 @@ function createProductionApprovalHandler(
   env: NodeJS.ProcessEnv,
   redmineClient: RedmineClient,
   writeGuard: WriteGuard,
-): AgentBriefApprovalHandler {
+): AgentBriefApprovalToolHandler {
   const approvalConfig = loadAgentBriefApprovalConfig(env);
   const redmineUrl = requireEnvironmentValue(env, "REDMINE_URL");
   const redmineApiKey = requireEnvironmentValue(env, "REDMINE_API_KEY");
@@ -68,22 +69,35 @@ function createProductionApprovalHandler(
     repository: approvalConfig.repository,
     canonicalBranch: approvalConfig.canonicalBranch,
   };
+  const generationInputPolicy = {
+    requirementCustomFieldIds:
+      approvalConfig.requirementCustomFieldIds,
+    configuredSecrets: [redmineApiKey],
+  };
+  const readPersistedBrief = (issueId: number, briefRevision: number) =>
+    readAgentBriefRevision(
+      persistenceConfig,
+      issueId,
+      briefRevision,
+    );
 
-  return new AgentBriefApprovalHandler(
+  const phase40Handler = new AgentBriefApprovalHandler(
     redmineClient,
     lifecycleBoundary,
-    (issueId, briefRevision) =>
-      readAgentBriefRevision(
-        persistenceConfig,
-        issueId,
-        briefRevision,
-      ),
+    readPersistedBrief,
     {
-      generationInputPolicy: {
-        requirementCustomFieldIds:
-          approvalConfig.requirementCustomFieldIds,
-        configuredSecrets: [redmineApiKey],
-      },
+      generationInputPolicy,
+    },
+  );
+
+  return new AgentBriefApprovalIdempotencyHandler(
+    phase40Handler,
+    redmineClient,
+    lifecycleBoundary,
+    readPersistedBrief,
+    {
+      repository: approvalConfig.repository,
+      generationInputPolicy,
     },
   );
 }

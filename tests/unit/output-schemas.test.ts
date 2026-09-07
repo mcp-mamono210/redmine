@@ -213,6 +213,19 @@ describe("public MCP output schemas", () => {
     ).toBe(true);
   });
 
+  it("accepts the Phase 41 approval_conflict validation reason", () => {
+    expect(
+      agentBriefApprovalOutputSchema.safeParse({
+        outcome: "validation_failed",
+        issue_id: 5374,
+        brief_revision: 2,
+        persisted_revision: "persisted-conflict",
+        reason: "approval_conflict",
+        handoff_eligible: false,
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejects cross-variant Agent Brief approval fields", () => {
     expect(
       agentBriefApprovalOutputSchema.safeParse({

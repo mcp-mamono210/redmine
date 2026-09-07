@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  AgentBriefApprovalHandlerResult,
-  AgentBriefApprovalRequest,
-} from "../../src/agent-brief/approval-handler.js";
+import type { AgentBriefApprovalRequest } from "../../src/agent-brief/approval-handler.js";
+import type { AgentBriefApprovalIdempotentResult } from "../../src/agent-brief/approval-idempotency.js";
 import {
   approveAgentBriefInputSchema,
   callApproveAgentBriefTool,
@@ -16,13 +14,13 @@ class FakeApprovalHandler implements AgentBriefApprovalToolHandler {
   readonly requests: AgentBriefApprovalRequest[] = [];
 
   constructor(
-    private readonly result?: AgentBriefApprovalHandlerResult,
+    private readonly result?: AgentBriefApprovalIdempotentResult,
     private readonly error?: Error,
   ) {}
 
   approve(
     request: AgentBriefApprovalRequest,
-  ): Promise<AgentBriefApprovalHandlerResult> {
+  ): Promise<AgentBriefApprovalIdempotentResult> {
     this.requests.push({ ...request });
 
     if (this.error !== undefined) {
@@ -148,6 +146,37 @@ describe("redmine_approve_agent_brief Tool adapter", () => {
       reason: "reviewed_reference_invalid",
       handoff_eligible: false,
     });
+  });
+
+  it("publishes approval_conflict as the bounded Phase 41 validation result", async () => {
+    const handler = new FakeApprovalHandler({
+      outcome: "validation_failed",
+      issueId: 5374,
+      briefRevision: 2,
+      persistedRevision: "persisted-conflict",
+      reason: "approval_conflict",
+      handoffEligible: false,
+    });
+
+    const result = await callApproveAgentBriefTool(handler, {
+      issue_id: 5374,
+      brief_revision: 2,
+      persisted_revision: "persisted-conflict",
+    });
+
+    expect(result.isError).toBe(false);
+    if (!("structuredContent" in result)) {
+      throw new Error("Expected successful structuredContent");
+    }
+    expect(result.structuredContent).toEqual({
+      outcome: "validation_failed",
+      issue_id: 5374,
+      brief_revision: 2,
+      persisted_revision: "persisted-conflict",
+      reason: "approval_conflict",
+      handoff_eligible: false,
+    });
+    expect(parseText(result)).toEqual(result.structuredContent);
   });
 
   it("fails malformed public input before Handler invocation", () => {

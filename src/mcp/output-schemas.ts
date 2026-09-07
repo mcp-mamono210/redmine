@@ -246,6 +246,7 @@ const validationFailedAgentBriefOutputSchema = z.object({
     "lifecycle_not_brief_ready",
     "reviewed_reference_invalid",
     "fingerprint_unavailable",
+    "approval_conflict",
   ]),
   handoff_eligible: z.literal(false),
 });

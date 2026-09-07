@@ -1,10 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
-import type {
-  AgentBriefApprovalHandlerResult,
-  AgentBriefApprovalRequest,
-} from "../../agent-brief/approval-handler.js";
+import type { AgentBriefApprovalRequest } from "../../agent-brief/approval-handler.js";
+import type { AgentBriefApprovalIdempotentResult } from "../../agent-brief/approval-idempotency.js";
 import { toToolErrorResult } from "../errors.js";
 import { agentBriefApprovalOutputSchema } from "../output-schemas.js";
 import { createPublicMcpSuccessResult } from "../serialize.js";
@@ -33,7 +31,7 @@ export type ApproveAgentBriefInput = z.infer<
 export interface AgentBriefApprovalToolHandler {
   approve(
     request: AgentBriefApprovalRequest,
-  ): Promise<AgentBriefApprovalHandlerResult>;
+  ): Promise<AgentBriefApprovalIdempotentResult>;
 }
 
 export async function callApproveAgentBriefTool(

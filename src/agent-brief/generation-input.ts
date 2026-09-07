@@ -18,8 +18,13 @@ const MAX_CUSTOM_FIELD_VALUE_BYTES = 1_024;
 const MAX_JOURNAL_NOTE_BYTES = 1_024;
 const MAX_CHILD_SUBJECT_BYTES = 512;
 
+const FINAL_BUDGET_DESCRIPTION_BYTES = 256;
+
 const REDACTED_VALUE = "[REDACTED]";
 const ELLIPSIS = "…";
+
+const RFC3339_TIMESTAMP_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
 
 const CREDENTIAL_SENSITIVE_NAME_PATTERN =
   /(password|credential|api[ _]?key|token|secret|authorization)/iu;
@@ -144,6 +149,22 @@ function truncateUtf8(value: string, maxBytes: number): string {
   return `${output}${ELLIPSIS}`;
 }
 
+function normalizeConfiguredSecrets(
+  configuredSecrets: readonly string[] | undefined,
+): string[] {
+  return [
+    ...new Set(
+      (configuredSecrets ?? []).filter(
+        (secret) => secret !== "",
+      ),
+    ),
+  ].sort(
+    (a, b) =>
+      b.length - a.length ||
+      a.localeCompare(b),
+  );
+}
+
 function redactConfiguredSecrets(
   value: string,
   configuredSecrets: readonly string[],
@@ -151,11 +172,9 @@ function redactConfiguredSecrets(
   let redacted = value;
 
   for (const secret of configuredSecrets) {
-    if (secret === "") {
-      continue;
-    }
-
-    redacted = redacted.split(secret).join(REDACTED_VALUE);
+    redacted = redacted
+      .split(secret)
+      .join(REDACTED_VALUE);
   }
 
   return redacted;
@@ -177,6 +196,21 @@ function redactCredentialPatterns(value: string): string {
     );
 }
 
+function assertConfiguredSecretsRemoved(
+  value: string,
+  configuredSecrets: readonly string[],
+): void {
+  if (
+    configuredSecrets.some(
+      (secret) => value.includes(secret),
+    )
+  ) {
+    throw new AgentBriefGenerationInputProjectionError(
+      "configured secret could not be sanitized",
+    );
+  }
+}
+
 function sanitizeAndBoundText(
   rawValue: string,
   path: string,
@@ -190,13 +224,22 @@ function sanitizeAndBoundText(
     value,
     state.configuredSecrets,
   );
+
   value = redactCredentialPatterns(value);
+
+  assertConfiguredSecretsRemoved(
+    value,
+    state.configuredSecrets,
+  );
 
   if (value !== originalValue) {
     state.redactedPaths.add(path);
   }
 
-  const boundedValue = truncateUtf8(value, maxBytes);
+  const boundedValue = truncateUtf8(
+    value,
+    maxBytes,
+  );
 
   if (boundedValue !== value) {
     state.truncatedPaths.add(path);
@@ -217,7 +260,8 @@ function normalizeRequirementCustomFieldIds(
   );
 
   if (
-    normalizedIds.length > MAX_REQUIREMENT_CUSTOM_FIELDS ||
+    normalizedIds.length >
+      MAX_REQUIREMENT_CUSTOM_FIELDS ||
     hasInvalidId
   ) {
     throw new AgentBriefGenerationInputProjectionError(
@@ -228,16 +272,34 @@ function normalizeRequirementCustomFieldIds(
   return normalizedIds;
 }
 
+function isValidNamedResource(
+  resource: {
+    id: number;
+    name: string;
+  },
+): boolean {
+  return (
+    Number.isInteger(resource.id) &&
+    resource.id > 0 &&
+    resource.name.trim() !== ""
+  );
+}
+
 function validateSourceIssue(issue: RedmineIssue): void {
+  const hasInvalidFixedVersion =
+    issue.fixedVersion !== undefined &&
+    !isValidNamedResource(issue.fixedVersion);
+
   const invalid =
     !Number.isInteger(issue.id) ||
     issue.id <= 0 ||
-    issue.project.id <= 0 ||
-    issue.project.name.trim() === "" ||
-    issue.tracker.id <= 0 ||
-    issue.tracker.name.trim() === "" ||
+    !isValidNamedResource(issue.project) ||
+    !isValidNamedResource(issue.tracker) ||
+    hasInvalidFixedVersion ||
     issue.updatedOn === undefined ||
-    issue.updatedOn.trim() === "";
+    !RFC3339_TIMESTAMP_PATTERN.test(
+      issue.updatedOn,
+    );
 
   if (invalid) {
     throw new AgentBriefGenerationInputProjectionError(
@@ -263,16 +325,17 @@ function projectRequirementCustomFields(
       continue;
     }
 
-    if (CREDENTIAL_SENSITIVE_NAME_PATTERN.test(field.name)) {
+    if (
+      CREDENTIAL_SENSITIVE_NAME_PATTERN.test(
+        field.name,
+      )
+    ) {
       continue;
     }
 
-    const fieldName = sanitizeAndBoundText(
-      field.name,
-      `requirement_custom_fields.${id}.name`,
-      MAX_NAME_BYTES,
-      state,
-    );
+    const outputIndex = projected.length;
+    const valuePath =
+      `requirement_custom_fields[${outputIndex}].value`;
 
     const rawValues = Array.isArray(field.value)
       ? field.value
@@ -282,7 +345,7 @@ function projectRequirementCustomFields(
       .map((value) =>
         sanitizeAndBoundText(
           value,
-          `requirement_custom_fields.${id}.value`,
+          valuePath,
           MAX_CUSTOM_FIELD_VALUE_BYTES,
           state,
         ),
@@ -292,6 +355,16 @@ function projectRequirementCustomFields(
     if (projectedValues.length === 0) {
       continue;
     }
+
+    const namePath =
+      `requirement_custom_fields[${outputIndex}].name`;
+
+    const fieldName = sanitizeAndBoundText(
+      field.name,
+      namePath,
+      MAX_NAME_BYTES,
+      state,
+    );
 
     projected.push({
       id,
@@ -314,7 +387,8 @@ function projectJournalNotes(
 } {
   const candidates = (issue.journals ?? [])
     .filter(
-      (journal) => normalizeText(journal.notes) !== "",
+      (journal) =>
+        normalizeText(journal.notes) !== "",
     )
     .sort(
       (a, b) =>
@@ -394,12 +468,16 @@ function projectRelations(
         a.relation_type.localeCompare(
           b.relation_type,
         ) ||
-        a.related_issue_id - b.related_issue_id ||
+        a.related_issue_id -
+          b.related_issue_id ||
         a.id - b.id,
     );
 
   return {
-    relations: allRelations.slice(0, MAX_RELATIONS),
+    relations: allRelations.slice(
+      0,
+      MAX_RELATIONS,
+    ),
     omittedCount: Math.max(
       0,
       allRelations.length - MAX_RELATIONS,
@@ -465,13 +543,16 @@ function syncProjectionMetadata(
   ].sort();
 }
 
-function hasRequirementBearingText(
+function hasRequirementBearingSource(
   input: AgentBriefGenerationInput,
 ): boolean {
   return (
+    input.source.subject !== "" ||
     input.source.description !== "" ||
-    input.requirement_custom_fields.length > 0 ||
+    input.requirement_custom_fields.length >
+      0 ||
     input.journal_notes.length > 0 ||
+    input.relations.length > 0 ||
     input.children.length > 0
   );
 }
@@ -482,6 +563,110 @@ function serializedByteLength(
   return utf8ByteLength(
     serializeAgentBriefGenerationInput(input),
   );
+}
+
+function truncateFinalBudgetCustomField(
+  input: AgentBriefGenerationInput,
+  fieldIndex: number,
+  state: ProjectionTextState,
+): void {
+  const field =
+    input.requirement_custom_fields[
+      fieldIndex
+    ];
+
+  if (field === undefined) {
+    return;
+  }
+
+  const path =
+    `requirement_custom_fields[${fieldIndex}].value`;
+
+  if (Array.isArray(field.value)) {
+    const reducedValues = field.value.map(
+      (value) =>
+        truncateUtf8(
+          value,
+          utf8ByteLength(ELLIPSIS),
+        ),
+    );
+
+    const changed = reducedValues.some(
+      (value, index) =>
+        value !== field.value[index],
+    );
+
+    if (changed) {
+      field.value = reducedValues;
+      state.truncatedPaths.add(path);
+    }
+
+    return;
+  }
+
+  const reducedValue = truncateUtf8(
+    field.value,
+    utf8ByteLength(ELLIPSIS),
+  );
+
+  if (reducedValue !== field.value) {
+    field.value = reducedValue;
+    state.truncatedPaths.add(path);
+  }
+}
+
+function reduceCustomFieldsForFinalBudget(
+  input: AgentBriefGenerationInput,
+  state: ProjectionTextState,
+): void {
+  for (
+    let fieldIndex =
+      input.requirement_custom_fields.length -
+      1;
+    fieldIndex >= 0 &&
+    serializedByteLength(input) >
+      MAX_SERIALIZED_BYTES;
+    fieldIndex -= 1
+  ) {
+    truncateFinalBudgetCustomField(
+      input,
+      fieldIndex,
+      state,
+    );
+
+    syncProjectionMetadata(input, state);
+  }
+}
+
+function reduceDescriptionForFinalBudget(
+  input: AgentBriefGenerationInput,
+  state: ProjectionTextState,
+): void {
+  if (
+    serializedByteLength(input) <=
+    MAX_SERIALIZED_BYTES
+  ) {
+    return;
+  }
+
+  const reducedDescription = truncateUtf8(
+    input.source.description,
+    FINAL_BUDGET_DESCRIPTION_BYTES,
+  );
+
+  if (
+    reducedDescription !==
+    input.source.description
+  ) {
+    input.source.description =
+      reducedDescription;
+
+    state.truncatedPaths.add(
+      "source.description",
+    );
+
+    syncProjectionMetadata(input, state);
+  }
 }
 
 function enforceFinalBudget(
@@ -515,21 +700,15 @@ function enforceFinalBudget(
     input.projection.omitted.relations += 1;
   }
 
-  if (
-    serializedByteLength(input) >
-    MAX_SERIALIZED_BYTES
-  ) {
-    input.source.description = truncateUtf8(
-      input.source.description,
-      256,
-    );
+  reduceCustomFieldsForFinalBudget(
+    input,
+    state,
+  );
 
-    state.truncatedPaths.add(
-      "source.description",
-    );
-
-    syncProjectionMetadata(input, state);
-  }
+  reduceDescriptionForFinalBudget(
+    input,
+    state,
+  );
 
   if (
     serializedByteLength(input) >
@@ -560,7 +739,9 @@ export function projectAgentBriefGenerationInput(
 
   const state: ProjectionTextState = {
     configuredSecrets:
-      policy.configuredSecrets ?? [],
+      normalizeConfiguredSecrets(
+        policy.configuredSecrets,
+      ),
     redactedPaths: new Set<string>(),
     truncatedPaths: new Set<string>(),
   };
@@ -679,9 +860,9 @@ export function projectAgentBriefGenerationInput(
 
   syncProjectionMetadata(input, state);
 
-  if (!hasRequirementBearingText(input)) {
+  if (!hasRequirementBearingSource(input)) {
     throw new AgentBriefGenerationInputProjectionError(
-      "no requirement-bearing text remains after projection",
+      "no requirement-bearing source remains after projection",
     );
   }
 

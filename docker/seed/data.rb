@@ -20,6 +20,18 @@ PRIMARY_PROJECT_IDENTIFIER = "mcp-test"
 PRIMARY_PROJECT_NAME = "MCP Test Project"
 SECONDARY_PROJECT_IDENTIFIER = "mcp-secondary"
 SECONDARY_PROJECT_NAME = "MCP Secondary Project"
+AGENT_BRIEF_PROJECT_IDENTIFIER = "mcp-agent-brief"
+AGENT_BRIEF_PROJECT_NAME = "MCP Agent Brief Test Project"
+AGENT_BRIEF_ISSUE_SUBJECT = "Agent Brief lifecycle metadata integration target"
+
+AGENT_BRIEF_CUSTOM_FIELD_NAMES = [
+  "Agent Brief Lifecycle",
+  "Brief Approved By",
+  "Brief Approved At",
+  "Approved Brief Revision",
+  "Approved Persisted Revision",
+  "Approved Req Fingerprint"
+].freeze
 
 VERSION_DEFINITIONS = [
   { name: "v0.1.0", effective_date: Date.new(2026, 9, 1) },
@@ -100,6 +112,9 @@ priorities = %w[Low Normal High].to_h do |name|
 end
 
 release_tag = IssueCustomField.find_by!(name: "release_tag")
+agent_brief_custom_fields = AGENT_BRIEF_CUSTOM_FIELD_NAMES.to_h do |name|
+  [name, IssueCustomField.find_by!(name: name)]
+end
 
 read_only_user = User.find_or_initialize_by(login: MCP_TEST_LOGIN)
 read_only_user.firstname = "MCP"
@@ -121,7 +136,8 @@ writer_user.save!
 
 projects = {
   PRIMARY_PROJECT_IDENTIFIER => Project.find_or_initialize_by(identifier: PRIMARY_PROJECT_IDENTIFIER),
-  SECONDARY_PROJECT_IDENTIFIER => Project.find_or_initialize_by(identifier: SECONDARY_PROJECT_IDENTIFIER)
+  SECONDARY_PROJECT_IDENTIFIER => Project.find_or_initialize_by(identifier: SECONDARY_PROJECT_IDENTIFIER),
+  AGENT_BRIEF_PROJECT_IDENTIFIER => Project.find_or_initialize_by(identifier: AGENT_BRIEF_PROJECT_IDENTIFIER)
 }
 
 projects.fetch(PRIMARY_PROJECT_IDENTIFIER).tap do |project|
@@ -136,12 +152,28 @@ projects.fetch(SECONDARY_PROJECT_IDENTIFIER).tap do |project|
   project.save!
 end
 
+projects.fetch(AGENT_BRIEF_PROJECT_IDENTIFIER).tap do |project|
+  project.name = AGENT_BRIEF_PROJECT_NAME
+  project.is_public = false
+  project.save!
+end
+
 projects.each_value do |project|
   project.trackers = trackers.values
+end
 
-  unless project.issue_custom_fields.include?(release_tag)
-    project.issue_custom_fields << release_tag
-  end
+# Keep the representative read-only fixtures byte-stable for Context Budget
+# measurement. Agent Brief lifecycle fields are deliberately NOT attached to the
+# existing mcp-test / mcp-secondary projects. Assign the exact baseline custom
+# field set so rerunning this seed also removes associations created by older
+# Phase 38 seed revisions.
+baseline_projects = [
+  projects.fetch(PRIMARY_PROJECT_IDENTIFIER),
+  projects.fetch(SECONDARY_PROJECT_IDENTIFIER)
+]
+
+baseline_projects.each do |project|
+  project.issue_custom_fields = [release_tag]
 
   membership = Member.find_or_initialize_by(
     project: project,
@@ -151,18 +183,35 @@ projects.each_value do |project|
   membership.save!
 end
 
+agent_brief_project = projects.fetch(AGENT_BRIEF_PROJECT_IDENTIFIER)
+agent_brief_project.issue_custom_fields = [
+  release_tag,
+  *agent_brief_custom_fields.values
+]
+
+# The dedicated Phase 38 project is intentionally invisible to the read-only
+# context-measurement user. The internal lifecycle boundary uses the writer
+# credential for both reads and writes in integration tests.
+Member.where(
+  project: agent_brief_project,
+  user_id: read_only_user.id
+).destroy_all
+
 primary_project = projects.fetch(PRIMARY_PROJECT_IDENTIFIER)
 
-writer_membership = Member.find_or_initialize_by(
-  project: primary_project,
-  user_id: writer_user.id
-)
-writer_membership.role_ids = [writer_role.id]
-writer_membership.save!
+[primary_project, agent_brief_project].each do |project|
+  writer_membership = Member.find_or_initialize_by(
+    project: project,
+    user_id: writer_user.id
+  )
+  writer_membership.role_ids = [writer_role.id]
+  writer_membership.save!
+end
 
-# Keep the writer user scoped to the primary synthetic test project.
+# Keep the writer away from the secondary private project while allowing the
+# dedicated Phase 38 integration project.
 Member.where(user_id: writer_user.id)
-      .where.not(project_id: primary_project.id)
+      .where.not(project_id: [primary_project.id, agent_brief_project.id])
       .destroy_all
 
 versions = {}
@@ -203,6 +252,29 @@ ISSUE_DEFINITIONS.each do |definition|
   issues[definition[:subject]] = issue
 end
 
+agent_brief_issue = Issue.find_or_initialize_by(
+  project: agent_brief_project,
+  subject: AGENT_BRIEF_ISSUE_SUBJECT
+)
+agent_brief_issue.tracker = trackers.fetch("Feature")
+agent_brief_issue.status = statuses.fetch("New")
+agent_brief_issue.priority = priorities.fetch("Normal")
+agent_brief_issue.author = writer_user
+agent_brief_issue.assigned_to = writer_user
+agent_brief_issue.fixed_version = nil
+agent_brief_issue.description =
+  "Synthetic issue used only for Agent Brief lifecycle metadata integration tests."
+agent_brief_issue.custom_field_values = {
+  release_tag.id => "phase-38",
+  agent_brief_custom_fields.fetch("Agent Brief Lifecycle").id => "Brief Draft",
+  agent_brief_custom_fields.fetch("Brief Approved By").id => "",
+  agent_brief_custom_fields.fetch("Brief Approved At").id => "",
+  agent_brief_custom_fields.fetch("Approved Brief Revision").id => "",
+  agent_brief_custom_fields.fetch("Approved Persisted Revision").id => "",
+  agent_brief_custom_fields.fetch("Approved Req Fingerprint").id => ""
+}
+agent_brief_issue.save!
+
 journal_issue = issues.fetch("Add issue listing support")
 journal_note = "Initial investigation completed."
 
@@ -240,10 +312,11 @@ end
 puts "Read-only test user ensured: #{read_only_user.login}"
 puts "Writer test user ensured: #{writer_user.login}"
 puts "Projects ensured: #{projects.keys.join(', ')}"
-puts "Read-only memberships ensured"
-puts "Writer membership ensured for: #{primary_project.identifier}"
+puts "Read-only memberships ensured: #{baseline_projects.map(&:identifier).join(', ')}"
+puts "Writer memberships ensured: #{[primary_project, agent_brief_project].map(&:identifier).join(', ')}"
 puts "Versions ensured: #{versions.keys.join(', ')}"
 puts "Issues ensured: #{issues.keys.join(' | ')}"
+puts "Agent Brief lifecycle issue ensured: #{agent_brief_issue.subject}"
 puts "Journal ensured for: #{journal_issue.subject}"
 puts "Issue relation ensured: #{relation_from.subject} relates #{relation_to.subject}"
 puts "Deterministic test API tokens ensured"

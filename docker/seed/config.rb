@@ -30,6 +30,46 @@ PRIORITY_DEFINITIONS = [
 
 RELEASE_TAG_CUSTOM_FIELD_NAME = "release_tag"
 
+AGENT_BRIEF_LIFECYCLE_VALUES = [
+  "Brief Draft",
+  "Brief Ready",
+  "Ready for Agent"
+].freeze
+
+AGENT_BRIEF_CUSTOM_FIELD_DEFINITIONS = [
+  {
+    name: "Agent Brief Lifecycle",
+    field_format: "list",
+    possible_values: AGENT_BRIEF_LIFECYCLE_VALUES,
+    is_filter: true
+  },
+  {
+    name: "Brief Approved By",
+    field_format: "string",
+    is_filter: false
+  },
+  {
+    name: "Brief Approved At",
+    field_format: "string",
+    is_filter: false
+  },
+  {
+    name: "Approved Brief Revision",
+    field_format: "int",
+    is_filter: false
+  },
+  {
+    name: "Approved Persisted Revision",
+    field_format: "string",
+    is_filter: false
+  },
+  {
+    name: "Approved Req Fingerprint",
+    field_format: "string",
+    is_filter: false
+  }
+].freeze
+
 MCP_READ_ONLY_PERMISSIONS = %i[
   view_project
   view_issues
@@ -99,6 +139,25 @@ release_tag.save!
 release_tag.trackers = trackers.values
 release_tag.save!
 
+agent_brief_custom_fields = AGENT_BRIEF_CUSTOM_FIELD_DEFINITIONS.to_h do |definition|
+  custom_field = IssueCustomField.find_or_initialize_by(name: definition[:name])
+  custom_field.field_format = definition[:field_format]
+  custom_field.is_required = false
+  custom_field.is_filter = definition[:is_filter]
+  custom_field.searchable = false
+  custom_field.visible = true
+
+  if definition[:possible_values]
+    custom_field.possible_values = definition[:possible_values]
+  end
+
+  custom_field.save!
+  custom_field.trackers = trackers.values
+  custom_field.save!
+
+  [definition[:name], custom_field]
+end
+
 # Rebuild only the workflow transitions owned by MCP roles.
 #
 # The workflow is intentionally small and deterministic so MCP tests can make
@@ -138,4 +197,5 @@ puts "Role ensured: #{read_only_role.name}"
 puts "Role ensured: #{writer_role.name}"
 puts "Workflow transitions ensured for MCP roles"
 puts "Issue custom field ensured: #{release_tag.name}"
+puts "Agent Brief custom fields ensured: #{agent_brief_custom_fields.keys.join(', ')}"
 puts "Issue priorities ensured: #{priorities.keys.join(', ')}"

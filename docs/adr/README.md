@@ -26,6 +26,7 @@ This directory contains architecture decisions for the Redmine MCP Server.
 | ADR-018 | Store versioned Agent Briefs in the target application repository | Accepted |
 | ADR-019 | Separate Human Review, Handler Validation, and Agent handoff readiness | Accepted |
 | ADR-020 | Map Agent Brief lifecycle to dedicated Redmine custom fields | Accepted |
+| ADR-021 | Derive requirements fingerprints from the bounded generation-input semantics | Accepted |
 
 ## Status values
 
@@ -47,6 +48,9 @@ Agent Brief artifact contract facts
 
 Agent Brief generation input contract facts
   -> docs/contracts/agent-brief-generation-input-contract.md
+
+Agent Brief requirements fingerprint contract facts
+  -> docs/contracts/agent-brief-requirements-fingerprint-contract.md
 
 Agent Brief persistence contract facts
   -> docs/contracts/agent-brief-persistence-contract.md

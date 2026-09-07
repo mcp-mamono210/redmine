@@ -202,3 +202,59 @@ export const searchOutputSchema = z.object({
   offset: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
 });
+
+const requirementsFingerprintSchema = z
+  .string()
+  .regex(/^sha256:[0-9a-f]{64}$/u);
+
+const approvalTimestampSchema = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u,
+  )
+  .refine((value) => !Number.isNaN(Date.parse(value)));
+
+const approvedAgentBriefOutputSchema = z.object({
+  outcome: z.literal("approved"),
+  issue_id: z.number().int().positive(),
+  brief_revision: z.number().int().positive(),
+  persisted_revision: z.string().min(1),
+  requirements_fingerprint: requirementsFingerprintSchema,
+  lifecycle: z.literal("Ready for Agent"),
+  approver_identity: z.string().regex(/^redmine-user:[1-9]\d*$/u),
+  approved_at: approvalTimestampSchema,
+  handoff_eligible: z.literal(true),
+});
+
+const staleAgentBriefOutputSchema = z.object({
+  outcome: z.literal("stale"),
+  issue_id: z.number().int().positive(),
+  brief_revision: z.number().int().positive(),
+  persisted_revision: z.string().min(1),
+  persisted_requirements_fingerprint: requirementsFingerprintSchema,
+  current_requirements_fingerprint: requirementsFingerprintSchema,
+  lifecycle: z.literal("Brief Draft"),
+  handoff_eligible: z.literal(false),
+});
+
+const validationFailedAgentBriefOutputSchema = z.object({
+  outcome: z.literal("validation_failed"),
+  issue_id: z.number().int().positive(),
+  brief_revision: z.number().int().positive(),
+  persisted_revision: z.string().min(1),
+  reason: z.enum([
+    "lifecycle_not_brief_ready",
+    "reviewed_reference_invalid",
+    "fingerprint_unavailable",
+  ]),
+  handoff_eligible: z.literal(false),
+});
+
+export const agentBriefApprovalOutputSchema = z.discriminatedUnion(
+  "outcome",
+  [
+    approvedAgentBriefOutputSchema,
+    staleAgentBriefOutputSchema,
+    validationFailedAgentBriefOutputSchema,
+  ],
+);

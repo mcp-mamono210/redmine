@@ -29,10 +29,16 @@ describe("MCP tool registry", () => {
     },
   );
 
-  it("classifies every currently implemented tool as read-only", () => {
+  it("publishes one narrow Agent Brief approval write Tool in addition to the read surface", () => {
     expect(
-      toolRegistry.every((entry) => entry.access === "read"),
-    ).toBe(true);
+      toolRegistry
+        .filter((entry) => entry.access === "write")
+        .map((entry) => entry.name),
+    ).toEqual(["redmine_approve_agent_brief"]);
+
+    expect(
+      toolRegistry.filter((entry) => entry.access === "read"),
+    ).toHaveLength(6);
   });
 
   it("rejects duplicate tool names", () => {

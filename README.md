@@ -1,6 +1,6 @@
 # Redmine MCP Server
 
-A TypeScript MCP server for accessing Redmine through a bounded, read-oriented interface.
+A TypeScript MCP server for accessing Redmine through a bounded read interface plus explicitly guarded workflow-specific writes.
 
 The project is designed around predictable MCP contracts, structured output, deterministic testing, and explicit control of context cost.
 
@@ -11,7 +11,11 @@ Current package version: `0.2.0`
 Release status: v0.2.0 release candidate. Git tagging, GitHub Release creation,
 and the final release operation remain outside this preparation change.
 
-The currently published MCP Tool Registry is read-only. Write access infrastructure and guards are being developed separately and are not exposed as write tools by the current registry.
+The published MCP Tool Registry is read-only by default. When write publication
+is explicitly enabled and the Agent Brief approval storage configuration is
+provided, the registry additionally exposes the narrow
+`redmine_approve_agent_brief` workflow Tool. Generic Redmine mutation Tools are
+not exposed.
 
 ## Requirements
 
@@ -39,7 +43,7 @@ npm start
 
 ## Configuration
 
-The server reads its Redmine connection settings from environment variables.
+The server reads its Redmine connection and guarded-write settings from environment variables.
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -48,8 +52,12 @@ The server reads its Redmine connection settings from environment variables.
 | `REDMINE_TIMEOUT_MS` | No | Positive integer request timeout in milliseconds; defaults to 10000 |
 | `REDMINE_WRITE_ENABLED` | No | Write Tool publication guard. Accepts only `true` or `false`; defaults to `false` |
 | `REDMINE_ALLOWED_PROJECTS` | No | Comma-separated project allowlist used by the write guard |
+| `AGENT_BRIEF_REPOSITORY_ROOT` | When write Tools are enabled | Absolute or process-resolvable path to the local Git work tree that stores Phase 37 Agent Brief revisions |
+| `AGENT_BRIEF_REPOSITORY` | When write Tools are enabled | Canonical repository identity expected in persisted Agent Brief metadata |
+| `AGENT_BRIEF_CANONICAL_BRANCH` | No | Canonical Agent Brief storage branch; defaults to `main` |
+| `AGENT_BRIEF_REQUIREMENT_CUSTOM_FIELD_IDS` | No | Comma-separated positive Redmine custom-field IDs that are requirement-bearing for Agent Brief fingerprint projection |
 
-Example:
+Example for read-only operation:
 
 ```bash
 export REDMINE_URL="https://redmine.example.com"
@@ -57,11 +65,24 @@ export REDMINE_API_KEY="<redmine-api-key>"
 npm start
 ```
 
+Example for the guarded Agent Brief approval Tool:
+
+```bash
+export REDMINE_URL="https://redmine.example.com"
+export REDMINE_API_KEY="<redmine-api-key>"
+export REDMINE_WRITE_ENABLED="true"
+export REDMINE_ALLOWED_PROJECTS="<project-identifier>"
+export AGENT_BRIEF_REPOSITORY_ROOT="/srv/repos/redmine"
+export AGENT_BRIEF_REPOSITORY="mcp-mamono210/redmine"
+export AGENT_BRIEF_CANONICAL_BRANCH="main"
+npm start
+```
+
 Do not commit production credentials to the repository.
 
 ## MCP Tools
 
-The current Tool Registry publishes the following read-only tools:
+The Tool Registry publishes these read tools in the default configuration:
 
 | Tool | Purpose |
 | --- | --- |
@@ -72,7 +93,18 @@ The current Tool Registry publishes the following read-only tools:
 | `redmine_get_project` | Get project detail and aggregated project metadata |
 | `redmine_list_projects` | List bounded project summaries |
 
-The Tool Registry is the source of truth for which tools are currently published.
+When `REDMINE_WRITE_ENABLED=true`, the write publication guard additionally
+allows the following registered workflow Tool to be published:
+
+| Tool | Purpose |
+| --- | --- |
+| `redmine_approve_agent_brief` | Explicitly validate one human-reviewed persisted Agent Brief and, when CURRENT, record approval metadata and transition `Brief Ready` to `Ready for Agent`; STALE returns the Brief to `Brief Draft` |
+
+`redmine_approve_agent_brief` is not an Agent execution Tool and is not
+idempotent in the v0.3.0 Phase 40 contract. Duplicate-call and interrupted-write
+recovery semantics belong to Phase 41.
+
+The Tool Registry is the source of truth for which tools are currently implemented and eligible for publication.
 
 ## Response Design
 
@@ -84,9 +116,10 @@ The main principles are:
 - list and search operations use bounded pagination;
 - optional issue associations are returned only when explicitly requested;
 - MCP responses provide structured output;
-- project metadata aggregation is bounded and supports partial-result warnings where appropriate.
+- project metadata aggregation is bounded and supports partial-result warnings where appropriate;
+- the Agent Brief approval Tool returns only bounded workflow outcomes and stable identifiers rather than Issue or Brief bodies.
 
-This keeps common discovery workflows smaller than returning complete Redmine API payloads for every request.
+This keeps common discovery and approval workflows smaller than returning complete Redmine API payloads for every request.
 
 ## Write Guard
 
@@ -100,9 +133,13 @@ false
 
 write entries are excluded from the published Tool Registry.
 
-`REDMINE_ALLOWED_PROJECTS` provides a comma-separated project allowlist for write operations.
+`REDMINE_ALLOWED_PROJECTS` provides a comma-separated project allowlist for write operations. An empty or unset allowlist allows no project mutation.
 
-The current registry contains read-only tools only, so enabling the write guard does not by itself add write tools that are not implemented and registered.
+When write publication is enabled, `redmine_approve_agent_brief` remains subject
+to the same project allowlist before any lifecycle or approval metadata write.
+The approval path reuses the existing Agent Brief lifecycle metadata boundary;
+it does not expose a generic custom-field writer or generic lifecycle mutation
+Tool.
 
 ## Local Redmine Test Environment
 

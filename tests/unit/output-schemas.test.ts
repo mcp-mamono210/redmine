@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  agentBriefApprovalOutputSchema,
   currentUserOutputSchema,
   getIssueOutputSchema,
   getProjectOutputSchema,
@@ -8,6 +9,8 @@ import {
   listProjectsOutputSchema,
   searchOutputSchema,
 } from "../../src/mcp/output-schemas.js";
+
+const FINGERPRINT = `sha256:${"a".repeat(64)}`;
 
 describe("public MCP output schemas", () => {
   it("accepts the current user public contract", () => {
@@ -167,5 +170,59 @@ describe("public MCP output schemas", () => {
         limit: 10,
       }).success,
     ).toBe(true);
+  });
+
+  it("accepts all three Agent Brief approval domain outcomes", () => {
+    expect(
+      agentBriefApprovalOutputSchema.safeParse({
+        outcome: "approved",
+        issue_id: 5372,
+        brief_revision: 1,
+        persisted_revision: "abcdef",
+        requirements_fingerprint: FINGERPRINT,
+        lifecycle: "Ready for Agent",
+        approver_identity: "redmine-user:7",
+        approved_at: "2026-09-07T08:00:00Z",
+        handoff_eligible: true,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      agentBriefApprovalOutputSchema.safeParse({
+        outcome: "stale",
+        issue_id: 5372,
+        brief_revision: 1,
+        persisted_revision: "abcdef",
+        persisted_requirements_fingerprint: FINGERPRINT,
+        current_requirements_fingerprint:
+          `sha256:${"b".repeat(64)}`,
+        lifecycle: "Brief Draft",
+        handoff_eligible: false,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      agentBriefApprovalOutputSchema.safeParse({
+        outcome: "validation_failed",
+        issue_id: 5372,
+        brief_revision: 1,
+        persisted_revision: "abcdef",
+        reason: "reviewed_reference_invalid",
+        handoff_eligible: false,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects cross-variant Agent Brief approval fields", () => {
+    expect(
+      agentBriefApprovalOutputSchema.safeParse({
+        outcome: "approved",
+        issue_id: 5372,
+        brief_revision: 1,
+        persisted_revision: "abcdef",
+        lifecycle: "Brief Draft",
+        handoff_eligible: false,
+      }).success,
+    ).toBe(false);
   });
 });

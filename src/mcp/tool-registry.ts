@@ -2,6 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/server";
 
 import type { RedmineClient } from "../redmine/client.js";
 import type { WriteGuard } from "./write-guard.js";
+import {
+  registerApproveAgentBriefTool,
+  type AgentBriefApprovalToolHandler,
+} from "./tools/agent-brief-approval.js";
 import { registerCurrentUserTool } from "./tools/current-user.js";
 import {
   registerGetIssueTool,
@@ -22,7 +26,26 @@ export interface ToolRegistryEntry {
     server: McpServer,
     redmineClient: RedmineClient,
     writeGuard: WriteGuard,
+    agentBriefApprovalHandler?: AgentBriefApprovalToolHandler,
   ): void;
+}
+
+function registerAgentBriefApprovalRegistryEntry(
+  server: McpServer,
+  _redmineClient: RedmineClient,
+  _writeGuard: WriteGuard,
+  agentBriefApprovalHandler?: AgentBriefApprovalToolHandler,
+): void {
+  if (agentBriefApprovalHandler === undefined) {
+    throw new Error(
+      "Agent Brief approval handler is required when approval writes are published",
+    );
+  }
+
+  registerApproveAgentBriefTool(
+    server,
+    agentBriefApprovalHandler,
+  );
 }
 
 export const toolRegistry = [
@@ -55,6 +78,11 @@ export const toolRegistry = [
     name: "redmine_list_projects",
     access: "read",
     register: registerListProjectsTool,
+  },
+  {
+    name: "redmine_approve_agent_brief",
+    access: "write",
+    register: registerAgentBriefApprovalRegistryEntry,
   },
 ] as const satisfies readonly ToolRegistryEntry[];
 

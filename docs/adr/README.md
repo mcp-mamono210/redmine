@@ -24,6 +24,7 @@ This directory contains architecture decisions for the Redmine MCP Server.
 | ADR-016 | Separate single-pass normal CI from an explicit reproducibility gate | Accepted |
 | ADR-017 | Route normal CI by classification and require a fixed release full gate | Accepted |
 | ADR-018 | Store versioned Agent Briefs in the target application repository | Accepted |
+| ADR-019 | Separate Human Review, Handler Validation, and Agent handoff readiness | Accepted |
 
 ## Status values
 
@@ -48,6 +49,9 @@ Agent Brief generation input contract facts
 
 Agent Brief persistence contract facts
   -> docs/contracts/agent-brief-persistence-contract.md
+
+Agent Brief lifecycle / approval metadata contract facts
+  -> docs/contracts/agent-brief-lifecycle-contract.md
 
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md

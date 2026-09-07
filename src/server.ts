@@ -3,6 +3,7 @@ import packageJson from "../package.json" with { type: "json" };
 
 import { AgentBriefApprovalHandler } from "./agent-brief/approval-handler.js";
 import { AgentBriefApprovalIdempotencyHandler } from "./agent-brief/approval-idempotency.js";
+import { AgentBriefApprovalRecoveryLifecycleBoundary } from "./agent-brief/approval-recovery.js";
 import { AgentBriefLifecycleMetadataBoundary } from "./agent-brief/lifecycle-metadata.js";
 import { readAgentBriefRevision } from "./agent-brief/persistence.js";
 import {
@@ -59,7 +60,7 @@ function createProductionApprovalHandler(
     apiKey: redmineApiKey,
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
   });
-  const lifecycleBoundary = new AgentBriefLifecycleMetadataBoundary(
+  const baseLifecycleBoundary = new AgentBriefLifecycleMetadataBoundary(
     redmineClient,
     lifecycleWriter,
     writeGuard,
@@ -79,6 +80,16 @@ function createProductionApprovalHandler(
       persistenceConfig,
       issueId,
       briefRevision,
+    );
+  const lifecycleBoundary =
+    new AgentBriefApprovalRecoveryLifecycleBoundary(
+      baseLifecycleBoundary,
+      redmineClient,
+      readPersistedBrief,
+      {
+        repository: approvalConfig.repository,
+        generationInputPolicy,
+      },
     );
 
   const phase40Handler = new AgentBriefApprovalHandler(

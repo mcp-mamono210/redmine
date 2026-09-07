@@ -95,21 +95,23 @@ Approve one explicitly reviewed persisted Agent Brief through the MCP entry poin
 ### Context
 
 Phase 40-3 exposes the Phase 40-2 Approval Handler through one guarded MCP Tool.
+Phase 41 adds duplicate convergence and bounded ambiguous-write recovery.
 
 ### In Scope
 
 - Validate the exact reviewed persisted reference.
 - Return a bounded explicit approval outcome.
+- Preserve idempotent approval semantics after Phase 41 recovery is active.
 
 ### Out of Scope
 
 - Agent execution.
-- Phase 41 idempotency and recovery.
 
 ### Requirements
 
 - Delegate approval business rules to the Phase 40 Approval Handler.
 - Preserve the Phase 38 Write Guard and lifecycle boundary.
+- Reconcile duplicate and ambiguous writes without unbounded retry.
 
 ### Architecture / Contract Constraints
 
@@ -120,11 +122,13 @@ Phase 40-3 exposes the Phase 40-2 Approval Handler through one guarded MCP Tool.
 
 - [ ] AC-1: A CURRENT reviewed Brief can reach Ready for Agent through the explicit MCP Tool.
 - [ ] AC-2: An invalid reviewed reference does not grant handoff eligibility.
+- [ ] AC-3: The Tool advertises idempotent behavior after Phase 41 is active.
 
 ### Verification
 
 - AC-1: Exercise redmine_approve_agent_brief against the seeded Redmine fixture.
 - AC-2: Call the Tool with a mismatched persisted revision before the valid call.
+- AC-3: Inspect MCP annotations from tools/list.
 
 ### Deliverables
 
@@ -296,7 +300,7 @@ describe("explicit Agent Brief approval MCP entry point", () => {
       expect(tool?.annotations).toMatchObject({
         readOnlyHint: false,
         destructiveHint: false,
-        idempotentHint: false,
+        idempotentHint: true,
         openWorldHint: true,
       });
 

@@ -60,15 +60,17 @@ export function registerApproveAgentBriefTool(
     {
       description:
         "Explicitly validate one human-reviewed immutable Agent Brief " +
-        "reference. The Redmine Issue must already be in Brief Ready. " +
+        "reference. A new approval requires the Redmine Issue to be in Brief Ready; " +
+        "an exact completed approval may be reconciled idempotently. " +
         "The Handler validates the requested Brief revision and persisted " +
         "revision against current Redmine requirements. CURRENT may record " +
         "approval metadata and move the lifecycle to Ready for Agent; STALE " +
-        "moves it back to Brief Draft. This tool does not execute an Agent.",
+        "moves it back to Brief Draft. Duplicate and ambiguous write attempts " +
+        "are reconciled with bounded recovery. This tool does not execute an Agent.",
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        idempotentHint: false,
+        idempotentHint: true,
         openWorldHint: true,
       },
       inputSchema: approveAgentBriefInputSchema,

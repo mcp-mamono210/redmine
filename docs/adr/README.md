@@ -28,6 +28,7 @@ This directory contains architecture decisions for the Redmine MCP Server.
 | ADR-020 | Map Agent Brief lifecycle to dedicated Redmine custom fields | Accepted |
 | ADR-021 | Derive requirements fingerprints from the bounded generation-input semantics | Accepted |
 | ADR-022 | Use one guarded MCP Tool for explicit Agent Brief approval | Accepted |
+| ADR-023 | Make explicit Agent Brief approval idempotent by reconciliation | Accepted |
 
 ## Status values
 
@@ -64,6 +65,9 @@ Agent Brief Redmine lifecycle / approval metadata mapping facts
 
 Agent Brief Approval Handler / explicit MCP entry-point facts
   -> docs/contracts/agent-brief-approval-handler-contract.md
+
+Agent Brief approval idempotency / recovery facts
+  -> docs/contracts/agent-brief-approval-idempotency-recovery-contract.md
 
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md

@@ -27,6 +27,7 @@ This directory contains architecture decisions for the Redmine MCP Server.
 | ADR-019 | Separate Human Review, Handler Validation, and Agent handoff readiness | Accepted |
 | ADR-020 | Map Agent Brief lifecycle to dedicated Redmine custom fields | Accepted |
 | ADR-021 | Derive requirements fingerprints from the bounded generation-input semantics | Accepted |
+| ADR-022 | Use one guarded MCP Tool for explicit Agent Brief approval | Accepted |
 
 ## Status values
 
@@ -60,6 +61,9 @@ Agent Brief lifecycle / approval metadata contract facts
 
 Agent Brief Redmine lifecycle / approval metadata mapping facts
   -> docs/contracts/agent-brief-redmine-mapping-contract.md
+
+Agent Brief Approval Handler / explicit MCP entry-point facts
+  -> docs/contracts/agent-brief-approval-handler-contract.md
 
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md

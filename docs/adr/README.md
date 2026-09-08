@@ -72,6 +72,9 @@ Agent Brief approval idempotency / recovery facts
 Final v0.3.0 Agent Brief public MCP surface facts
   -> docs/contracts/agent-brief-public-mcp-surface-contract.md
 
+v0.3.0 Ready for Agent release handoff facts
+  -> docs/contracts/agent-brief-release-handoff-contract.md
+
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md
 

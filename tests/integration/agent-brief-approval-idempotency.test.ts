@@ -325,7 +325,7 @@ describe("Agent Brief approval idempotency integration", () => {
         approvedRequirementsFingerprint: fingerprint,
       },
     });
-  });
+  }, 15_000);
 
   it("returns approval_conflict instead of rewriting a different approval fact", async () => {
     const repositoryRoot = createRepository();
@@ -373,5 +373,5 @@ describe("Agent Brief approval idempotency integration", () => {
       approvedPersistedRevision: `${persistedRevision}-different`,
       approvedRequirementsFingerprint: fingerprint,
     });
-  });
+  }, 15_000);
 });

@@ -69,6 +69,9 @@ Agent Brief Approval Handler / explicit MCP entry-point facts
 Agent Brief approval idempotency / recovery facts
   -> docs/contracts/agent-brief-approval-idempotency-recovery-contract.md
 
+Final v0.3.0 Agent Brief public MCP surface facts
+  -> docs/contracts/agent-brief-public-mcp-surface-contract.md
+
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md
 

@@ -123,12 +123,14 @@ Phase 41 adds duplicate convergence and bounded ambiguous-write recovery.
 - [ ] AC-1: A CURRENT reviewed Brief can reach Ready for Agent through the explicit MCP Tool.
 - [ ] AC-2: An invalid reviewed reference does not grant handoff eligibility.
 - [ ] AC-3: The Tool advertises idempotent behavior after Phase 41 is active.
+- [ ] AC-4: Repeating the exact approved request converges on the original approval fact.
 
 ### Verification
 
 - AC-1: Exercise redmine_approve_agent_brief against the seeded Redmine fixture.
 - AC-2: Call the Tool with a mismatched persisted revision before the valid call.
 - AC-3: Inspect MCP annotations from tools/list.
+- AC-4: Reinvoke the exact request and compare the public result and Redmine read-back.
 
 ### Deliverables
 
@@ -359,6 +361,29 @@ describe("explicit Agent Brief approval MCP entry point", () => {
       expect(
         approved.approvalMetadata.approvedRequirementsFingerprint,
       ).toBe(fingerprint);
+
+      const duplicate = await harness.callTool(
+        "redmine_approve_agent_brief",
+        {
+          issue_id: targetIssue.id,
+          brief_revision: BRIEF_REVISION,
+          persisted_revision: persistedRevision,
+        },
+      );
+      const duplicateText = requireTextContent(duplicate.content);
+
+      expect(duplicate.isError).toBe(false);
+      expect(duplicate.structuredContent).toEqual(
+        result.structuredContent,
+      );
+      expect(JSON.parse(duplicateText) as unknown).toEqual(
+        duplicate.structuredContent,
+      );
+
+      const reconciled = await lifecycleBoundary.read(
+        targetIssue.id,
+      );
+      expect(reconciled).toEqual(approved);
     } finally {
       if (harness !== undefined) {
         await harness.close().catch(() => undefined);
@@ -369,5 +394,5 @@ describe("explicit Agent Brief approval MCP entry point", () => {
         force: true,
       });
     }
-  }, 15_000);
+  }, 20_000);
 });

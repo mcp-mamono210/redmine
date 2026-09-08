@@ -3,7 +3,15 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 
 import { AgentBriefApprovalHandler } from "../../src/agent-brief/approval-handler.js";
 import { AgentBriefApprovalRecoveryLifecycleBoundary } from "../../src/agent-brief/approval-recovery.js";
@@ -147,10 +155,14 @@ Phase 41-3 recovers ambiguous Redmine writes by read-back reconciliation.
 ### Acceptance Criteria
 
 - [ ] AC-1: Response loss after commit converges without duplicate write.
+- [ ] AC-2: A confirmed pre-commit loss allows at most one recovery write.
+- [ ] AC-3: Repeated ambiguous writes stop without reporting approval success.
 
 ### Verification
 
 - AC-1: Fault-inject a response loss after the real Redmine update.
+- AC-2: Fault-inject one pre-commit loss and verify exactly two write attempts.
+- AC-3: Fault-inject two pre-commit losses and verify bounded failure plus Brief Ready read-back.
 
 ### Deliverables
 
@@ -167,7 +179,10 @@ class FaultInjectingWriter implements AgentBriefLifecycleRedmineWriter {
 
   constructor(
     private readonly inner: AgentBriefLifecycleRedmineWriter,
-    private readonly mode: "commit-then-lose-response" | "lose-before-commit-once",
+    private readonly mode:
+      | "commit-then-lose-response"
+      | "lose-before-commit-once"
+      | "lose-before-commit-always",
   ) {}
 
   async updateAgentBriefLifecycleFields(
@@ -177,7 +192,10 @@ class FaultInjectingWriter implements AgentBriefLifecycleRedmineWriter {
   ): Promise<void> {
     this.calls += 1;
 
-    if (this.mode === "lose-before-commit-once" && this.calls === 1) {
+    if (
+      (this.mode === "lose-before-commit-once" && this.calls === 1) ||
+      this.mode === "lose-before-commit-always"
+    ) {
       throw new RedmineNetworkError(
         "fault injected before response",
         "PUT",
@@ -267,6 +285,15 @@ beforeEach(async () => {
   await boundary.transition(issueSummary.id, { targetLifecycle: "Brief Ready" });
 });
 
+afterEach(async () => {
+  const writer = new RedmineHttpAgentBriefLifecycleWriter({
+    baseUrl: redmineUrl,
+    apiKey: writerApiKey,
+  });
+  await resetIssue(writer).catch(() => undefined);
+  rmSync(repositoryRoot, { recursive: true, force: true });
+});
+
 afterAll(async () => {
   const writer = new RedmineHttpAgentBriefLifecycleWriter({
     baseUrl: redmineUrl,
@@ -302,8 +329,6 @@ describe("Agent Brief approval recovery integration", () => {
       handoffEligible: true,
     });
     expect(faultWriter.calls).toBe(1);
-
-    rmSync(repositoryRoot, { recursive: true, force: true });
   }, 15_000);
 
   it("performs exactly one recovery write after a pre-commit network loss", async () => {
@@ -330,7 +355,42 @@ describe("Agent Brief approval recovery integration", () => {
       handoffEligible: true,
     });
     expect(faultWriter.calls).toBe(2);
+  }, 15_000);
 
-    rmSync(repositoryRoot, { recursive: true, force: true });
+  it("stops after the bounded recovery retry when both write attempts are ambiguous", async () => {
+    const { persistedRevision } = await preparePersistedBrief();
+    const realWriter = new RedmineHttpAgentBriefLifecycleWriter({
+      baseUrl: redmineUrl,
+      apiKey: writerApiKey,
+    });
+    const faultWriter = new FaultInjectingWriter(
+      realWriter,
+      "lose-before-commit-always",
+    );
+    const handler = createRecoveryHandler(faultWriter);
+
+    await expect(
+      handler.approve({
+        issueId: issueSummary.id,
+        briefRevision: 1,
+        persistedRevision,
+      }),
+    ).rejects.toMatchObject({
+      name: "AgentBriefApprovalHandlerError",
+      code: "lifecycle_transition_failed",
+    });
+    expect(faultWriter.calls).toBe(2);
+
+    const verifiedBoundary = new AgentBriefLifecycleMetadataBoundary(
+      writerClient,
+      realWriter,
+      writeGuard,
+    );
+    const verified = await verifiedBoundary.read(issueSummary.id);
+    expect(verified).toMatchObject({
+      lifecycle: "Brief Ready",
+      handoffEligible: false,
+      approvalMetadata: {},
+    });
   }, 15_000);
 });

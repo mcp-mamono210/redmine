@@ -7,7 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes have been recorded after the v0.2.0 release candidate.
+Target release: v0.3.0. Package/tag/release metadata remain unchanged until the
+Phase 44 release operation.
+
+### Added
+
+- Added a strict, versioned Agent Brief contract with deterministic validation and a bounded Redmine generation-input projection that excludes unrelated context and configured secrets.
+- Added repository-local, immutable Agent Brief persistence with monotonic Brief revisions, exact persisted-revision identity, and deterministic discovery of historical and current Brief artifacts.
+- Added a dedicated Redmine Agent Brief lifecycle and approval-metadata boundary that keeps `Brief Draft`, `Brief Ready`, and `Ready for Agent` separate from ordinary Redmine Issue Status values.
+- Added deterministic requirements fingerprint generation and staleness detection derived from the same bounded requirement-bearing projection used for Brief generation instead of relying on `updated_on`.
+- Added the guarded `redmine_approve_agent_brief` MCP write Tool for explicit Human Review / Handler Validation of one immutable persisted Brief reference.
+- Added approval idempotency, exact duplicate reconciliation, ambiguous-write read-back recovery, bounded retry, and approval-conflict handling without introducing a second approval entry point.
+- Added final structured output and Tool annotations for the Agent Brief approval surface, including `idempotentHint = true` after Phase 41 behavior is active.
+- Added an Agent Brief public-surface Context Budget overlay that measures the write-enabled `tools/list` delta, approval Tool definition, output schema, representative approved response, and representative approval workflow while retaining the v0.2.0 read-only baseline.
+- Added responsibility-based CI change classification, isolated parallel verification jobs, an explicit reproducibility gate, and a fixed release-candidate/release full quality gate.
+- Added the v0.3.0 `Ready for Agent` release handoff contract, including durable approval evidence and the requirement for a later execution layer to revalidate requirements before Agent execution.
+
+### Changed
+
+- Changed the effective MCP surface from read-only-only behavior to six read Tools plus exactly one workflow-specific approval write Tool when write publication is explicitly enabled.
+- Changed Agent Brief approval repeat-call semantics so an exact completed approval converges on the existing approval fact instead of being treated as a non-idempotent second approval.
+- Changed normal CI to route verification by repository responsibility while failing safe for unknown or unclassifiable changes.
+- Changed release-candidate and release CI to ignore normal changed-file skips and require static, Unit, Integration, E2E, Context Budget, and reproducibility verification before the final `release_gate` can succeed.
+- Changed Context Budget verification so the canonical command checks both the retained read-only baseline and the actual v0.3.0 Agent Brief public write surface.
+- Changed the release boundary documentation so v0.3.0 ends at `Ready for Agent`; Agent claim, Worker orchestration, workspace provisioning, execution, source push, CI retry, and Pull Request automation remain later-release responsibilities.
+
+### Security
+
+- Preserved the existing Writer permission boundary, Write Guard, and allowed-project boundary for all Agent Brief lifecycle and approval writes.
+- Kept write Tool publication disabled by default and prevented the approval workflow from becoming a generic Redmine custom-field or lifecycle mutation surface.
+- Added regression coverage preventing credentials and configured secrets from leaking through Brief generation inputs, MCP responses, logs, diagnostics, or recovery paths.
+- Kept approval and recovery failures fail-closed: incomplete metadata, stale or mismatched artifacts, permission denial, ambiguous writes, and unresolved retry outcomes do not grant `Ready for Agent` handoff eligibility.
 
 ## [0.2.0] - Release candidate
 

@@ -30,7 +30,7 @@ describe("MCP server version metadata", () => {
   it("reports the package version through the production initialize path", async () => {
     const packageVersion = readPackageVersion();
 
-    expect(packageVersion).toBe("0.2.0");
+    expect(packageVersion).toBe("0.3.0");
 
     const harness = await createMcpE2eHarness({
       clientName: "redmine-mcp-server-version-e2e-client",

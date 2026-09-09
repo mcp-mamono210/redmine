@@ -7,8 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Target release: v0.3.0. Package/tag/release metadata remain unchanged until the
-Phase 44 release operation.
+## [0.3.0] - 2026-09-09
 
 ### Added
 

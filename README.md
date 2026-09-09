@@ -6,13 +6,9 @@ The project is designed around predictable MCP contracts, structured output, det
 
 ## Status
 
-Current package version: `0.2.0`
+Current package version: `0.3.0`
 
-Release preparation target: v0.3.0 release candidate.
-
-The package metadata remains `0.2.0` during Phase 43 release preparation. The
-version change to `0.3.0`, Git tag `v0.3.0`, and GitHub Release are Phase 44
-release operations and are not performed by the documentation-alignment phase.
+Current release: v0.3.0.
 
 The v0.3.0 functional boundary ends at `Ready for Agent`: one human-reviewed,
 versioned Agent Brief has passed Handler Validation and has complete approval

@@ -16,7 +16,7 @@ Phase 46-1 established the initial contract for:
 - repository identity resolution; and
 - fail-closed behavior before later execution-specific checks.
 
-Phase 46-2 extends the same canonical contract with:
+Phase 46-2 extended the same canonical contract with:
 
 - execution-time requirements revalidation using the existing v0.3.0
   requirements-fingerprint semantics;
@@ -27,10 +27,18 @@ Phase 46-2 extends the same canonical contract with:
 - the responsibility boundary for any future Phase 47-specific outcome
   extension.
 
-Later Phase 46 tickets extend this same canonical document with exact source
-revision, execution identity, immutable execution input snapshot, logical
-execution record, physical Redmine mapping, environment binding, and final
-cross-contract verification.
+Phase 46-3 extends the same canonical contract with:
+
+- exact Application Git source-revision semantics;
+- immutable source identity as repository plus exact commit;
+- execution identity and traceability semantics;
+- the `execution_id` allocation boundary after the Phase 47 authorization /
+  security gate; and
+- explicit deferral of concrete `execution_id` serialization to Phase 46-5.
+
+Later Phase 46 tickets extend this same canonical document with immutable
+execution input snapshot, logical execution record, physical Redmine mapping,
+environment binding, and final cross-contract verification.
 
 This contract is subordinate to the Phase 45 architecture / lifecycle boundary:
 
@@ -48,11 +56,11 @@ Phase 46 consumes those contracts. It does not redefine `Ready for Agent`, Human
 Review, Handler Validation, approval metadata, Brief persistence identity, or
 requirements-fingerprint semantics.
 
-Phase 46-2 still does not implement Agent execution. It does not define the
-exact application source-revision mechanism, `execution_id` allocation or
-serialization, physical Redmine execution-field mapping, Phase 47 authorization
-policy, credentials, sandboxing, Controller runtime implementation, or Agent
-process invocation.
+Phase 46-3 still does not implement Agent execution. It fixes exact source
+revision and execution-identity semantics, but it does not define Git checkout
+implementation, concrete `execution_id` serialization, physical Redmine
+execution-field mapping, Phase 47 authorization policy, credentials, sandboxing,
+Controller runtime implementation, or Agent process invocation.
 
 ## Execution Eligibility
 
@@ -254,6 +262,190 @@ required ADR / architecture decision
 Until that explicit change occurs, `eligibility_failed` remains the canonical
 outcome for Phase 47 gate failure. Phase 46-2 does not redefine the Phase 45
 outcome taxonomy.
+
+## Exact Source Revision
+
+Application Git remains the Source of Truth for application source. Phase 46-3
+does not copy application source authority into Redmine, versioned Brief
+storage, the Runner workspace, or an execution-local database.
+
+Before an execution attempt can receive an `execution_id`, the execution target
+must be resolved to an exact immutable Application Git revision. The logical
+source identity is:
+
+```text
+repository
++
+exact commit
+```
+
+The exact commit must identify one concrete Git commit object. The contract does
+not require a particular Git object hash algorithm or hard-code an object-ID
+length, but the stored `source_revision` must be sufficient to re-identify the
+same immutable commit later.
+
+A branch, tag, symbolic ref, or `HEAD` may be used as source-selection input, but
+it is not by itself the execution source identity. Before the execution identity
+is allocated, any such moving reference must be resolved to the exact commit that
+will be used by that execution.
+
+The following alone are therefore insufficient as `source_revision`:
+
+```text
+main
+develop
+feature/*
+HEAD
+mutable branch name
+mutable tag name
+```
+
+Once the exact commit has been selected for an execution candidate, later
+movement of the branch or tag must not silently retarget that candidate. Phase
+46-4 owns the immutable execution-input snapshot that preserves this identity
+through execution.
+
+Exact source revision determination is fail closed. If the repository cannot be
+resolved to one exact eligible commit, if the selected ref cannot be resolved,
+or if resolution is ambiguous or unavailable, the result is a pre-execution
+rejection under the Phase 46-2 contract:
+
+```text
+exact source revision determination failure
+  -> Agent is not started
+  -> lifecycle target = Needs Human
+  -> outcome = eligibility_failed
+  -> execution_id is not allocated
+```
+
+This source-resolution contract does not grant repository authorization. Phase
+47 owns repository allowlist, authorization, credentials, and security policy.
+Phase 46-3 requires only that the execution source has already been reduced to an
+unambiguous repository identity plus exact commit before the Phase 47 gate is
+passed and before an execution ID is allocated.
+
+## Execution Identity
+
+`execution_id` identifies one concrete execution attempt. It is not an Issue
+identity, Brief identity, source revision, retry counter, lifecycle state, or
+artifact identifier.
+
+Each execution attempt must be traceable to at least the following logical
+identity set:
+
+```text
+execution_id
+issue_id
+repository
+source_revision
+brief_revision
+persisted_revision
+requirements_fingerprint
+```
+
+Together these values make it possible to establish which Redmine Issue, exact
+approved Brief, approved requirements proof, repository, and exact Application
+Git source revision belong to one execution attempt.
+
+Multiple execution attempts for the same Issue are permitted, but each attempt
+must receive a distinct `execution_id`. Reusing one `execution_id` for a later
+retry or a different source / Brief identity is forbidden. Once allocated, the
+identifier is stable for that attempt and must not be rewritten to encode a
+later lifecycle result.
+
+The execution identifier must also be non-secret. It must not contain API keys,
+credentials, access tokens, secret repository URLs, or other secret-bearing
+material.
+
+### Execution ID allocation boundary
+
+The allocation ordering is:
+
+```text
+Phase 46 handoff / eligibility validation passed
+    |
+    v
+requirements are current
+    |
+    v
+exact source revision fixed
+    |
+    v
+Phase 47 authorization / security gate passed
+    |
+    v
+execution preparation entered
+    |
+    v
+execution_id allocated
+```
+
+Phase 46-3 fixes the ordering relationship that `execution_id` allocation is
+after successful Phase 47 authorization / security gating. Phase 46-4 owns the
+full final ordering around snapshot construction, logical execution-record
+preparation, durable `Agent Running` mutation, and Agent start. Phase 47 owns the
+actual authorization / security rules.
+
+Accordingly, all pre-execution rejections that occur before this allocation
+boundary remain execution-ID-less rejections. This includes at least:
+
+```text
+approval / handoff validation failure
+fingerprint generation failure
+stale requirements
+exact source revision determination failure
+Phase 47 authorization / security gate failure
+```
+
+The absence of an `execution_id` for these cases means that no execution attempt
+identity was established. It must not be represented as an empty, pending,
+unknown, or placeholder execution ID.
+
+The existence of an `execution_id` therefore establishes the following minimum
+invariant:
+
+```text
+Phase 46 pre-execution validation passed
++
+requirements current
++
+exact source revision fixed
++
+Phase 47 authorization / security gate passed
++
+execution preparation entered
+```
+
+It does not by itself mean that `Agent Running` has been durably written or that
+the Agent has started. Those boundaries are Phase 46-4 responsibilities.
+
+### Execution ID serialization boundary
+
+Phase 46-3 fixes only the semantic requirements for `execution_id`:
+
+```text
+unique per execution attempt
+stable for that attempt
+execution-attempt scoped
+non-secret
+traceable to Issue / Brief / source identity
+```
+
+It deliberately does not fix:
+
+```text
+string format
+length
+character set
+prefix
+encoding
+Redmine field representation
+```
+
+Those physical serialization properties are Phase 46-5 responsibilities after
+the actual Redmine storage capabilities and constraints are inventoried. Phase
+46-3 must not choose a serialization that later forces an imaginary or
+environment-specific Redmine field contract.
 
 ## Approved Brief Recovery
 
@@ -473,15 +665,10 @@ Phase 46-1 must not create a second approval interpretation or write surface.
 
 ## Deferred Phase 46 Responsibilities
 
-After Phase 46-2, this canonical contract deliberately leaves the following work
+After Phase 46-3, this canonical contract deliberately leaves the following work
 to the later child tickets that own it:
 
 ```text
-Phase 46-3
-  exact application source revision
-  execution identity semantics
-  execution_id allocation boundary
-
 Phase 46-4
   Phase 47 gate placement in the final ordering
   immutable execution input snapshot
@@ -501,38 +688,36 @@ Phase 46-6
   Phase 47 / Phase 48 entry verification
 ```
 
-Deferring these responsibilities is intentional. Phase 46-2 must not preempt
+Deferring these responsibilities is intentional. Phase 46-3 must not preempt
 their detailed contracts merely to make this revision appear complete.
 
 ## Verification Obligations
 
-Phase 46-2 is complete only when repository evidence demonstrates that:
+Phase 46-3 is complete only when repository evidence demonstrates that:
 
-- the Phase 46-1 eligibility and exact-artifact recovery contract remains
-  intact and fail closed;
-- execution-time requirements revalidation reuses the existing Phase 36 /
-  Phase 39 requirements-fingerprint semantics;
-- a fingerprint equality result may continue while a fingerprint mismatch is
-  routed to `Needs Human` with `stale_requirements`;
-- fingerprint generation failure is neither CURRENT nor STALE and is routed to
-  `Needs Human` with `eligibility_failed`;
-- `updated_on` / `source_updated_on` is not used as a fallback freshness signal;
-- approval / handoff validation failure is a pre-execution
-  `eligibility_failed`;
-- exact source revision determination failure is classified as pre-execution
-  `eligibility_failed`;
-- Phase 47 authorization / security gate failure is classified as pre-execution
-  `eligibility_failed` under the current taxonomy;
-- a pre-execution rejection does not require an `execution_id`;
-- the durable rejection fact is logically distinct from a started execution
-  record;
-- Redmine is required to retain a durable rejection fact while physical mapping
-  remains deferred to Phase 46-5;
-- a new Phase 47-specific durable outcome cannot be added without explicit
-  Phase 45 taxonomy / contract review and any required ADR; and
-- the Controller does not roll a rejection directly back into `Brief Draft` or
-  `Brief Ready` and does not rewrite the upstream approval fact.
+- the Phase 46-1 eligibility / exact-artifact recovery contract remains intact
+  and fail closed;
+- the Phase 46-2 requirements-revalidation and pre-execution rejection contract
+  remains intact;
+- Application Git remains the Source of Truth for application source;
+- execution source identity is repository plus one exact immutable commit;
+- a branch, tag, symbolic ref, or `HEAD` alone is not execution source identity;
+- exact source revision determination failure is fail closed, routes to
+  `Needs Human` with `eligibility_failed`, and does not allocate an
+  `execution_id`;
+- `execution_id` identifies one execution attempt and is unique across multiple
+  attempts for the same Issue;
+- one execution identity can be traced to the Issue, exact approved Brief,
+  requirements fingerprint, repository, and exact source revision;
+- `execution_id` allocation occurs only after successful Phase 47 authorization /
+  security gating;
+- pre-execution rejection continues to require no `execution_id`;
+- the identifier is stable and non-secret;
+- `execution_id` existence does not by itself imply durable `Agent Running` or
+  Agent start; and
+- concrete `execution_id` format, length, character set, prefix, encoding, and
+  physical Redmine representation remain deferred to Phase 46-5.
 
-No Agent or Controller runtime test is required by Phase 46-2 because this
-ticket establishes requirements-revalidation and rejection contract semantics,
+No Git checkout, Agent, or Controller runtime test is required by Phase 46-3
+because this ticket establishes exact-source and execution-identity semantics,
 not their runtime implementation.

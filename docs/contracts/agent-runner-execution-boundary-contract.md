@@ -11,10 +11,12 @@ the Redmine / MCP approval control plane and the Agent Runner execution plane.
 Phase 45-1 established the architecture / deployment boundary and release
 ownership. Phase 45-2 extended the same canonical document with component
 responsibility, Source of Truth ownership, and the durable / transient state
-boundary. Phase 45-3 extends it with lifecycle write ownership, the
-pre-execution failure boundary, and the execution outcome taxonomy. Later Phase
-45 tickets extend this document with the remaining Phase 45 responsibilities
-rather than creating a second competing system contract.
+boundary. Phase 45-3 extended it with lifecycle write ownership, the
+pre-execution failure boundary, and the execution outcome taxonomy. Phase 45-4
+extends the same document with the pull-based polling contract, startup ordering,
+and the durable poll-to-execution boundary. Phase 45-5 performs the final
+cross-contract verification rather than creating a second competing system
+contract.
 
 The canonical copy of this cross-component contract remains in the
 `mcp-mamono210/redmine` repository even after the Agent Runner repository is
@@ -33,16 +35,21 @@ This revision defines:
 - one authoritative Source of Truth for each durable information category;
 - the durable / transient state boundary for the initial Runner design;
 - lifecycle write ownership between Approval Handler and Agent Controller;
-- the normal execution lifecycle and pre-execution failure boundary; and
-- the execution outcome taxonomy and Redmine Status / outcome separation.
+- the normal execution lifecycle and pre-execution failure boundary;
+- the execution outcome taxonomy and Redmine Status / outcome separation;
+- pull-based, idle-only polling from the Redmine durable control plane;
+- startup reconciliation ordering before ordinary candidate polling; and
+- the ordered boundary from a polled candidate to durable `Agent Running`
+  mutation and Agent start.
 
-This revision does not define the Phase 45-4 polling / startup contract or the
-Phase 45-5 final cross-contract verification. It also does not define the
-execution eligibility algorithm, a new requirements-fingerprint algorithm,
-execution-record schema, physical Redmine field mapping, timeout or retry
-implementation, Agent Adapter implementation, S3 object layout,
-artifact-manifest schema, local-lock implementation, or Runner database
-implementation.
+This revision does not perform the Phase 45-5 final cross-contract verification.
+It also does not define the polling-loop implementation, local-lock
+implementation, Redmine client implementation, execution eligibility algorithm,
+a new requirements-fingerprint algorithm, source-revision implementation,
+execution-record schema, physical Redmine field mapping, startup reconciliation
+algorithm, timeout or retry implementation, Agent Adapter implementation, S3
+object layout, artifact-manifest schema, Webhook execution, distributed queue /
+claim / lease, or Runner database implementation.
 
 The v0.3.0 `Ready for Agent` handoff contract remains the upstream execution
 input boundary. Phase 45 does not redefine Agent Brief lifecycle, Human Review,
@@ -488,42 +495,167 @@ Phase 49
 This phase does not define retry behavior, timeout implementation, Agent Adapter
 implementation, artifact schema, or physical Redmine outcome mapping.
 
+## Polling Contract
+
+Agent Runner uses a pull-based Controller for the initial v0.4.0 topology. A
+Webhook-driven execution path is not required for v0.4.0.
+
+The polling contract is:
+
+```text
+poll condition:
+  Controller is idle
+
+default interval:
+  30 seconds
+
+filter:
+  allowed project
+  +
+  status = Ready for Agent
+
+concurrency:
+  1
+```
+
+The polling interval must be configurable. `30 seconds` is the initial default,
+not a fixed protocol constant.
+
+Normal candidate polling occurs only while the Controller is idle. With one
+Controller, one Worker, and one concurrent execution, v0.4.0 does not require
+the Controller to continue polling for additional work while an execution is
+active.
+
+Candidate selection must be bounded and based on direct Redmine filtering for
+an allowed project and `Ready for Agent` status. The contract must not depend on
+a mutable Redmine saved query as an authoritative runtime interface.
+
+A polling result is only a candidate indication. It does not authorize Agent
+start by itself. The Issue must be re-fetched and revalidated at the
+poll-to-execution boundary before any execution is started.
+
+The exact Redmine client call shape, page size, candidate ordering, polling loop
+implementation, and scheduling mechanism remain implementation responsibilities.
+They must preserve the bounded, idle-only, direct-filter semantics fixed here.
+
+The pull contract does not introduce a durable Runner queue, distributed claim,
+lease, heartbeat, or another distributed coordination mechanism.
+
+## Startup Contract
+
+Controller startup must reconcile already-durable execution state before normal
+candidate polling begins.
+
+The startup ordering is:
+
+```text
+Controller startup
+  -> startup reconciliation
+  -> idle
+  -> poll
+```
+
+Normal `Ready for Agent` polling must not occur before startup reconciliation is
+complete. If reconciliation cannot complete, the Controller must not skip that
+boundary and proceed directly to ordinary polling or new Agent execution.
+
+Startup reconciliation exists because Redmine is the durable execution lifecycle
+Source of Truth. A restarted Controller must account for durable execution-side
+state such as an existing `Agent Running` lifecycle state before accepting new
+work.
+
+Phase 45-4 fixes only the ordering and ownership requirement. The concrete
+reconciliation algorithm, artifact recovery decisions, interruption handling,
+and orphan-runtime cleanup are Phase 48 responsibilities.
+
+Startup reconciliation is not permission to blindly retry an Agent execution.
+Any later recovery behavior must preserve the lifecycle and outcome contracts
+already established by Phase 45-3.
+
+## Poll-to-Execution Boundary
+
+A polled `Ready for Agent` Issue must pass an ordered pre-execution boundary
+before Agent start:
+
+```text
+poll
+  -> Ready for Agent candidate
+  -> local duplicate prevention
+  -> Issue re-fetch
+  -> approval / eligibility validation
+  -> requirements revalidation
+  -> exact source revision determination
+  -> execution record preparation
+  -> Agent Running durable mutation
+  -> Agent start
+```
+
+Candidate discovery and Agent start are therefore separate operations. The
+Controller must not treat the state observed by the polling request as sufficient
+proof that the Issue remains executable.
+
+Local duplicate prevention is transient protection for the single-Runner /
+single-Worker design. It is not a durable claim or execution Source of Truth,
+and its concrete implementation is a Phase 48 responsibility.
+
+The Issue re-fetch establishes the current Redmine state used by subsequent
+validation. Approval / eligibility validation and requirements revalidation must
+finish before Agent start. A pre-execution validation failure must follow the
+Phase 45-3 failure boundary: the Agent is not started and the execution-side
+lifecycle is routed to `Needs Human` with the corresponding outcome.
+
+Exact source revision determination and execution-record preparation are ordered
+before the `Agent Running` mutation, but their detailed semantics, identity
+fields, serialization, and Redmine field mapping are Phase 46 responsibilities.
+
+`Agent Running` is a durable lifecycle mutation in Redmine. The Controller must
+not start the Agent process until that durable mutation succeeds.
+
+If the `Agent Running` mutation fails, is rejected, or cannot be established as
+successful, the Controller must not proceed to Agent start. This preserves the
+invariant that no new Agent process exists without the durable Redmine lifecycle
+showing that execution has entered `Agent Running`.
+
+This section defines ordering and safety boundaries only. It does not implement
+the polling loop, local lock, eligibility checks, requirements fingerprinting,
+source checkout, execution record, Redmine mutation helper, reconciliation
+algorithm, Worker, or Agent Adapter.
+
 ## Verification Obligations
 
-Phase 45-3 is an architecture / contract step and does not require Agent runtime
-implementation or runtime tests.
+Phase 45-4 is an architecture / contract step and does not require the Controller
+polling loop, Agent runtime implementation, or runtime tests.
 
 Repository review for this revision must establish that:
 
 - this file remains the single canonical Phase 45 system contract in the Redmine
   MCP repository;
-- the repository / deployment, release ownership, component responsibility, and
-  Source of Truth boundaries established by Phase 45-1 and Phase 45-2 remain
-  unchanged;
-- Approval Handler writes only approval-side lifecycle states and does not write
-  `Agent Running`, `Ready for Independent Verification`, or `Needs Human`;
-- Agent Controller targets only `Agent Running`,
-  `Ready for Independent Verification`, and `Needs Human` on the execution side;
-- Agent Controller does not write `Brief Draft` or `Brief Ready`, rewrite
-  approval metadata, perform Human Review, or redefine Handler Validation;
-- the normal execution lifecycle is `Ready for Agent -> Agent Running -> Ready
-  for Independent Verification`;
-- pre-execution validation failure does not start the Agent and routes to
-  `Needs Human` with a corresponding outcome;
-- requirements fingerprint mismatch is represented as
-  `Needs Human + stale_requirements`;
-- other pre-execution eligibility failure is represented as
-  `Needs Human + eligibility_failed`;
-- Agent Controller does not roll stale or invalid execution candidates directly
-  back into the approval lifecycle;
-- the minimum outcome taxonomy contains `changes_ready`, `no_changes`,
-  `stale_requirements`, `eligibility_failed`, `interrupted`, `timeout`,
-  `agent_start_failed`, `agent_failed`, and `artifact_persistence_failed`;
-- Redmine Status describes lifecycle routing while outcome preserves the
-  concrete execution result or failure reason; and
-- this revision does not define execution eligibility algorithms, physical
-  Redmine field mapping, timeout / retry implementation, Agent Adapter
-  implementation, polling / startup behavior, or artifact schema.
+- the repository / deployment, release ownership, component responsibility,
+  Source of Truth, lifecycle writer, and outcome boundaries established by
+  Phase 45-1 through Phase 45-3 remain unchanged;
+- Agent Runner is defined as a pull-based Controller for initial v0.4.0;
+- normal polling occurs only while the Controller is idle;
+- the polling interval is configurable and has a 30-second initial default;
+- candidate selection is bounded to an allowed project plus
+  `status = Ready for Agent`;
+- a mutable Redmine saved query is not a required runtime-contract dependency;
+- startup reconciliation occurs before ordinary candidate polling;
+- the poll-to-execution ordering requires local duplicate prevention, Issue
+  re-fetch, approval / eligibility validation, requirements revalidation, exact
+  source revision determination, execution record preparation, and durable
+  `Agent Running` mutation before Agent start;
+- a pre-execution validation failure does not start the Agent;
+- failure to complete the durable `Agent Running` mutation does not start the
+  Agent;
+- the polling contract does not require additional polling while the single
+  Worker is executing;
+- no Webhook, distributed queue, claim, lease, heartbeat, or distributed
+  coordination mechanism is introduced as an initial v0.4.0 requirement; and
+- this revision does not define the polling-loop implementation, local-lock
+  implementation, Redmine client implementation, execution eligibility
+  implementation, exact source revision implementation, execution-record schema,
+  startup recovery algorithm, Worker / Agent Adapter implementation, or the
+  Phase 45-5 final cross-contract verification.
 
 The architecture decision rationales for the established Phase 45 boundaries
 are recorded in:
@@ -531,3 +663,4 @@ are recorded in:
 - `docs/adr/ADR-024-separate-agent-runner-execution-plane.md`
 - `docs/adr/ADR-025-use-redmine-as-durable-execution-source-of-truth.md`
 - `docs/adr/ADR-026-separate-approval-and-execution-lifecycle-writers.md`
+- `docs/adr/ADR-027-use-pull-based-single-worker-agent-controller.md`

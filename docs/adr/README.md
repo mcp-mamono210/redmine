@@ -82,6 +82,9 @@ v0.3.0 Ready for Agent release handoff facts
 Agent Runner execution architecture / lifecycle / Source of Truth facts
   -> docs/contracts/agent-runner-execution-boundary-contract.md
 
+Agent Runner execution input / identity / execution record facts
+  -> docs/contracts/agent-runner-execution-input-contract.md
+
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md
 

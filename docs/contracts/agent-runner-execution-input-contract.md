@@ -48,7 +48,7 @@ Phase 46-4 established on the same canonical contract:
 - the durable `Agent Running` mutation boundary that must succeed before Agent
   start.
 
-Phase 46-5 extends the same canonical contract with:
+Phase 46-5 extended the same canonical contract with:
 
 - a verified current-environment Redmine capability inventory;
 - physical mappings for pre-execution rejection and started execution records;
@@ -59,7 +59,9 @@ Phase 46-5 extends the same canonical contract with:
 - concrete `execution_id` serialization compatible with the verified storage
   constraints.
 
-Phase 46-6 performs the final cross-contract and roadmap verification.
+Phase 46-6 finalizes this contract by verifying compatibility with the v0.3.0 handoff,
+Phase 45 architecture / lifecycle ownership, the Phase 47-50 responsibility
+boundary, and the current v0.4.0 roadmap.
 
 This contract is subordinate to the Phase 45 architecture / lifecycle boundary:
 
@@ -77,11 +79,11 @@ Phase 46 consumes those contracts. It does not redefine `Ready for Agent`, Human
 Review, Handler Validation, approval metadata, Brief persistence identity, or
 requirements-fingerprint semantics.
 
-Phase 46-5 still does not implement Agent execution. It fixes the physical
-Redmine persistence contract and the required environment alignment, but it does
-not implement Git checkout, Phase 47 authorization policy, credentials,
-sandboxing, Controller / Worker runtime behavior, Agent process invocation, or
-Phase 49 artifact production.
+The completed Phase 46 contract does not implement Agent execution. It fixes the
+execution-input, identity, persistence, and start-mutation boundaries, but it
+does not implement Git checkout, Phase 47 authorization policy, credentials,
+sandboxing, Controller / Worker runtime behavior, Agent process invocation,
+artifact persistence, or deterministic execution E2E.
 
 ## Execution Eligibility
 
@@ -1280,63 +1282,194 @@ It must preserve all of the following upstream meanings:
 
 Phase 46-1 must not create a second approval interpretation or write surface.
 
-## Deferred Phase 46 Responsibilities
+## Phase 45 Compatibility
 
-After Phase 46-5, this canonical contract leaves only the final Phase 46
-consistency work to Phase 46-6:
+Phase 46 is a refinement of the Phase 45 execution boundary, not a replacement
+for it. The following Phase 45 facts remain authoritative and unchanged:
 
 ```text
-Phase 46-6
-  final v0.3.0 / Phase 45 / Roadmap consistency verification
-  documentation precedence
-  Phase 47 / Phase 48 entry verification
+Redmine
+  = the only durable Source of Truth for execution lifecycle and current
+    execution-state projection
+
+Approval Handler
+  = approval lifecycle writer through Ready for Agent
+
+Agent Controller
+  = execution lifecycle writer after a valid Ready for Agent handoff
+
+Application Git
+  = application source Source of Truth
+
+private S3
+  = durable change-artifact Source of Truth
+
+Phase 45 execution outcome taxonomy
+  = changes_ready / no_changes / stale_requirements / eligibility_failed /
+    interrupted / timeout / agent_start_failed / agent_failed /
+    artifact_persistence_failed
 ```
 
-Phase 46-5 does not implement the Controller / Worker runtime, Phase 47 security
-rules, or Phase 49 artifact persistence merely because their durable Redmine
-fields are now defined.
+Phase 46 does not redefine Human Review, Handler Validation, the meaning of
+`Ready for Agent`, approval metadata, requirements-fingerprint semantics, or the
+Phase 45 lifecycle write sets. Approval metadata remains approval evidence and is
+not reused as execution storage.
 
-## Verification Obligations
+The final pre-start ordering is:
 
-Phase 46-5 is complete only when repository and environment evidence demonstrates
-that:
+```text
+Ready for Agent candidate
+    |
+    v
+Phase 46 handoff / eligibility validation
+    |
+    v
+requirements current
+    |
+    v
+exact source revision fixed
+    |
+    v
+Phase 47 authorization / security gate
+    |
+    v
+execution preparation entered
+    |
+    v
+execution_id allocated
+    |
+    v
+immutable execution input snapshot established
+    |
+    v
+required logical execution record prepared
+    |
+    v
+durable Redmine mutation: Agent Running + start facts
+    |
+    v
+Agent start
+```
 
-- the current Redmine capability inventory has been performed against the target
-  project / tracker and records unavailable administrative capabilities instead
-  of guessing them;
-- capability inventory can begin from the Phase 46-1 boundary and does not depend
-  on later runtime implementation;
-- the physical mapping relies only on capabilities that actually exist or are
-  explicitly listed for manual provisioning;
-- pre-execution rejection has a distinct durable physical mapping that requires
-  no `execution_id`;
-- the started execution record has a complete physical mapping for every logical
-  Phase 46-4 record field;
-- canonical mapping is defined by exact field name, field type, and constraint;
-- environment-specific numeric custom-field IDs are absent from the canonical
-  mapping and are owned by per-environment binding;
-- test and production can bind different numeric IDs to the same canonical field
-  names;
-- no v0.3.0 approval metadata field is reused as execution storage;
-- the fourteen-field manual provisioning list exists and matches the physical
-  mapping;
-- all required fields have actually been provisioned for the target
-  project / tracker before ticket closure;
-- the post-provisioning capability and writer read-back checks have passed;
-- `execution_id` uses the canonical lowercase UUIDv4 serialization and fits the
-  provisioned storage constraint;
-- a durable `Agent Running` start mutation can persist all required pre-start
-  execution facts through the guarded writer before Agent start; and
-- Redmine remains the only durable Source of Truth for execution lifecycle and
-  execution-state projection.
+The Phase 47 gate is therefore before `execution_id` allocation and before an
+execution attempt is established. A failed or unknown gate result remains an
+execution-ID-less pre-execution rejection with:
+
+```text
+lifecycle target = Needs Human
+outcome = eligibility_failed
+```
+
+A new durable Phase 47-specific outcome identity must not be introduced locally.
+If one becomes necessary, Phase 47 must explicitly review and update the Phase
+45 canonical taxonomy / contract and any architecture decision that becomes
+necessary.
+
+The `Agent Running` mutation remains the durable start boundary. The Agent must
+not start when that mutation fails, is rejected, is only partially represented,
+or cannot be verified by read-back.
+
+## Phase 47-50 Responsibility Boundary
+
+Phase 46 completes the execution-input architecture needed by the downstream
+phases. Those phases consume this contract and must not silently redefine its
+identity, ordering, or ownership semantics.
+
+### Phase 47
+
+Phase 47 owns the concrete authorization and security rules applied at the
+reserved gate, including repository authorization / allowlist policy, credential
+isolation, sandbox boundaries, network policy, resource / timeout policy, and
+secret-handling requirements.
+
+Phase 47 consumes the already fixed repository identity and exact source
+revision. It must not authorize a mutable branch and then re-resolve the source
+after the gate. Gate failure or an unknown result remains pre-execution and does
+not allocate `execution_id`.
+
+### Phase 48
+
+Phase 48 owns the one-shot runtime implementation: local duplicate prevention,
+Workspace / container lifecycle, checkout of the already selected exact source,
+Agent Adapter integration, one-shot execution, cleanup, and startup
+reconciliation.
+
+Phase 48 must preserve this ordering and identity contract. In particular, it
+must not move Agent start before the durable `Agent Running` mutation, replace
+the immutable snapshot with later mutable Redmine / Git state, or use the local
+lock as a durable execution Source of Truth.
+
+### Phase 49
+
+Phase 49 owns the durable change-artifact contract and persistence boundary,
+including manifest, patch, checksum, `no_changes`, private S3 persistence,
+artifact reference, and independent-verification recovery.
+
+The artifact may embed the Phase 46 execution identity, but it must not become a
+second execution-lifecycle authority or redefine which Brief, requirements proof,
+repository, or source revision the execution used.
+
+### Phase 50
+
+Phase 50 owns deterministic Integration / E2E verification of the execution
+boundary, including success, no changes, stale requirements, duplicate
+candidate handling, timeout, interruption / reconciliation, artifact failure,
+secret-boundary regression, and artifact restore. Normal CI must not require a
+live external AI provider merely to prove these contracts.
+
+No additional execution-input architecture decision is required before Phase 47
+or Phase 48 can begin. A downstream phase that needs to change a Phase 45 or
+Phase 46 invariant must do so as an explicit contract / ADR change rather than
+as an implementation detail.
+
+## Phase 46 Final Verification
+
+Phase 46 is complete only when repository, Redmine, and roadmap evidence jointly
+demonstrate that:
+
+- Phase 46-1 through Phase 46-5 are complete;
+- the canonical contract contains execution eligibility, exact approved Brief
+  recovery, handoff identity validation, requirements revalidation,
+  pre-execution rejection, exact source revision, execution identity, the
+  reserved Phase 47 gate, immutable snapshot, logical execution record, durable
+  `Agent Running` boundary, physical Redmine mapping, environment binding, and
+  concrete execution-ID serialization;
+- the v0.3.0 handoff semantics remain authoritative and are consumed rather than
+  redefined;
+- the existing requirements-fingerprint selection, canonicalization, and hash
+  representation are reused rather than duplicated in the Runner;
+- pre-execution rejection remains distinct from a started execution attempt;
+- exact source-revision failure and current Phase 47 gate failure route to
+  `Needs Human + eligibility_failed` before `execution_id` allocation;
+- `execution_id` is allocated only after the Phase 47 gate succeeds and identifies
+  one attempt using the canonical lowercase UUIDv4 representation;
+- repository plus exact immutable source revision identifies the execution
+  source, rather than a moving branch name alone;
+- approved Brief identity, requirements-fingerprint identity, repository,
+  `source_revision`, and `execution_id` are immutable for the lifetime of one
+  execution attempt and are not reinterpreted from later mutable state;
+- the physical mapping matches the provisioned Redmine capability verified by
+  #5402, including exact 71-character requirements-fingerprint storage;
+- portable logical field mapping remains name / type / constraint based while
+  numeric custom-field IDs remain environment binding facts;
+- approval metadata and execution metadata use separate fields and write
+  responsibilities;
+- Redmine remains the only durable execution-state Source of Truth;
+- Agent start remains forbidden before a successful, verifiable durable
+  `Agent Running` start mutation;
+- the current `040_ロードマップ` reflects the same Phase 45 / Phase 46 / Phase
+  47 boundary and ordering;
+- documentation precedence identifies this file as canonical for Agent Runner
+  execution input / identity / execution-record facts; and
+- Phase 47 security implementation and Phase 48-50 runtime / artifact / test
+  implementation remain downstream responsibilities rather than Phase 46
+  implementation.
 
 The 2026-09-13 #5402 verification provides the current-environment evidence for
 manual provisioning, environment binding, list validation, guarded writer
 access, exact read-back, 71-character requirements-fingerprint storage, durable
-`Agent Running` start mutation, journal history, and cleanup. Phase 46-5 may be
-closed after this canonical contract and its provisioning record are merged and
-the final ticket-level completion review confirms no remaining inconsistency.
+`Agent Running` start mutation, journal history, and cleanup.
 
-No Git checkout, Agent, Worker, or Controller runtime test is required by Phase
-46-5. The required verification is Redmine capability, provisioning, mapping,
-serialization, guarded writer, and read-back verification only.
+Phase 46-6 adds no new architecture decision. The existing Phase 45 ADRs remain
+sufficient; only documentation precedence needs to identify this canonical
+contract.

@@ -27,7 +27,7 @@ Phase 46-2 extended the same canonical contract with:
 - the responsibility boundary for any future Phase 47-specific outcome
   extension.
 
-Phase 46-3 extends the same canonical contract with:
+Phase 46-3 established on the same canonical contract:
 
 - exact Application Git source-revision semantics;
 - immutable source identity as repository plus exact commit;
@@ -36,9 +36,21 @@ Phase 46-3 extends the same canonical contract with:
   security gate; and
 - explicit deferral of concrete `execution_id` serialization to Phase 46-5.
 
-Later Phase 46 tickets extend this same canonical document with immutable
-execution input snapshot, logical execution record, physical Redmine mapping,
-environment binding, and final cross-contract verification.
+Phase 46-4 extends the same canonical contract with:
+
+- the reserved Phase 47 authorization / security gate position after exact
+  source resolution and before `execution_id` allocation;
+- an immutable execution-input snapshot whose identity cannot be reinterpreted
+  from later mutable state;
+- the logical execution record and lifecycle-stage semantics for its fields;
+- separation between pre-execution rejection facts and started-execution
+  records; and
+- the durable `Agent Running` mutation boundary that must succeed before Agent
+  start.
+
+Later Phase 46 tickets extend this same canonical document with physical Redmine
+mapping, environment binding, concrete `execution_id` serialization, and final
+cross-contract verification.
 
 This contract is subordinate to the Phase 45 architecture / lifecycle boundary:
 
@@ -56,11 +68,12 @@ Phase 46 consumes those contracts. It does not redefine `Ready for Agent`, Human
 Review, Handler Validation, approval metadata, Brief persistence identity, or
 requirements-fingerprint semantics.
 
-Phase 46-3 still does not implement Agent execution. It fixes exact source
-revision and execution-identity semantics, but it does not define Git checkout
+Phase 46-4 still does not implement Agent execution. It fixes snapshot, logical
+record, and durable start-boundary semantics, but it does not define Git checkout
 implementation, concrete `execution_id` serialization, physical Redmine
-execution-field mapping, Phase 47 authorization policy, credentials, sandboxing,
-Controller runtime implementation, or Agent process invocation.
+execution-field mapping, custom-field provisioning, Phase 47 authorization
+policy, credentials, sandboxing, Controller / Worker runtime implementation, or
+Agent process invocation.
 
 ## Execution Eligibility
 
@@ -301,9 +314,9 @@ mutable tag name
 ```
 
 Once the exact commit has been selected for an execution candidate, later
-movement of the branch or tag must not silently retarget that candidate. Phase
-46-4 owns the immutable execution-input snapshot that preserves this identity
-through execution.
+movement of the branch or tag must not silently retarget that candidate. The
+immutable execution-input snapshot defined below preserves this identity through
+execution.
 
 Exact source revision determination is fail closed. If the repository cannot be
 resolved to one exact eligible commit, if the selected ref cannot be resolved,
@@ -380,9 +393,9 @@ execution preparation entered
 execution_id allocated
 ```
 
-Phase 46-3 fixes the ordering relationship that `execution_id` allocation is
-after successful Phase 47 authorization / security gating. Phase 46-4 owns the
-full final ordering around snapshot construction, logical execution-record
+Phase 46-3 fixed the ordering relationship that `execution_id` allocation is
+after successful Phase 47 authorization / security gating. Phase 46-4 completes
+the full ordering below around snapshot construction, logical execution-record
 preparation, durable `Agent Running` mutation, and Agent start. Phase 47 owns the
 actual authorization / security rules.
 
@@ -446,6 +459,266 @@ Those physical serialization properties are Phase 46-5 responsibilities after
 the actual Redmine storage capabilities and constraints are inventoried. Phase
 46-3 must not choose a serialization that later forces an imaginary or
 environment-specific Redmine field contract.
+
+## Phase 47 Authorization / Security Gate Reservation
+
+Phase 46 reserves one mandatory Phase 47 authorization / security gate in the
+pre-start ordering. Its position is fixed even though the concrete authorization
+rules remain a Phase 47 responsibility.
+
+The final ordering through Agent start is:
+
+```text
+Phase 46 handoff / eligibility validation passed
+    |
+    v
+requirements are current
+    |
+    v
+exact source revision fixed
+    |
+    v
+[ Phase 47 authorization / security gate ]
+    |
+    v
+execution preparation entered
+    |
+    v
+execution_id allocated
+    |
+    v
+immutable execution input snapshot established
+    |
+    v
+required logical execution record prepared
+    |
+    v
+durable Redmine mutation: Agent Running + start facts
+    |
+    v
+Agent start
+```
+
+The Phase 47 gate consumes the already established repository identity and exact
+source revision. It must not authorize a mutable branch name and then allow the
+execution target to be re-resolved after the gate.
+
+A Phase 47 gate failure or an inability to establish a successful gate result is
+a pre-execution rejection under the existing Phase 46-2 contract:
+
+```text
+Phase 47 gate failed or result unknown
+  -> execution_id is not allocated
+  -> execution attempt is not established
+  -> Agent Running is not written
+  -> Agent is not started
+  -> lifecycle target = Needs Human
+  -> outcome = eligibility_failed
+```
+
+`unknown` is not authorization success. Phase 46-4 does not define repository
+allowlists, credential policy, security policy, or another Phase 47 rule.
+
+This gate position preserves the Phase 46-3 invariant that an existing
+`execution_id` means Phase 46 pre-execution validation passed, current
+requirements were established, exact source revision was fixed, the Phase 47
+gate passed, and execution preparation was entered.
+
+## Execution Input Snapshot
+
+After the Phase 47 gate succeeds and `execution_id` is allocated, the execution
+input identity must be materialized as one immutable logical snapshot before the
+`Agent Running` mutation.
+
+The snapshot contains at least:
+
+```text
+execution_id
+issue_id
+repository
+source_revision
+brief_revision
+persisted_revision
+requirements_fingerprint
+approved Brief reference
+```
+
+The `approved Brief reference` is the immutable handoff reference required to
+recover the exact approved Brief. Phase 46-4 does not create a mutable pointer or
+new "current Brief" alias for that purpose.
+
+These fields bind one execution attempt to one Issue, one approved Brief, one
+approved requirements proof, and one exact Application Git source revision. The
+snapshot identity is fixed for the lifetime of that execution attempt.
+
+Execution start must not cause the Controller, Worker, or Agent integration to
+re-fetch mutable state and reinterpret the snapshot identity. In particular, a
+running or later-completed execution must not change its identity by:
+
+```text
+selecting the latest Brief
+selecting a newer Brief revision
+changing persisted_revision
+replacing the approved requirements fingerprint
+re-resolving a branch or HEAD to a newer source_revision
+substituting a different repository identity
+```
+
+Redmine requirements, approval fields, Brief storage, branches, tags, and `HEAD`
+may change after the snapshot is established. Those later mutations may affect a
+future execution candidate, but they do not retarget the existing execution.
+
+A later component may re-read mutable state for diagnostics, verification, or a
+new workflow decision, but such a read must not overwrite the identity of the
+existing execution snapshot.
+
+## Logical Execution Record
+
+An execution attempt that crosses the `execution_id` allocation boundary has one
+logical execution record distinct from the durable pre-execution rejection fact
+defined by Phase 46-2. The execution record contains at least:
+
+```text
+execution_id
+issue_id
+brief_revision
+persisted_revision
+requirements_fingerprint
+repository
+source_revision
+started_at
+finished_at
+outcome
+artifact_reference
+```
+
+The execution record is a logical schema in Phase 46-4. Phase 46-5 owns the
+physical Redmine fields, names, types, constraints, environment-specific numeric
+ID binding, and provisioning required to persist it.
+
+### Field lifecycle
+
+The minimum lifecycle-stage meaning is:
+
+| Field | Required meaning |
+| --- | --- |
+| `execution_id` | Allocated after the Phase 47 gate succeeds and stable for the attempt. |
+| `issue_id` | Fixed before `Agent Running`; identifies the Redmine Issue for the attempt. |
+| `brief_revision` | Fixed before `Agent Running`; identifies the approved Brief revision. |
+| `persisted_revision` | Fixed before `Agent Running`; identifies the exact approved Brief bytes. |
+| `requirements_fingerprint` | Fixed before `Agent Running`; identifies the approved requirements proof revalidated as current. |
+| `repository` | Fixed before `Agent Running`; identifies the Application Git repository. |
+| `source_revision` | Fixed before `Agent Running`; identifies the exact immutable source commit. |
+| `started_at` | Set durably as part of the successful transition into `Agent Running`, before Agent process start. |
+| `finished_at` | Pending while execution is active; set when the execution reaches its completion / failure boundary. |
+| `outcome` | Pending while execution is active; set to the canonical execution outcome when one is established. |
+| `artifact_reference` | Pending until the Phase 49 artifact-persistence boundary establishes its final value or later contract determines that no reference exists. |
+
+`started_at` records entry into the durable execution-running lifecycle. It does
+not assert that the Agent process itself started successfully; this distinction
+permits the existing `agent_start_failed` outcome without moving Agent start
+before the durable `Agent Running` boundary.
+
+### Absent / pending / empty
+
+The logical record must distinguish these states rather than collapsing them
+into an empty string or null-like convention:
+
+```text
+absent
+  = no value has been established and, at the current lifecycle point, the
+    contract does not claim that a value exists
+
+pending
+  = the logical field applies to this execution and is expected to be
+    established by a later lifecycle boundary, but is not established yet
+
+empty
+  = a value is explicitly present but contains no semantic payload
+```
+
+An empty value is not a substitute for an absent or pending required identity,
+time, outcome, or reference. Whether any particular field may validly use an
+explicit empty value is owned by the later contract that owns that field's
+concrete semantics; Phase 46-4 does not silently treat blank text as success.
+
+### Pre-execution rejection separation
+
+A pre-execution rejection remains a durable rejection fact, not an execution
+record with blank execution fields. The system must not create an empty
+execution record solely so that a rejected candidate appears to have:
+
+```text
+execution_id = empty
+started_at = empty
+finished_at = empty
+artifact_reference = empty
+```
+
+Candidates rejected before `execution_id` allocation retain the Phase 46-2
+rejection representation and do not become started execution attempts.
+
+## Agent Running Durable Mutation Boundary
+
+Agent start is permitted only after the execution identity, immutable snapshot,
+and required pre-start execution-record facts are ready to be made durable in
+Redmine and the `Agent Running` lifecycle mutation succeeds.
+
+The boundary is:
+
+```text
+Phase 46 / Phase 47 pre-execution gates passed
+    |
+    v
+execution_id allocated
+    |
+    v
+immutable execution input snapshot established
+    |
+    v
+pre-start execution record facts prepared
+    |
+    v
+Redmine durable mutation succeeds
+  - execution identity / pre-start record facts durable
+  - started_at durable
+  - lifecycle target = Agent Running
+    |
+    v
+Agent start permitted
+```
+
+At minimum, the identity-bearing record facts that must already be fixed before
+Agent start are:
+
+```text
+execution_id
+issue_id
+repository
+source_revision
+brief_revision
+persisted_revision
+requirements_fingerprint
+started_at
+```
+
+The approved Brief reference is also fixed in the immutable execution input
+snapshot before Agent start. Phase 46-5 determines how these logical facts map
+to actual Redmine persistence capabilities.
+
+If the required Redmine mutation fails, is rejected, or its successful durable
+completion cannot be established, the Agent must not start. `unknown` mutation
+result is not permission to execute.
+
+This mutation-failure case occurs after `execution_id` allocation and therefore
+must not be misrepresented as a Phase 46-2 pre-execution rejection that never
+received an execution identity. Phase 46-4 fixes only the no-Agent-start safety
+boundary here; later implementation / recovery phases own concrete recovery and
+diagnostic behavior consistent with the Phase 45 outcome taxonomy.
+
+Phase 46-4 does not define the physical Redmine mutation shape, custom-field IDs,
+field provisioning, Controller transaction implementation, Worker behavior, or
+Agent invocation mechanism.
 
 ## Approved Brief Recovery
 
@@ -665,19 +938,13 @@ Phase 46-1 must not create a second approval interpretation or write surface.
 
 ## Deferred Phase 46 Responsibilities
 
-After Phase 46-3, this canonical contract deliberately leaves the following work
+After Phase 46-4, this canonical contract deliberately leaves the following work
 to the later child tickets that own it:
 
 ```text
-Phase 46-4
-  Phase 47 gate placement in the final ordering
-  immutable execution input snapshot
-  logical execution record
-  Agent Running durable mutation boundary
-
 Phase 46-5
   Redmine capability inventory
-  physical execution-record mapping
+  physical rejection / execution-record mapping
   environment-specific ID binding
   execution_id serialization
   required manual field provisioning
@@ -688,36 +955,44 @@ Phase 46-6
   Phase 47 / Phase 48 entry verification
 ```
 
-Deferring these responsibilities is intentional. Phase 46-3 must not preempt
-their detailed contracts merely to make this revision appear complete.
+Deferring these responsibilities is intentional. Phase 46-4 must not invent a
+physical Redmine mapping or implement Phase 47 / Phase 48 runtime behavior merely
+to make this revision appear complete.
 
 ## Verification Obligations
 
-Phase 46-3 is complete only when repository evidence demonstrates that:
+Phase 46-4 is complete only when repository evidence demonstrates that:
 
 - the Phase 46-1 eligibility / exact-artifact recovery contract remains intact
   and fail closed;
 - the Phase 46-2 requirements-revalidation and pre-execution rejection contract
   remains intact;
-- Application Git remains the Source of Truth for application source;
-- execution source identity is repository plus one exact immutable commit;
-- a branch, tag, symbolic ref, or `HEAD` alone is not execution source identity;
-- exact source revision determination failure is fail closed, routes to
-  `Needs Human` with `eligibility_failed`, and does not allocate an
-  `execution_id`;
-- `execution_id` identifies one execution attempt and is unique across multiple
-  attempts for the same Issue;
-- one execution identity can be traced to the Issue, exact approved Brief,
-  requirements fingerprint, repository, and exact source revision;
-- `execution_id` allocation occurs only after successful Phase 47 authorization /
-  security gating;
-- pre-execution rejection continues to require no `execution_id`;
-- the identifier is stable and non-secret;
-- `execution_id` existence does not by itself imply durable `Agent Running` or
-  Agent start; and
-- concrete `execution_id` format, length, character set, prefix, encoding, and
-  physical Redmine representation remain deferred to Phase 46-5.
+- the Phase 46-3 exact-source and execution-identity contract remains intact;
+- the Phase 47 authorization / security gate is reserved after exact source
+  revision is fixed and before `execution_id` allocation;
+- a failed or unknown Phase 47 gate result is a pre-execution rejection and does
+  not allocate an `execution_id`, write `Agent Running`, or start the Agent;
+- the immutable execution-input snapshot contains the minimum identity-bearing
+  fields required by #5399;
+- snapshot identity is not changed by re-reading later mutable Redmine, Brief,
+  branch, tag, or `HEAD` state;
+- `latest` Brief or moving Git references are not used to reinterpret an
+  existing execution identity;
+- the logical execution record contains `execution_id`, Issue / Brief / source /
+  requirements identity, `started_at`, `finished_at`, `outcome`, and
+  `artifact_reference`;
+- absent, pending, and empty states are semantically distinct;
+- a pre-execution rejection remains distinct from a started execution record and
+  does not require an empty execution record;
+- the identity-bearing record facts and `started_at` are fixed / durable before
+  Agent start;
+- Agent start occurs only after successful durable Redmine mutation to
+  `Agent Running`;
+- a failed, rejected, or unknown durable mutation result does not permit Agent
+  start; and
+- concrete Redmine field mapping, numeric custom-field IDs, provisioning, and
+  `execution_id` serialization remain deferred to Phase 46-5.
 
-No Git checkout, Agent, or Controller runtime test is required by Phase 46-3
-because this ticket establishes exact-source and execution-identity semantics,
-not their runtime implementation.
+No Git checkout, Agent, Worker, or Controller runtime test is required by Phase
+46-4 because this ticket establishes the immutable snapshot, logical execution
+record, and durable mutation boundary rather than their runtime implementation.

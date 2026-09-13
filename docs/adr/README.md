@@ -79,7 +79,7 @@ Final v0.3.0 Agent Brief public MCP surface facts
 v0.3.0 Ready for Agent release handoff facts
   -> docs/contracts/agent-brief-release-handoff-contract.md
 
-Agent Runner cross-component execution boundary facts
+Agent Runner execution architecture / lifecycle / Source of Truth facts
   -> docs/contracts/agent-runner-execution-boundary-contract.md
 
 CI change-classification facts

@@ -13,10 +13,10 @@ ownership. Phase 45-2 extended the same canonical document with component
 responsibility, Source of Truth ownership, and the durable / transient state
 boundary. Phase 45-3 extended it with lifecycle write ownership, the
 pre-execution failure boundary, and the execution outcome taxonomy. Phase 45-4
-extends the same document with the pull-based polling contract, startup ordering,
-and the durable poll-to-execution boundary. Phase 45-5 performs the final
-cross-contract verification rather than creating a second competing system
-contract.
+extended the same document with the pull-based polling contract, startup ordering,
+and the durable poll-to-execution boundary. Phase 45-5 completes this contract by
+verifying compatibility with the v0.3.0 `Ready for Agent` handoff and by fixing
+the responsibility boundary for Phase 46 through Phase 50.
 
 The canonical copy of this cross-component contract remains in the
 `mcp-mamono210/redmine` repository even after the Agent Runner repository is
@@ -38,12 +38,15 @@ This revision defines:
 - the normal execution lifecycle and pre-execution failure boundary;
 - the execution outcome taxonomy and Redmine Status / outcome separation;
 - pull-based, idle-only polling from the Redmine durable control plane;
-- startup reconciliation ordering before ordinary candidate polling; and
+- startup reconciliation ordering before ordinary candidate polling;
 - the ordered boundary from a polled candidate to durable `Agent Running`
-  mutation and Agent start.
+  mutation and Agent start;
+- compatibility with the existing v0.3.0 `Ready for Agent` handoff contract; and
+- the responsibility boundary that separates Phase 45 architecture from Phase
+  46 through Phase 50 implementation contracts.
 
-This revision does not perform the Phase 45-5 final cross-contract verification.
-It also does not define the polling-loop implementation, local-lock
+This revision completes the Phase 45 architecture / contract boundary. It does
+not define the polling-loop implementation, local-lock
 implementation, Redmine client implementation, execution eligibility algorithm,
 a new requirements-fingerprint algorithm, source-revision implementation,
 execution-record schema, physical Redmine field mapping, startup reconciliation
@@ -307,8 +310,8 @@ a repository directory contains a marker file
 
 Those storage systems keep their existing source / artifact responsibilities.
 Lifecycle ownership is defined by this contract. Runtime candidate selection is
-defined by the later Phase 45 polling contract, using Redmine as the durable
-control-plane Source of Truth.
+defined by the Polling Contract below, using Redmine as the durable control-plane
+Source of Truth.
 
 Phase 45-2 does not introduce a distributed queue, durable Runner queue, claim,
 lease, or heartbeat mechanism.
@@ -621,44 +624,228 @@ the polling loop, local lock, eligibility checks, requirements fingerprinting,
 source checkout, execution record, Redmine mutation helper, reconciliation
 algorithm, Worker, or Agent Adapter.
 
+## v0.3.0 Handoff Compatibility
+
+Phase 45 consumes the v0.3.0 handoff contract; it does not redefine it. The
+canonical upstream handoff remains:
+
+```text
+docs/contracts/agent-brief-release-handoff-contract.md
+```
+
+`Ready for Agent` retains its v0.3.0 meaning: one human-reviewed persisted Agent
+Brief has passed Handler Validation, the approval fact is complete and
+consistent, and the exact approved artifact can be recovered for a later
+execution consumer. `Brief Ready` remains validation-pending and is not Agent
+execution permission.
+
+Phase 45 preserves the minimum handoff evidence established by v0.3.0:
+
+```text
+repository
+redmine_issue_id
+approved Brief revision
+approved persisted revision
+approved requirements fingerprint
+approver identity
+approval time
+retrievable exact approved Brief
+```
+
+The physical Redmine mapping and the semantics of these approval fields remain
+owned by the v0.3.0 Agent Brief contracts. Agent Controller must consume the
+approval fact as read-only execution input; it must not rewrite approval metadata
+to record claim time, Agent start time, retry time, Worker identity, or another
+execution fact.
+
+Phase 45 also preserves the v0.3.0 requirements-revalidation rule. `Ready for
+Agent` proves that the approved Brief and requirements were consistent at the
+approval / reconciliation point; it does not prove that requirements remain
+unchanged until execution starts.
+
+Before Agent start, the execution layer must reuse the existing bounded
+requirements-input and fingerprint semantics and compare the current
+requirements fingerprint with the approved requirements fingerprint. Phase 45
+does not introduce a Runner-specific canonicalization rule, a second fingerprint
+algorithm, or an `updated_on` freshness shortcut.
+
+The compatibility result is:
+
+```text
+current requirements fingerprint == approved requirements fingerprint
+  -> the approved Brief remains requirements-current
+  -> later execution-specific eligibility gates may continue
+
+current requirements fingerprint != approved requirements fingerprint
+  -> Agent is not started
+  -> Needs Human
+  -> outcome = stale_requirements
+```
+
+A fingerprint-generation or handoff-validation failure is not treated as valid
+execution permission. The execution layer fails closed and preserves the
+Phase 45-3 `Needs Human + outcome` boundary.
+
+The v0.3.0 handoff contract's reference to a future Agent runtime layer describes
+future runtime responsibility; it does not require a Runner-owned durable queue,
+claim database, or second execution-lifecycle Source of Truth. Phase 45 refines
+that later architecture by keeping durable execution lifecycle in Redmine while
+leaving Workspace, Agent container, and local lock transient.
+
+Therefore Phase 45 adds an execution plane after `Ready for Agent` without
+changing:
+
+- Human Review responsibility;
+- Handler Validation responsibility;
+- approval consistency semantics;
+- approval metadata meaning;
+- Agent Brief immutable identity;
+- requirements fingerprint semantics; or
+- the release-level meaning of `Ready for Agent`.
+
+## Phase 46-50 Responsibility Boundary
+
+Phase 45 fixes architecture, ownership, lifecycle, outcome, polling, startup,
+and handoff-compatibility semantics. The following responsibilities remain in
+later phases and must be implemented without changing those Phase 45 decisions.
+
+### Phase 46 - Execution Handoff / Input Snapshot
+
+Phase 46 owns the concrete execution-input contract:
+
+```text
+execution eligibility rules
+requirements revalidation use
+exact source revision determination
+execution identity
+execution record semantics
+physical Redmine execution-record mapping
+```
+
+Phase 46 may define schemas and concrete validation details, but must reuse the
+v0.3.0 requirements / approval contracts and the Phase 45 lifecycle boundary. It
+must not redefine `Ready for Agent`, create a second requirements fingerprint
+semantics, or start an Agent before the durable `Agent Running` gate.
+
+### Phase 47 - Runner Security / Sandbox Contract
+
+Phase 47 owns:
+
+```text
+credential boundary
+sandbox boundary
+filesystem mount boundary
+repository authorization
+network policy
+resource / timeout policy
+```
+
+Those controls must preserve the Phase 45 deployment and Source of Truth
+boundaries; they do not move Agent execution into the Redmine / MCP host or make
+transient sandbox state authoritative.
+
+### Phase 48 - Controller / Worker / Agent Adapter / Recovery
+
+Phase 48 owns the runtime implementation of:
+
+```text
+Controller polling loop
+local duplicate prevention
+Worker execution
+Agent Adapter
+one-shot Agent execution
+startup reconciliation algorithm
+interruption / recovery behavior
+```
+
+Its implementation must preserve idle-only bounded polling, startup
+reconciliation before normal polling, lifecycle-writer separation, and the
+ordered durable `Agent Running` mutation before Agent start.
+
+### Phase 49 - Artifact / S3 / Verification Handoff
+
+Phase 49 owns:
+
+```text
+artifact manifest
+patch / no-change artifact semantics
+private S3 persistence
+artifact integrity verification
+artifact reference
+independent-verification handoff
+```
+
+Private S3 remains the durable change-artifact Source of Truth while Redmine
+remains the durable execution-lifecycle Source of Truth.
+
+### Phase 50 - Deterministic Integration / E2E
+
+Phase 50 owns deterministic cross-boundary verification, including execution
+success, no-change, stale, failure, interruption / recovery, artifact restore,
+and security regression scenarios. Phase 45 does not require these runtime tests
+for architecture completion.
+
+The Phase 46 entry boundary is therefore fully determined. Phase 46 can begin
+without another architecture decision because it receives all of the following
+as fixed upstream contracts:
+
+```text
+v0.3.0 Ready for Agent handoff semantics
+Phase 45 deployment / component boundary
+Phase 45 Source of Truth ownership
+Phase 45 lifecycle writer ownership
+Phase 45 execution outcome taxonomy
+Phase 45 polling / startup ordering
+Phase 45 poll-to-execution safety boundary
+```
+
+If a later phase needs to change one of those facts, that is an explicit Phase
+45 contract / ADR change rather than an incidental implementation decision.
+
 ## Verification Obligations
 
-Phase 45-4 is an architecture / contract step and does not require the Controller
-polling loop, Agent runtime implementation, or runtime tests.
+Phase 45-5 is the final Phase 45 cross-contract verification gate. It does not
+require Agent runtime implementation or runtime tests.
 
-Repository review for this revision must establish that:
+Final repository review must establish that:
 
-- this file remains the single canonical Phase 45 system contract in the Redmine
-  MCP repository;
-- the repository / deployment, release ownership, component responsibility,
-  Source of Truth, lifecycle writer, and outcome boundaries established by
-  Phase 45-1 through Phase 45-3 remain unchanged;
-- Agent Runner is defined as a pull-based Controller for initial v0.4.0;
-- normal polling occurs only while the Controller is idle;
-- the polling interval is configurable and has a 30-second initial default;
-- candidate selection is bounded to an allowed project plus
-  `status = Ready for Agent`;
-- a mutable Redmine saved query is not a required runtime-contract dependency;
-- startup reconciliation occurs before ordinary candidate polling;
-- the poll-to-execution ordering requires local duplicate prevention, Issue
-  re-fetch, approval / eligibility validation, requirements revalidation, exact
-  source revision determination, execution record preparation, and durable
-  `Agent Running` mutation before Agent start;
-- a pre-execution validation failure does not start the Agent;
-- failure to complete the durable `Agent Running` mutation does not start the
-  Agent;
-- the polling contract does not require additional polling while the single
-  Worker is executing;
-- no Webhook, distributed queue, claim, lease, heartbeat, or distributed
-  coordination mechanism is introduced as an initial v0.4.0 requirement; and
-- this revision does not define the polling-loop implementation, local-lock
-  implementation, Redmine client implementation, execution eligibility
-  implementation, exact source revision implementation, execution-record schema,
-  startup recovery algorithm, Worker / Agent Adapter implementation, or the
-  Phase 45-5 final cross-contract verification.
+- Phase 45-1 through Phase 45-4 contract responsibilities are represented in
+  this one canonical document;
+- ADR-024 through ADR-027 are registered in `docs/adr/README.md` and their
+  Decisions agree with this canonical contract;
+- documentation precedence identifies this file as the authoritative Agent
+  Runner execution architecture / lifecycle / Source of Truth contract;
+- the architecture / deployment, component responsibility, Source of Truth,
+  lifecycle writer, outcome, polling, startup, and poll-to-execution boundaries
+  are mutually consistent;
+- the v0.3.0 `Ready for Agent` meaning, Human Review, Handler Validation,
+  approval metadata, and requirements fingerprint semantics remain unchanged;
+- Agent Controller consumes approval facts but does not become an approval
+  lifecycle writer;
+- requirements revalidation reuses the existing v0.3.0 semantics rather than a
+  Runner-specific duplicate specification;
+- each durable information category has one authoritative Source of Truth;
+- pre-execution validation failure and durable `Agent Running` mutation failure
+  both stop before Agent start;
+- Phase 45 does not implement or fix the detailed schemas / algorithms owned by
+  Phase 46 through Phase 50; and
+- Phase 46 can begin execution eligibility / input-contract work without an
+  additional architecture decision.
 
-The architecture decision rationales for the established Phase 45 boundaries
-are recorded in:
+The seven Phase 45 parent completion criteria are evidenced as follows:
+
+| Parent completion criterion | Canonical evidence | Decision evidence |
+| --- | --- | --- |
+| Architecture / Deployment Boundary | `Architecture / Deployment Boundary`, `Release Ownership` | ADR-024 |
+| Component Responsibility | `Component Responsibility` | canonical contract |
+| Source of Truth Boundary | `Source of Truth Boundary`, `Durable / Transient State Boundary`, `Runtime Queue Boundary` | ADR-025 |
+| Lifecycle Write Ownership | `Lifecycle Write Ownership`, `Pre-execution Failure Boundary` | ADR-026 |
+| Execution Outcome Taxonomy | `Execution Outcome Taxonomy` | ADR-026 |
+| Polling / Startup Contract | `Polling Contract`, `Startup Contract`, `Poll-to-Execution Boundary` | ADR-027 |
+| v0.3.0 Handoff / later Phase boundary | `v0.3.0 Handoff Compatibility`, `Phase 46-50 Responsibility Boundary` | v0.3.0 handoff contract + ADR-024 through ADR-027 |
+
+The architecture decision rationales for the complete Phase 45 boundary are
+recorded in:
 
 - `docs/adr/ADR-024-separate-agent-runner-execution-plane.md`
 - `docs/adr/ADR-025-use-redmine-as-durable-execution-source-of-truth.md`

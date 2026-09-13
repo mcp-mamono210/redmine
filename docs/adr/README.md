@@ -29,6 +29,7 @@ This directory contains architecture decisions for the Redmine MCP Server.
 | ADR-021 | Derive requirements fingerprints from the bounded generation-input semantics | Accepted |
 | ADR-022 | Use one guarded MCP Tool for explicit Agent Brief approval | Accepted |
 | ADR-023 | Make explicit Agent Brief approval idempotent by reconciliation | Accepted |
+| ADR-024 | Separate Agent Runner execution plane from Redmine MCP control plane | Accepted |
 
 ## Status values
 
@@ -74,6 +75,9 @@ Final v0.3.0 Agent Brief public MCP surface facts
 
 v0.3.0 Ready for Agent release handoff facts
   -> docs/contracts/agent-brief-release-handoff-contract.md
+
+Agent Runner cross-component execution boundary facts
+  -> docs/contracts/agent-runner-execution-boundary-contract.md
 
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md

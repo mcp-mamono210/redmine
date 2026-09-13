@@ -30,6 +30,7 @@ This directory contains architecture decisions for the Redmine MCP Server.
 | ADR-022 | Use one guarded MCP Tool for explicit Agent Brief approval | Accepted |
 | ADR-023 | Make explicit Agent Brief approval idempotent by reconciliation | Accepted |
 | ADR-024 | Separate Agent Runner execution plane from Redmine MCP control plane | Accepted |
+| ADR-025 | Use Redmine as the durable execution Source of Truth | Accepted |
 
 ## Status values
 

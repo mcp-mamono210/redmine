@@ -36,7 +36,7 @@ Phase 46-3 established on the same canonical contract:
   security gate; and
 - explicit deferral of concrete `execution_id` serialization to Phase 46-5.
 
-Phase 46-4 extends the same canonical contract with:
+Phase 46-4 established on the same canonical contract:
 
 - the reserved Phase 47 authorization / security gate position after exact
   source resolution and before `execution_id` allocation;
@@ -48,9 +48,18 @@ Phase 46-4 extends the same canonical contract with:
 - the durable `Agent Running` mutation boundary that must succeed before Agent
   start.
 
-Later Phase 46 tickets extend this same canonical document with physical Redmine
-mapping, environment binding, concrete `execution_id` serialization, and final
-cross-contract verification.
+Phase 46-5 extends the same canonical contract with:
+
+- a verified current-environment Redmine capability inventory;
+- physical mappings for pre-execution rejection and started execution records;
+- a portable name / type / constraint mapping separated from environment-specific
+  numeric custom-field IDs;
+- the manually provisioned execution-field set and post-provisioning writer /
+  read-back evidence; and
+- concrete `execution_id` serialization compatible with the verified storage
+  constraints.
+
+Phase 46-6 performs the final cross-contract and roadmap verification.
 
 This contract is subordinate to the Phase 45 architecture / lifecycle boundary:
 
@@ -68,12 +77,11 @@ Phase 46 consumes those contracts. It does not redefine `Ready for Agent`, Human
 Review, Handler Validation, approval metadata, Brief persistence identity, or
 requirements-fingerprint semantics.
 
-Phase 46-4 still does not implement Agent execution. It fixes snapshot, logical
-record, and durable start-boundary semantics, but it does not define Git checkout
-implementation, concrete `execution_id` serialization, physical Redmine
-execution-field mapping, custom-field provisioning, Phase 47 authorization
-policy, credentials, sandboxing, Controller / Worker runtime implementation, or
-Agent process invocation.
+Phase 46-5 still does not implement Agent execution. It fixes the physical
+Redmine persistence contract and the required environment alignment, but it does
+not implement Git checkout, Phase 47 authorization policy, credentials,
+sandboxing, Controller / Worker runtime behavior, Agent process invocation, or
+Phase 49 artifact production.
 
 ## Execution Eligibility
 
@@ -720,6 +728,342 @@ Phase 46-4 does not define the physical Redmine mutation shape, custom-field IDs
 field provisioning, Controller transaction implementation, Worker behavior, or
 Agent invocation mechanism.
 
+## Redmine Capability / Physical Mapping
+
+Phase 46-5 maps the Phase 46 logical rejection and execution-record facts onto
+capabilities that are actually available in the current Redmine environment.
+The mapping is intentionally split into a portable canonical definition and an
+environment-specific numeric-ID binding.
+
+### Verified current-environment capability inventory
+
+Inspection and post-provisioning verification on 2026-09-13 established the
+following current facts for the target scope used by Phase 46:
+
+```text
+project: Redmine
+observed project id: 414
+tracker: 機能
+observed tracker id: 2
+verification Issue: #5402
+```
+
+The numeric project / tracker IDs and custom-field IDs below are environment
+observations, not portable protocol constants.
+
+| Capability | Current observation | Phase 46-5 consequence |
+| --- | --- | --- |
+| Issue custom fields | all fourteen execution / rejection fields are visible on target Issues after manual provisioning | the required physical mapping is available in the current target scope |
+| custom-field name constraint | Redmine rejected names longer than 30 characters during provisioning | canonical execution field names use the verified <=30-character names defined below |
+| requirements fingerprint storage | `Agent Exec Req Fingerprint` accepts and reads back the exact 71-character `sha256:` + 64 lowercase hex representation | the Phase 39 fingerprint representation fits the provisioned execution storage without truncation |
+| global custom-field inventory | administrative custom-field listing returns HTTP `403` for the current integration credential | runtime and verification must not depend on global admin enumeration or guessed IDs |
+| ordinary Issue Status | current allowed workflow exposes `新規`, `進行中`, `解決`, `フィードバック`, `終了`; execution lifecycle values are not ordinary Issue Status values | execution lifecycle is represented by a dedicated custom field, not by overloading ordinary Issue Status |
+| journal read capability | Issue journals and field-change details are readable and #5402 recorded the synthetic verification mutations | Redmine journal remains durable audit history for execution-field changes |
+| Issue writer capability | guarded writer updates the provisioned execution fields and exact values are readable afterward | the required rejection and execution start mutation shapes are representable |
+| list validation | canonical lifecycle / rejection / execution outcome values were accepted; an invalid lifecycle value was rejected with HTTP `422` | list fields enforce the configured canonical value set |
+| logical execution mutation | one combined synthetic `Agent Running` start mutation, including execution identity, exact source, 71-character fingerprint, and `started_at`, was written and read back successfully | the pre-Agent durable mutation boundary required by Phase 46-4 is available |
+| cleanup | #5402 execution / rejection test values were cleared and read back as empty after verification | the disposable verification path does not leave synthetic execution state active |
+
+The capability inventory is deliberately based on observable target-Issue and
+writer behavior. The canonical contract must not assume that a Redmine
+administrator endpoint is available to the Runner credential.
+
+The current environment is aligned for the Phase 46-5 physical mapping. The
+verified provisioning / writer record is documented in:
+
+```text
+docs/contracts/agent-runner-redmine-execution-provisioning.md
+```
+
+### Representation decision
+
+Ordinary Redmine Issue Status remains the ordinary ticket workflow. It is not
+renamed or expanded solely to represent Agent Runner lifecycle state.
+
+Execution-side lifecycle is stored in a dedicated Issue custom field:
+
+```text
+Agent Execution Lifecycle
+```
+
+Its allowed values are exactly:
+
+```text
+Agent Running
+Ready for Independent Verification
+Needs Human
+```
+
+This field is distinct from the v0.3.0 `Agent Brief Lifecycle` field. The
+Approval Handler continues to own `Brief Draft`, `Brief Ready`, and
+`Ready for Agent`; the Agent Controller owns the three execution-side values
+above. Neither writer may reuse the other lifecycle field as a shortcut.
+
+The physical representation is a current durable Issue projection plus Redmine
+journal history. The Issue fields represent the current execution/rejection
+projection. Redmine's journal preserves prior field mutations so a later attempt
+does not require a Runner database to become the durable history authority.
+
+### Pre-execution rejection physical mapping
+
+A pre-execution rejection remains execution-ID-less. Its portable physical
+mapping is:
+
+| Logical fact | Redmine storage | Field type | Constraint |
+| --- | --- | --- | --- |
+| `issue_id` | native Redmine Issue ID | native integer | positive Issue ID; no duplicate custom field |
+| rejection time | `Agent Rejection At` | string | RFC 3339 timestamp with timezone/offset; maximum 64 characters |
+| outcome | `Agent Rejection Outcome` | single-value list | exactly `stale_requirements` or `eligibility_failed` |
+| bounded reason / diagnostic | `Agent Rejection Diagnostic` | text | maximum 2048 characters after redaction; must not contain credentials or secret values |
+| lifecycle target | `Agent Execution Lifecycle` | single-value list | exactly `Needs Human` for a pre-execution rejection |
+
+A rejection write must not allocate or fabricate:
+
+```text
+execution_id
+started_at
+finished_at
+artifact_reference
+```
+
+The rejection fields are separate from the started-execution fields below. A
+rejection therefore does not create an empty execution record and does not
+attach a new rejection outcome to a previous execution ID.
+
+### Started execution record physical mapping
+
+The portable mapping for one started execution attempt is:
+
+| Logical fact | Redmine storage | Field type | Constraint |
+| --- | --- | --- | --- |
+| `issue_id` | native Redmine Issue ID | native integer | positive Issue ID; no duplicate custom field |
+| `execution_id` | `Agent Execution ID` | string | canonical lowercase UUIDv4, exactly 36 characters |
+| `brief_revision` | `Agent Exec Brief Revision` | integer | positive base-10 integer |
+| `persisted_revision` | `Agent Exec Persisted Revision` | text | non-empty opaque persisted-revision identifier; maximum 1024 characters |
+| `requirements_fingerprint` | `Agent Exec Req Fingerprint` | string | lowercase `sha256:` plus 64 lowercase hexadecimal characters |
+| `repository` | `Agent Execution Repository` | string | canonical non-secret repository identity; maximum 255 characters; credential-bearing URLs forbidden |
+| `source_revision` | `Agent Exec Source Revision` | string | full non-abbreviated lowercase hexadecimal Git object ID; maximum 128 characters; no hash-algorithm length assumption |
+| `started_at` | `Agent Execution Started At` | string | RFC 3339 timestamp with timezone/offset; maximum 64 characters |
+| `finished_at` | `Agent Execution Finished At` | string | empty while pending; otherwise RFC 3339 timestamp with timezone/offset, maximum 64 characters |
+| `outcome` | `Agent Execution Outcome` | single-value list | empty while pending; otherwise one started-execution outcome from the canonical taxonomy below |
+| `artifact_reference` | `Agent Artifact Reference` | text | empty while pending; otherwise non-secret opaque durable artifact reference, maximum 2048 characters; signed URLs/tokens forbidden |
+
+The allowed started-execution outcomes are exactly:
+
+```text
+changes_ready
+no_changes
+interrupted
+timeout
+agent_start_failed
+agent_failed
+artifact_persistence_failed
+```
+
+The pre-execution outcomes `stale_requirements` and `eligibility_failed` are not
+stored in `Agent Execution Outcome`; they belong to `Agent Rejection Outcome`.
+This separation prevents an execution-ID-less rejection from being interpreted
+as the outcome of an older started attempt.
+
+The approved Brief reference does not require an additional Redmine field. It
+is reconstructible from the already-durable execution identity tuple:
+
+```text
+repository
+issue_id
+brief_revision
+persisted_revision
+```
+
+The physical mapping does not reuse any v0.3.0 approval metadata field as
+execution storage. In particular, the execution projection must not rewrite or
+repurpose:
+
+```text
+Agent Brief Lifecycle
+Brief Approved By
+Brief Approved At
+Approved Brief Revision
+Approved Persisted Revision
+Approved Req Fingerprint
+```
+
+### Field lifecycle and journal history
+
+The custom fields above are a current durable projection, not a second Runner
+ledger. Every mutation remains a Redmine mutation and Redmine remains the only
+durable execution-lifecycle Source of Truth.
+
+A later attempt may replace the current projection only through the defined
+lifecycle boundary. Redmine journal history must remain enabled so prior field
+values and transitions remain auditable. An implementation must not delete or
+rewrite Redmine journal history to make a new attempt appear to be the first
+attempt.
+
+Before a new started execution is written, stale rejection projection fields may
+be cleared as part of the same durable start mutation. Before a new
+pre-execution rejection is written, existing started-execution fields need not
+be fabricated, cleared, or converted into an empty execution record. The active
+interpretation is selected by `Agent Execution Lifecycle` plus the distinct
+rejection / execution field sets.
+
+## Environment Binding Boundary
+
+The canonical mapping is the exact field name, field type, and constraint table
+above. Numeric custom-field IDs are environment-specific deployment data and are
+not canonical constants.
+
+Each Runner environment must provide one complete one-to-one binding:
+
+```text
+canonical field name
+  -> positive numeric Redmine custom-field ID in that environment
+```
+
+The current Redmine environment was observed on 2026-09-13 with IDs `11` through
+`24` for the fourteen canonical execution / rejection fields. That table is an
+environment verification record only and is kept in the provisioning document;
+it is not a portable application constant.
+
+A real binding is accepted only after the target Issue exposes each canonical
+field name exactly once and the observed numeric ID is recorded in that
+environment's deployment configuration. Test and production Redmine instances
+may assign different numeric IDs to the same canonical names.
+
+The implementation must not require ID equality across environments and must
+fail closed if a binding is missing, non-positive, duplicated, or resolves to
+the wrong canonical field name.
+
+The concrete serialization format of the deployment configuration is a Runner
+implementation responsibility. Phase 46-5 fixes the binding semantics, not a
+particular secret manager, environment-variable name, or config-file path.
+
+## Provisioning Record
+
+The current environment was manually provisioned with the following Issue
+custom fields. This list is part of the Phase 46-5 environment-alignment record;
+provisioning automation remains out of scope.
+
+| Exact field name | Type | Purpose | Required constraint |
+| --- | --- | --- | --- |
+| `Agent Execution Lifecycle` | single-value list | durable execution lifecycle | values exactly `Agent Running`, `Ready for Independent Verification`, `Needs Human`; not globally required |
+| `Agent Rejection At` | string | durable pre-execution rejection timestamp | RFC 3339 with timezone/offset; max 64; not globally required |
+| `Agent Rejection Outcome` | single-value list | durable pre-execution outcome | values exactly `stale_requirements`, `eligibility_failed`; not globally required |
+| `Agent Rejection Diagnostic` | text | bounded rejection reason | app limit 2048 chars after redaction; not globally required |
+| `Agent Execution ID` | string | started-attempt identity | exactly 36-char lowercase UUIDv4; not globally required |
+| `Agent Exec Brief Revision` | integer | approved Brief revision used by execution | positive integer; not globally required |
+| `Agent Exec Persisted Revision` | text | exact persisted Brief identity | non-empty, app limit 1024; not globally required |
+| `Agent Exec Req Fingerprint` | string | approved requirements proof used by execution | exact 71-char lowercase `sha256:` + 64 hex; not globally required |
+| `Agent Execution Repository` | string | canonical repository identity | max 255; non-secret; no credential-bearing URL; not globally required |
+| `Agent Exec Source Revision` | string | exact Application Git commit | full non-abbreviated lowercase hexadecimal Git object ID; max 128; no hash-algorithm length assumption; not globally required |
+| `Agent Execution Started At` | string | durable execution start time | RFC 3339 with timezone/offset; max 64; not globally required |
+| `Agent Execution Finished At` | string | durable execution finish time | empty while pending or RFC 3339; max 64; not globally required |
+| `Agent Execution Outcome` | single-value list | outcome of a started execution | canonical seven started-execution outcomes; empty while pending; not globally required |
+| `Agent Artifact Reference` | text | durable Phase 49 artifact reference | empty while pending; app limit 2048; non-secret; signed URL/token forbidden; not globally required |
+
+All fourteen fields are applicable to the configured Agent Runner project /
+tracker scope (`Redmine` / `機能`) and were visible on verification Issue #5402.
+The shortened `Agent Exec ...` names are intentional because the current Redmine
+environment enforces a 30-character custom-field name limit.
+
+### Post-provisioning capability re-check
+
+#5402 completed the required synthetic writer / read-back verification without
+starting an Agent. The verification established all of the following:
+
+1. target Issue #5402 exposed all fourteen canonical field names exactly once;
+2. the current environment binding resolved those names to distinct positive
+   numeric IDs;
+3. `Needs Human` + `eligibility_failed` rejection facts were written and read
+   back with no `execution_id`;
+4. a combined `Agent Running` mutation persisted `execution_id`, Brief identity,
+   the exact 71-character requirements fingerprint, repository, exact source
+   revision, and `started_at`;
+5. `finished_at`, execution `outcome`, and `artifact_reference` remained empty at
+   execution start;
+6. canonical lifecycle / rejection / execution-outcome list values were
+   accepted, including `timeout`;
+7. an invalid execution lifecycle value was rejected with HTTP `422` and was not
+   persisted;
+8. Redmine journal history recorded the synthetic field changes;
+9. `release_tag` and v0.3.0 approval metadata were not repurposed as execution
+   storage; and
+10. all synthetic execution / rejection values were cleared and read back as
+    empty at the end of the verification.
+
+The administrative global custom-field inventory endpoint remains unavailable
+(`403`) to the integration credential. This is acceptable because runtime and
+verification resolve the mapping from the target Issue and fail closed when a
+required exact-name field is missing or ambiguous.
+
+## Execution ID Serialization
+
+The concrete v0.4.0 `execution_id` representation is a canonical lowercase
+hyphenated UUID version 4 string:
+
+```text
+xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+```
+
+where `x` is lowercase hexadecimal and `y` is one of `8`, `9`, `a`, or `b`.
+The exact validation expression is:
+
+```text
+^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+```
+
+Properties:
+
+```text
+length: 36 characters
+character set: lowercase hexadecimal + hyphen
+scope: one started execution attempt
+allocation: only after successful Phase 47 gate
+stability: immutable for the lifetime of that attempt
+secret content: forbidden
+reuse across retries / attempts: forbidden
+```
+
+This serialization fits the provisioned `Agent Execution ID` string constraint
+without relying on an environment-specific numeric custom-field ID. The runtime
+must still detect accidental reuse within the durable Redmine history; UUID
+format alone is not permission to reuse an existing execution identity.
+
+## Agent Running Writer Capability
+
+The physical start mutation must be representable as one authorized Redmine
+Issue update containing at least:
+
+```text
+Agent Execution Lifecycle = Agent Running
+Agent Execution ID
+Agent Exec Brief Revision
+Agent Exec Persisted Revision
+Agent Exec Req Fingerprint
+Agent Execution Repository
+Agent Exec Source Revision
+Agent Execution Started At
+```
+
+The update may also clear stale rejection-projection fields for the new attempt.
+`finished_at`, execution `outcome`, and `artifact_reference` remain empty/pending
+at Agent start.
+
+A successful HTTP/API response is necessary but not sufficient for production
+readiness. The post-provisioning re-check must read the Issue back and establish
+that the intended exact-name fields contain the intended values. A failed,
+rejected, partial, ambiguous, or unverified mutation result does not permit
+Agent start.
+
+The existing Redmine Write Guard / allowed-project boundary remains mandatory.
+Phase 46-5 does not create a generic unguarded custom-field writer or a second
+credential path.
+
+Redmine remains the only durable Source of Truth for execution lifecycle and the
+current execution projection. Agent Runner may hold transient in-memory values
+while preparing a mutation, but a local file, Workspace, lock, or Runner-local
+database must not become a second durable execution-state authority.
+
 ## Approved Brief Recovery
 
 The exact approved Brief must be recovered through the existing immutable
@@ -938,61 +1282,61 @@ Phase 46-1 must not create a second approval interpretation or write surface.
 
 ## Deferred Phase 46 Responsibilities
 
-After Phase 46-4, this canonical contract deliberately leaves the following work
-to the later child tickets that own it:
+After Phase 46-5, this canonical contract leaves only the final Phase 46
+consistency work to Phase 46-6:
 
 ```text
-Phase 46-5
-  Redmine capability inventory
-  physical rejection / execution-record mapping
-  environment-specific ID binding
-  execution_id serialization
-  required manual field provisioning
-
 Phase 46-6
   final v0.3.0 / Phase 45 / Roadmap consistency verification
   documentation precedence
   Phase 47 / Phase 48 entry verification
 ```
 
-Deferring these responsibilities is intentional. Phase 46-4 must not invent a
-physical Redmine mapping or implement Phase 47 / Phase 48 runtime behavior merely
-to make this revision appear complete.
+Phase 46-5 does not implement the Controller / Worker runtime, Phase 47 security
+rules, or Phase 49 artifact persistence merely because their durable Redmine
+fields are now defined.
 
 ## Verification Obligations
 
-Phase 46-4 is complete only when repository evidence demonstrates that:
+Phase 46-5 is complete only when repository and environment evidence demonstrates
+that:
 
-- the Phase 46-1 eligibility / exact-artifact recovery contract remains intact
-  and fail closed;
-- the Phase 46-2 requirements-revalidation and pre-execution rejection contract
-  remains intact;
-- the Phase 46-3 exact-source and execution-identity contract remains intact;
-- the Phase 47 authorization / security gate is reserved after exact source
-  revision is fixed and before `execution_id` allocation;
-- a failed or unknown Phase 47 gate result is a pre-execution rejection and does
-  not allocate an `execution_id`, write `Agent Running`, or start the Agent;
-- the immutable execution-input snapshot contains the minimum identity-bearing
-  fields required by #5399;
-- snapshot identity is not changed by re-reading later mutable Redmine, Brief,
-  branch, tag, or `HEAD` state;
-- `latest` Brief or moving Git references are not used to reinterpret an
-  existing execution identity;
-- the logical execution record contains `execution_id`, Issue / Brief / source /
-  requirements identity, `started_at`, `finished_at`, `outcome`, and
-  `artifact_reference`;
-- absent, pending, and empty states are semantically distinct;
-- a pre-execution rejection remains distinct from a started execution record and
-  does not require an empty execution record;
-- the identity-bearing record facts and `started_at` are fixed / durable before
-  Agent start;
-- Agent start occurs only after successful durable Redmine mutation to
-  `Agent Running`;
-- a failed, rejected, or unknown durable mutation result does not permit Agent
-  start; and
-- concrete Redmine field mapping, numeric custom-field IDs, provisioning, and
-  `execution_id` serialization remain deferred to Phase 46-5.
+- the current Redmine capability inventory has been performed against the target
+  project / tracker and records unavailable administrative capabilities instead
+  of guessing them;
+- capability inventory can begin from the Phase 46-1 boundary and does not depend
+  on later runtime implementation;
+- the physical mapping relies only on capabilities that actually exist or are
+  explicitly listed for manual provisioning;
+- pre-execution rejection has a distinct durable physical mapping that requires
+  no `execution_id`;
+- the started execution record has a complete physical mapping for every logical
+  Phase 46-4 record field;
+- canonical mapping is defined by exact field name, field type, and constraint;
+- environment-specific numeric custom-field IDs are absent from the canonical
+  mapping and are owned by per-environment binding;
+- test and production can bind different numeric IDs to the same canonical field
+  names;
+- no v0.3.0 approval metadata field is reused as execution storage;
+- the fourteen-field manual provisioning list exists and matches the physical
+  mapping;
+- all required fields have actually been provisioned for the target
+  project / tracker before ticket closure;
+- the post-provisioning capability and writer read-back checks have passed;
+- `execution_id` uses the canonical lowercase UUIDv4 serialization and fits the
+  provisioned storage constraint;
+- a durable `Agent Running` start mutation can persist all required pre-start
+  execution facts through the guarded writer before Agent start; and
+- Redmine remains the only durable Source of Truth for execution lifecycle and
+  execution-state projection.
+
+The 2026-09-13 #5402 verification provides the current-environment evidence for
+manual provisioning, environment binding, list validation, guarded writer
+access, exact read-back, 71-character requirements-fingerprint storage, durable
+`Agent Running` start mutation, journal history, and cleanup. Phase 46-5 may be
+closed after this canonical contract and its provisioning record are merged and
+the final ticket-level completion review confirms no remaining inconsistency.
 
 No Git checkout, Agent, Worker, or Controller runtime test is required by Phase
-46-4 because this ticket establishes the immutable snapshot, logical execution
-record, and durable mutation boundary rather than their runtime implementation.
+46-5. The required verification is Redmine capability, provisioning, mapping,
+serialization, guarded writer, and read-back verification only.

@@ -8,7 +8,7 @@ Target release: v0.4.0
 This document is the canonical Phase 46 contract for the execution input boundary
 between the existing `Ready for Agent` handoff and later Agent Runner execution.
 
-Phase 46-1 establishes the initial contract for:
+Phase 46-1 established the initial contract for:
 
 - base execution eligibility;
 - exact approved Agent Brief recovery;
@@ -16,11 +16,21 @@ Phase 46-1 establishes the initial contract for:
 - repository identity resolution; and
 - fail-closed behavior before later execution-specific checks.
 
-Later Phase 46 tickets extend this same canonical document with requirements
-revalidation, pre-execution rejection semantics, exact source revision,
-execution identity, immutable execution input snapshot, logical execution record,
-physical Redmine mapping, environment binding, and final cross-contract
-verification.
+Phase 46-2 extends the same canonical contract with:
+
+- execution-time requirements revalidation using the existing v0.3.0
+  requirements-fingerprint semantics;
+- `stale_requirements` / `eligibility_failed` pre-execution routing;
+- the distinction between a pre-execution rejection and an execution attempt;
+- the durable logical facts required to record a rejection without an
+  `execution_id`; and
+- the responsibility boundary for any future Phase 47-specific outcome
+  extension.
+
+Later Phase 46 tickets extend this same canonical document with exact source
+revision, execution identity, immutable execution input snapshot, logical
+execution record, physical Redmine mapping, environment binding, and final
+cross-contract verification.
 
 This contract is subordinate to the Phase 45 architecture / lifecycle boundary:
 
@@ -38,10 +48,11 @@ Phase 46 consumes those contracts. It does not redefine `Ready for Agent`, Human
 Review, Handler Validation, approval metadata, Brief persistence identity, or
 requirements-fingerprint semantics.
 
-Phase 46-1 does not implement Agent execution. It does not define requirements
-revalidation, exact application source revision, `execution_id`, execution
-record persistence, Redmine execution-field mapping, repository authorization,
-credentials, sandboxing, or Agent process invocation.
+Phase 46-2 still does not implement Agent execution. It does not define the
+exact application source-revision mechanism, `execution_id` allocation or
+serialization, physical Redmine execution-field mapping, Phase 47 authorization
+policy, credentials, sandboxing, Controller runtime implementation, or Agent
+process invocation.
 
 ## Execution Eligibility
 
@@ -91,6 +102,158 @@ requirements revalidation is a separate Phase 46-2 responsibility.
 Likewise, this phase does not prove that the repository is authorized for Agent
 execution. It proves only that the repository identity required by the handoff
 can be resolved unambiguously. Repository authorization belongs to Phase 47.
+
+## Requirements Revalidation
+
+A successful Phase 46-1 handoff validation proves that the recovered Brief is
+the exact approved artifact. It does not prove that the current Redmine
+requirements are still equal to the requirements approved for that artifact.
+
+Before an execution attempt may be established, the later execution boundary
+must revalidate requirements by reusing the existing v0.3.0 requirements
+selection and fingerprint semantics:
+
+```text
+latest Redmine requirements
+    |
+    v
+existing Phase 36 bounded generation-input semantics
+    |
+    v
+existing Phase 39 canonical requirements fingerprint
+    |
+    v
+compare with approved_requirements_fingerprint
+```
+
+Phase 46 must not introduce a Runner-specific source selection, canonicalization,
+fingerprint algorithm, hash representation, or semantic-equivalence rule. The
+existing v0.3.0 fingerprint contract remains authoritative for what is included,
+what is excluded, deterministic serialization, and SHA-256 representation.
+
+The comparison result has these meanings:
+
+```text
+current fingerprint == approved_requirements_fingerprint
+  -> requirements are current for this approved Brief
+  -> later pre-execution gates may continue
+
+current fingerprint != approved_requirements_fingerprint
+  -> pre-execution rejection
+  -> Agent is not started
+  -> lifecycle target = Needs Human
+  -> outcome = stale_requirements
+```
+
+A fingerprint-generation failure is neither CURRENT nor STALE. If the current
+requirements input cannot be established, canonicalized, serialized, hashed, or
+otherwise validated under the existing fingerprint contract, the system must
+fail closed:
+
+```text
+fingerprint generation failure
+  -> pre-execution rejection
+  -> Agent is not started
+  -> lifecycle target = Needs Human
+  -> outcome = eligibility_failed
+```
+
+The execution boundary must not fall back to `updated_on`,
+`source_updated_on`, approval time, Issue modification time, or another
+timestamp-only freshness signal. A timestamp mismatch is not the canonical
+requirements-staleness test.
+
+Requirements revalidation is read-only with respect to the existing approval
+fact. The Controller must not rewrite `approved_requirements_fingerprint`,
+`approved_at`, the approved Brief identity, or other approval metadata merely to
+make a later execution candidate appear current.
+
+## Pre-execution Rejection
+
+A candidate rejected before an execution attempt is established is a
+pre-execution rejection, not a partial execution.
+
+The current v0.4.0 classification is:
+
+```text
+requirements fingerprint mismatch
+  -> Needs Human
+  -> outcome = stale_requirements
+
+approval / handoff validation failure
+fingerprint generation failure
+exact source revision determination failure
+Phase 47 authorization / security gate failure
+  -> Needs Human
+  -> outcome = eligibility_failed
+```
+
+`stale_requirements` is reserved for the case where both canonical fingerprints
+were successfully established and their values differ. Failures to establish a
+valid fingerprint are not STALE and use `eligibility_failed`.
+
+The exact source-revision mechanism is owned by Phase 46-3, and the exact Phase
+47 authorization / security gate ordering is owned by Phase 46-4 / Phase 47.
+Phase 46-2 fixes only their pre-execution rejection classification when they
+fail before an execution attempt is established.
+
+The Controller must not start the Agent for any pre-execution rejection. It also
+must not respond to a rejection by writing approval-side lifecycle states such
+as `Brief Draft` or `Brief Ready`, performing Human Review, rerunning approval
+semantics, or rewriting approval metadata. The execution-side boundary stops at
+`Needs Human`; a later Human / approval workflow decides what happens next.
+
+### Pre-execution rejection record
+
+A pre-execution rejection does not require or imply an `execution_id`. In
+particular, it must not require the execution-record-only facts:
+
+```text
+execution_id
+started_at
+finished_at
+artifact_reference
+```
+
+At the logical contract level, Redmine must be able to retain at least:
+
+```text
+issue_id
+rejection time
+outcome
+bounded reason / diagnostic
+lifecycle target = Needs Human
+```
+
+This durable rejection fact is logically distinct from the execution record for
+a started execution. The absence of `execution_id` means no execution attempt
+was established; it is not an unknown or empty execution identifier. Phase 46-3
+owns the later execution-ID allocation boundary.
+
+Phase 46-2 does not choose the physical Redmine representation for these facts.
+Custom fields, journals, environment-specific IDs, and mutation shape remain
+Phase 46-5 responsibilities.
+
+### Outcome extension boundary
+
+Phase 47 authorization / security gate failure uses the existing canonical
+`eligibility_failed` outcome unless a later explicit contract change says
+otherwise.
+
+If Phase 47 needs a new durable outcome identity such as a more specific
+authorization or security-policy result, it must not add that identity as an
+implicit implementation detail. Phase 47 must explicitly review and update, as
+applicable:
+
+```text
+Phase 45 canonical execution boundary contract
+execution outcome taxonomy
+required ADR / architecture decision
+```
+
+Until that explicit change occurs, `eligibility_failed` remains the canonical
+outcome for Phase 47 gate failure. Phase 46-2 does not redefine the Phase 45
+outcome taxonomy.
 
 ## Approved Brief Recovery
 
@@ -280,12 +443,11 @@ A failure must not be repaired by selecting another Brief revision, another
 repository, a mutable `latest` artifact, a different persisted revision, or a
 fallback freshness signal.
 
-Phase 46-1 does not yet define the durable pre-execution rejection record,
-`stale_requirements` / `eligibility_failed` routing details, or physical Redmine
-mapping for such a failure. Those are later Phase 46 responsibilities. The
-Phase 46-1 guarantee is narrower: a failed or unknown check is not execution
-permission and must not be treated as a successful handoff to an Agent
-execution attempt.
+Phase 46-2 defines the logical pre-execution rejection semantics and routing for
+these failures. A failed or unknown check is not execution permission and must
+not be treated as a successful handoff to an Agent execution attempt. The
+physical Redmine representation of the rejection remains a Phase 46-5
+responsibility.
 
 Diagnostics produced by an implementation of this boundary must not contain
 credentials, API keys, repository secrets, or other configured secret values.
@@ -311,15 +473,10 @@ Phase 46-1 must not create a second approval interpretation or write surface.
 
 ## Deferred Phase 46 Responsibilities
 
-This initial Phase 46-1 revision deliberately leaves the following work to the
-later child tickets that own it:
+After Phase 46-2, this canonical contract deliberately leaves the following work
+to the later child tickets that own it:
 
 ```text
-Phase 46-2
-  current requirements revalidation
-  pre-execution rejection semantics
-  stale_requirements / eligibility_failed routing
-
 Phase 46-3
   exact application source revision
   execution identity semantics
@@ -344,27 +501,38 @@ Phase 46-6
   Phase 47 / Phase 48 entry verification
 ```
 
-Deferring these responsibilities is intentional. Phase 46-1 must not preempt
-their detailed contracts merely to make this first revision appear complete.
+Deferring these responsibilities is intentional. Phase 46-2 must not preempt
+their detailed contracts merely to make this revision appear complete.
 
 ## Verification Obligations
 
-Phase 46-1 is complete only when repository evidence demonstrates that:
+Phase 46-2 is complete only when repository evidence demonstrates that:
 
-- this canonical Phase 46 contract exists;
-- eligibility is fail closed;
-- `Ready for Agent` is required and retains its v0.3.0 meaning;
-- all existing approval metadata required by the handoff is validated for
-  completeness and syntax;
-- the exact approved Brief is recovered through the immutable handoff identity;
-- a mutable `latest` artifact is never substituted for the approved artifact;
-- repository identity is resolved unambiguously and agrees with the stored
-  Brief;
-- repository authorization remains a Phase 47 responsibility;
-- Phase 47 authorization / security success remains a prerequisite for a later
-  execution attempt; and
-- Human Review, Handler Validation, and approval metadata semantics are consumed
-  without redefinition.
+- the Phase 46-1 eligibility and exact-artifact recovery contract remains
+  intact and fail closed;
+- execution-time requirements revalidation reuses the existing Phase 36 /
+  Phase 39 requirements-fingerprint semantics;
+- a fingerprint equality result may continue while a fingerprint mismatch is
+  routed to `Needs Human` with `stale_requirements`;
+- fingerprint generation failure is neither CURRENT nor STALE and is routed to
+  `Needs Human` with `eligibility_failed`;
+- `updated_on` / `source_updated_on` is not used as a fallback freshness signal;
+- approval / handoff validation failure is a pre-execution
+  `eligibility_failed`;
+- exact source revision determination failure is classified as pre-execution
+  `eligibility_failed`;
+- Phase 47 authorization / security gate failure is classified as pre-execution
+  `eligibility_failed` under the current taxonomy;
+- a pre-execution rejection does not require an `execution_id`;
+- the durable rejection fact is logically distinct from a started execution
+  record;
+- Redmine is required to retain a durable rejection fact while physical mapping
+  remains deferred to Phase 46-5;
+- a new Phase 47-specific durable outcome cannot be added without explicit
+  Phase 45 taxonomy / contract review and any required ADR; and
+- the Controller does not roll a rejection directly back into `Brief Draft` or
+  `Brief Ready` and does not rewrite the upstream approval fact.
 
-No Agent runtime test is required by Phase 46-1 because this ticket establishes
-an execution-input contract boundary rather than the runtime implementation.
+No Agent or Controller runtime test is required by Phase 46-2 because this
+ticket establishes requirements-revalidation and rejection contract semantics,
+not their runtime implementation.

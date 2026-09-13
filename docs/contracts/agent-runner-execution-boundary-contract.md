@@ -9,10 +9,12 @@ This document is the canonical Phase 45 system contract for the boundary between
 the Redmine / MCP approval control plane and the Agent Runner execution plane.
 
 Phase 45-1 established the architecture / deployment boundary and release
-ownership. Phase 45-2 extends the same canonical document with component
+ownership. Phase 45-2 extended the same canonical document with component
 responsibility, Source of Truth ownership, and the durable / transient state
-boundary. Later Phase 45 tickets extend this document with the remaining Phase
-45 responsibilities rather than creating a second competing system contract.
+boundary. Phase 45-3 extends it with lifecycle write ownership, the
+pre-execution failure boundary, and the execution outcome taxonomy. Later Phase
+45 tickets extend this document with the remaining Phase 45 responsibilities
+rather than creating a second competing system contract.
 
 The canonical copy of this cross-component contract remains in the
 `mcp-mamono210/redmine` repository even after the Agent Runner repository is
@@ -28,14 +30,19 @@ This revision defines:
 - independent component release ownership;
 - the meaning of the v0.4.0 system-level compatibility milestone;
 - responsibility ownership for the major execution-system components;
-- one authoritative Source of Truth for each durable information category; and
-- the durable / transient state boundary for the initial Runner design.
+- one authoritative Source of Truth for each durable information category;
+- the durable / transient state boundary for the initial Runner design;
+- lifecycle write ownership between Approval Handler and Agent Controller;
+- the normal execution lifecycle and pre-execution failure boundary; and
+- the execution outcome taxonomy and Redmine Status / outcome separation.
 
-This revision does not define the Phase 45-3 lifecycle-write or execution-
-outcome contracts, the Phase 45-4 polling / startup contract, or the Phase 45-5
-final cross-contract verification. It also does not define execution-record
-schema, physical Redmine field mapping, S3 object layout, artifact-manifest
-schema, local-lock implementation, or Runner database implementation.
+This revision does not define the Phase 45-4 polling / startup contract or the
+Phase 45-5 final cross-contract verification. It also does not define the
+execution eligibility algorithm, a new requirements-fingerprint algorithm,
+execution-record schema, physical Redmine field mapping, timeout or retry
+implementation, Agent Adapter implementation, S3 object layout,
+artifact-manifest schema, local-lock implementation, or Runner database
+implementation.
 
 The v0.3.0 `Ready for Agent` handoff contract remains the upstream execution
 input boundary. Phase 45 does not redefine Agent Brief lifecycle, Human Review,
@@ -157,7 +164,7 @@ process layout, internal helper structure, or implementation language.
 | versioned Brief storage | Source of Truth for Agent Brief content and revision history |
 | Approval Handler | Validation, approval consistency, and approval workflow through `Ready for Agent` |
 | Agent Runner | Execution-plane responsibility after `Ready for Agent` handoff |
-| Controller | Execution-side polling, revalidation, lifecycle mutation, and Worker control; exact write set is fixed by Phase 45-3 |
+| Controller | Execution-side polling, revalidation, execution lifecycle mutation, and Worker control; lifecycle write set is fixed by this contract |
 | Worker / Sandbox | Transient execution environment for one Agent execution |
 | Agent provider | Source-code implementation within the provided execution boundary |
 | Application Git | Source of Truth for application source |
@@ -171,9 +178,9 @@ and lifecycle contracts owned by their corresponding phases.
 Agent Runner is not required to be exposed as a public MCP Tool for v0.4.0.
 ChatGPT is not the Agent execution Controller.
 
-The exact Approval Handler and Controller lifecycle write sets are intentionally
-left to Phase 45-3. This section establishes component responsibility without
-preempting that lifecycle contract.
+The exact Approval Handler and Controller lifecycle write sets are defined in
+the Lifecycle Write Ownership section below. Component responsibility and
+lifecycle mutation authority therefore remain part of one canonical contract.
 
 ## Source of Truth Boundary
 
@@ -292,46 +299,235 @@ a repository directory contains a marker file
 ```
 
 Those storage systems keep their existing source / artifact responsibilities.
-Runtime candidate selection and lifecycle ownership are defined by later Phase
-45 polling and lifecycle contracts, using Redmine as the durable control-plane
-Source of Truth.
+Lifecycle ownership is defined by this contract. Runtime candidate selection is
+defined by the later Phase 45 polling contract, using Redmine as the durable
+control-plane Source of Truth.
 
 Phase 45-2 does not introduce a distributed queue, durable Runner queue, claim,
 lease, or heartbeat mechanism.
 
+## Lifecycle Write Ownership
+
+Approval lifecycle and execution lifecycle have separate writers. The boundary
+at `Ready for Agent` is a handoff boundary, not a shared write surface.
+
+Approval Handler owns the approval-side lifecycle write set:
+
+```text
+Brief Draft
+Brief Ready
+Ready for Agent
+```
+
+Approval Handler must not write execution-side lifecycle states:
+
+```text
+Agent Running
+Ready for Independent Verification
+Needs Human
+```
+
+Agent Controller owns the execution-side lifecycle target set after a valid
+`Ready for Agent` handoff:
+
+```text
+Agent Running
+Ready for Independent Verification
+Needs Human
+```
+
+Agent Controller must not:
+
+- write `Brief Draft`;
+- write `Brief Ready`;
+- rewrite approval metadata;
+- perform Human Review;
+- redefine Handler Validation semantics; or
+- directly roll an execution failure back into the approval lifecycle.
+
+The normal execution lifecycle is:
+
+```text
+Ready for Agent
+  -> Agent Running
+  -> Ready for Independent Verification
+```
+
+`Ready for Agent` remains the approval-side handoff state established by the
+v0.3.0 contract. Agent Controller consumes that state; it does not redefine its
+meaning or ownership.
+
+The writer boundary therefore remains:
+
+```text
+Approval Handler
+  = approval lifecycle writer
+
+Agent Controller
+  = execution lifecycle writer
+```
+
+The concrete Redmine field mapping and mutation implementation are outside
+Phase 45-3. This section fixes write responsibility and state semantics only.
+
+## Pre-execution Failure Boundary
+
+A validation failure detected before Agent start must not be represented as a
+partial execution.
+
+The conceptual boundary is:
+
+```text
+Ready for Agent
+  -> pre-execution validation failure
+  -> Agent is not started
+  -> Needs Human
+  + corresponding execution outcome
+```
+
+If requirements revalidation detects a mismatch between the current
+requirements fingerprint and the approved requirements fingerprint, the result
+is:
+
+```text
+status:
+  Needs Human
+
+outcome:
+  stale_requirements
+```
+
+If another execution-eligibility condition fails before Agent start, the result
+is:
+
+```text
+status:
+  Needs Human
+
+outcome:
+  eligibility_failed
+```
+
+`stale_requirements` is reserved for requirements-fingerprint mismatch.
+`eligibility_failed` covers other pre-execution eligibility failures whose
+detailed classification is owned by Phase 46.
+
+In either case, Agent Controller must not start the Agent, must not rewrite
+approval metadata, and must not transition directly to `Brief Draft` or
+`Brief Ready`.
+
+A later Human / approval workflow decides whether the Brief must be regenerated,
+reviewed, or approved again. Agent Controller reports the execution-side reason
+and stops at the `Needs Human` boundary.
+
+Phase 45-3 does not define the detailed eligibility algorithm, fingerprint
+algorithm, execution-record schema, or physical persistence of the outcome.
+
+## Execution Outcome Taxonomy
+
+Redmine Status and execution outcome serve different responsibilities.
+
+```text
+Redmine Status
+  = lifecycle category / routing state
+
+execution outcome
+  = concrete result or reason for the execution attempt
+```
+
+v0.4.0 must preserve at least the following outcome identities:
+
+```text
+changes_ready
+no_changes
+
+stale_requirements
+eligibility_failed
+
+interrupted
+timeout
+agent_start_failed
+agent_failed
+
+artifact_persistence_failed
+```
+
+The lifecycle meaning of these outcomes is:
+
+| Outcome | Lifecycle target | Phase 45-3 meaning |
+| --- | --- | --- |
+| `changes_ready` | `Ready for Independent Verification` | An execution produced changes eligible for independent verification. |
+| `no_changes` | `Ready for Independent Verification` | An execution produced no source diff; the result still requires independent verification. |
+| `stale_requirements` | `Needs Human` | Pre-execution requirements fingerprint mismatch. Agent is not started. |
+| `eligibility_failed` | `Needs Human` | Another pre-execution eligibility condition failed. Agent is not started. |
+| `interrupted` | `Needs Human` | Execution did not reach a durable verifiable result because execution was interrupted. |
+| `timeout` | `Needs Human` | Execution exceeded its allowed execution boundary. |
+| `agent_start_failed` | `Needs Human` | The Agent could not be started. |
+| `agent_failed` | `Needs Human` | The Agent started but execution failed. |
+| `artifact_persistence_failed` | `Needs Human` | A result could not be made durable through the artifact persistence boundary. |
+
+The taxonomy is intentionally compact. Redmine Status must not grow one status
+per failure reason merely to preserve diagnostic detail; the outcome retains
+that detail while Status continues to describe lifecycle routing.
+
+Phase 45-3 defines outcome identity and lifecycle responsibility only. Detailed
+production conditions and handling remain with the phases that own those
+behaviors:
+
+```text
+Phase 46
+  execution eligibility and pre-execution validation details
+
+Phase 48
+  Agent start, interruption, timeout, Agent failure, and recovery behavior
+
+Phase 49
+  changes/no-changes artifact semantics and artifact persistence behavior
+```
+
+This phase does not define retry behavior, timeout implementation, Agent Adapter
+implementation, artifact schema, or physical Redmine outcome mapping.
+
 ## Verification Obligations
 
-Phase 45-2 is an architecture / contract step and does not require Agent runtime
+Phase 45-3 is an architecture / contract step and does not require Agent runtime
 implementation or runtime tests.
 
 Repository review for this revision must establish that:
 
 - this file remains the single canonical Phase 45 system contract in the Redmine
   MCP repository;
-- the repository and deployment boundaries still match Phase 45 /
-  `040_roadmap` semantics;
-- no contract path permits the Redmine / MCP host to spawn an Agent process;
-- the initial topology remains exactly one Controller, one Worker, and one
-  concurrent execution;
-- Redmine MCP and Agent Runner retain independent component version ownership;
-- v0.4.0 remains a system-level compatibility milestone rather than a lockstep
-  component version;
-- every major component in Phase 45-2 has one explicit responsibility;
-- requirements, approval state, business state, and durable execution lifecycle
-  resolve to Redmine as their authoritative Source of Truth;
-- Agent Brief content / revision history resolve to versioned Brief storage;
-- application source resolves to Application Git;
-- durable change artifacts resolve to private S3;
-- Workspace, Agent container, and local lock are explicitly transient;
-- no Runner database is defined as a second durable execution-lifecycle Source
-  of Truth;
-- Git and versioned Brief storage are not defined as runtime Queues; and
-- this revision does not define execution-record schema, Redmine field mapping,
-  S3 object layout, artifact-manifest schema, local-lock implementation, or the
-  Phase 45-3 lifecycle / outcome contract.
+- the repository / deployment, release ownership, component responsibility, and
+  Source of Truth boundaries established by Phase 45-1 and Phase 45-2 remain
+  unchanged;
+- Approval Handler writes only approval-side lifecycle states and does not write
+  `Agent Running`, `Ready for Independent Verification`, or `Needs Human`;
+- Agent Controller targets only `Agent Running`,
+  `Ready for Independent Verification`, and `Needs Human` on the execution side;
+- Agent Controller does not write `Brief Draft` or `Brief Ready`, rewrite
+  approval metadata, perform Human Review, or redefine Handler Validation;
+- the normal execution lifecycle is `Ready for Agent -> Agent Running -> Ready
+  for Independent Verification`;
+- pre-execution validation failure does not start the Agent and routes to
+  `Needs Human` with a corresponding outcome;
+- requirements fingerprint mismatch is represented as
+  `Needs Human + stale_requirements`;
+- other pre-execution eligibility failure is represented as
+  `Needs Human + eligibility_failed`;
+- Agent Controller does not roll stale or invalid execution candidates directly
+  back into the approval lifecycle;
+- the minimum outcome taxonomy contains `changes_ready`, `no_changes`,
+  `stale_requirements`, `eligibility_failed`, `interrupted`, `timeout`,
+  `agent_start_failed`, `agent_failed`, and `artifact_persistence_failed`;
+- Redmine Status describes lifecycle routing while outcome preserves the
+  concrete execution result or failure reason; and
+- this revision does not define execution eligibility algorithms, physical
+  Redmine field mapping, timeout / retry implementation, Agent Adapter
+  implementation, polling / startup behavior, or artifact schema.
 
 The architecture decision rationales for the established Phase 45 boundaries
 are recorded in:
 
 - `docs/adr/ADR-024-separate-agent-runner-execution-plane.md`
 - `docs/adr/ADR-025-use-redmine-as-durable-execution-source-of-truth.md`
+- `docs/adr/ADR-026-separate-approval-and-execution-lifecycle-writers.md`

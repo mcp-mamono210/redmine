@@ -33,9 +33,22 @@ Phase 47-2 extends the same canonical contract with:
 - preservation of the Phase 46 repository / exact-source identity across
   credential handling and later checkout.
 
-Later Phase 47 tickets extend this same canonical contract with sandbox /
-filesystem boundaries, network / resource / timeout policy, secret-handling
-rules, and final Phase 46 / Phase 48 compatibility verification.
+Phase 47-3 extends the same canonical contract with:
+
+- one fresh ephemeral sandbox / container per execution attempt;
+- a task-scoped writable workspace boundary;
+- explicit prohibition of writable host-root, Controller-state, credential-store,
+  Docker-socket, unrelated-workspace, and other-execution workspace mounts;
+- prohibition on using a shared canonical checkout as an Agent-writable execution
+  workspace;
+- disposal semantics for success, failure, timeout, and interruption;
+- preservation of Redmine as the only durable execution-state Source of Truth;
+  and
+- mechanically verifiable filesystem / mount isolation requirements.
+
+Later Phase 47 tickets extend this same canonical contract with network /
+resource / timeout policy, secret-handling rules, and final Phase 46 / Phase 48
+compatibility verification.
 
 Phase 47 does not redefine the v0.3.0 approval handoff, the Phase 45 execution
 Source-of-Truth / lifecycle ownership model, or the Phase 46 execution-input
@@ -636,4 +649,227 @@ runtime retry / recovery implementation
 Those implementation choices remain downstream, primarily Phase 48, and must
 consume the credential contract defined here without weakening the Phase 47-1
 authorization boundary or Phase 46 execution-input identity.
+
+## Phase 47-3 Sandbox Identity
+
+Agent execution uses an execution-scoped ephemeral sandbox boundary. The
+canonical identity rule is:
+
+```text
+1 execution attempt
+=
+1 fresh ephemeral sandbox / container
+```
+
+A sandbox created for one execution attempt must not be reused as the mutable
+execution environment for another attempt. Two execution attempts must not share
+one mutable sandbox, container filesystem, or task workspace as execution
+authority.
+
+The sandbox is an isolation boundary for the Agent process. It is not an
+execution identity, durable execution record, retry identifier, or Source of
+Truth. Phase 47-3 does not change the Phase 46 `execution_id` allocation
+boundary or the Phase 47 formal authorization / security gate ordering.
+
+Phase 48 owns the concrete container/runtime mechanism and the exact point at
+which the sandbox is created. That implementation must preserve the one-attempt /
+one-sandbox isolation rule defined here.
+
+## Task-scoped Workspace Boundary
+
+The Agent's host-backed writable execution workspace is task-scoped to one
+execution attempt. The minimum filesystem classification is:
+
+```text
+task-scoped workspace
+  = writable for the execution
+
+source checkout
+  = located inside the task-scoped execution workspace
+
+Controller state
+  = unavailable to the Agent
+
+credential store
+  = unavailable to the Agent
+
+host root filesystem
+  = not writable through an Agent sandbox mount
+
+Docker socket
+  = unavailable to the Agent
+
+unrelated repository workspace
+  = unavailable to the Agent
+
+other execution workspace
+  = unavailable to the Agent
+```
+
+The task-scoped workspace may contain the prepared source tree for the exact
+Phase 46 repository / source-revision identity. It must not authorize changing
+that identity or re-resolving a mutable source selector.
+
+A shared canonical checkout, shared working tree, Controller-owned repository
+cache, or other mutable shared source directory must not be exposed as the
+Agent-writable execution workspace. If Phase 48 uses a cache or shared source
+material internally, the Agent-writable execution view must still be isolated
+into the execution's task-scoped workspace.
+
+This boundary does not require every filesystem inside the sandbox to be
+read-only. Ephemeral container-local filesystems may be writable as required by
+the runtime. The host-isolation requirement is that writable host-backed mounts
+made available to the Agent are limited to the execution's task-scoped
+workspace.
+
+## Forbidden Host Mounts and Interfaces
+
+The Agent sandbox must not be given any of the following host-backed writable
+mounts or privileged interfaces:
+
+```text
+host root filesystem write mount
+Controller directory write mount
+credential store mount
+Docker socket mount
+unrelated repository workspace write mount
+other execution workspace write mount
+```
+
+A read-only mount is not automatically safe merely because it is read-only.
+Controller state, credential stores, Docker / container-engine control sockets,
+and unrelated or other-execution workspaces remain unavailable unless a later
+explicit security contract deliberately changes that classification.
+
+In particular, the Docker socket or an equivalent host container-engine control
+socket must not be exposed to the Agent. Otherwise the sandbox boundary could be
+bypassed by controlling host-level containers.
+
+The Agent must not obtain Controller credentials indirectly through mounts,
+credential helpers, shell initialization, repository helper configuration, or a
+host credential store. This filesystem rule complements, and does not weaken,
+the Phase 47-2 credential-isolation contract.
+
+## Sandbox Lifecycle and Disposal
+
+The sandbox and task-scoped workspace are transient execution resources. They
+must be disposable after each of the following terminal / interruption classes:
+
+```text
+success
+failure
+timeout
+interruption
+```
+
+"Disposable" means that the durable meaning of the execution does not depend on
+preserving the sandbox, container, process namespace, or writable workspace for
+later workflow decisions. A later execution must not require reuse of the prior
+sandbox in order to recover the prior execution identity or lifecycle state.
+
+The concrete lifecycle operations are Phase 48 responsibilities, including:
+
+```text
+container start / stop
+container removal
+process termination
+workspace cleanup
+orphan detection / cleanup
+cleanup retry / recovery
+```
+
+Phase 47-3 does not prescribe a container runtime, cleanup command, filesystem
+layout, or retention implementation. It defines the security invariant that
+cleanup is possible and that cleanup failure must not promote transient sandbox
+state into a durable execution authority.
+
+## Durable State Boundary
+
+The Phase 45 / Phase 46 Source-of-Truth model remains unchanged:
+
+```text
+Redmine
+=
+only durable execution-lifecycle / current execution-state Source of Truth
+
+workspace / container / sandbox
+=
+transient execution resources
+```
+
+A local sandbox, task workspace, marker file, container label, PID, or runtime
+cache may support Phase 48 execution mechanics but must not become a second
+durable execution-state ledger.
+
+Likewise, sandbox survival after a crash or cleanup failure does not prove that
+an execution is running, completed, retryable, or safe to resume. Durable
+workflow decisions must be reconstructed from the canonical Redmine execution
+state and the later artifact contract, not inferred from leftover transient
+resources alone.
+
+Phase 49 may define a durable change artifact in private S3, but that artifact
+is not a replacement execution-lifecycle Source of Truth and does not alter the
+Phase 47-3 sandbox boundary.
+
+## Mechanical Verification Boundary
+
+The sandbox isolation contract must be testable from concrete runtime
+configuration rather than relying on an unprovable absolute claim such as
+"the Agent can never modify the host."
+
+At minimum, Phase 48 / Phase 50 must be able to establish mechanically that:
+
+```text
+task-scoped workspace is the only host-backed writable mount presented to the
+Agent sandbox
+
+host root is not presented as a writable mount
+
+Controller directories are not presented as writable mounts
+
+credential stores are not mounted into the Agent sandbox
+
+Docker / container-engine control socket is not mounted into the Agent sandbox
+
+unrelated repository workspaces are not presented as writable mounts
+
+other execution workspaces are not presented as writable mounts
+```
+
+The preferred acceptance statement is therefore:
+
+```text
+task-scoped workspace 以外の host filesystem が
+writable mount として Agent sandbox に提供されていない
+```
+
+Verification may inspect the sandbox launch specification, mount table,
+container configuration, or equivalent runtime evidence. Phase 47-3 fixes the
+observable invariants; Phase 48 owns enforcement and Phase 50 owns deterministic
+regression coverage.
+
+## Phase 47-3 Scope Boundary
+
+Phase 47-3 fixes sandbox identity, host filesystem / mount isolation, transient
+lifecycle, durable-state separation, and mechanically verifiable isolation
+semantics. It deliberately does not implement or choose:
+
+```text
+authorization / repository allowlist semantics
+actual container runtime or launch implementation
+Controller / Worker implementation
+local duplicate-prevention lock
+container stop / remove implementation
+workspace cleanup / orphan cleanup implementation
+network policy or network enforcement
+timeout timer / process-kill implementation
+Agent Adapter / Agent invocation
+artifact manifest / patch / persistence
+```
+
+Those implementation choices remain downstream. In particular, Phase 48 owns
+sandbox creation and cleanup mechanics, while later Phase 47 work owns network,
+resource, timeout, and secret-handling policy. No Phase 47-3 rule changes the
+Phase 46 execution-input identity, Phase 47 authorization ordering, or Phase
+47-2 credential-isolation boundary.
 

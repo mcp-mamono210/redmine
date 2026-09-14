@@ -341,6 +341,30 @@ exact source revision determination failure
   -> execution_id is not allocated
 ```
 
+If exact source revision resolution requires repository access, that access must
+comply with the Phase 47 repository-access policy. Phase 47 may apply an early
+allowlist pre-check after Phase 46 has resolved the repository identity and
+before credentialed repository access, solely to prevent access to an
+unauthorized repository.
+
+This early pre-check is not the formal Phase 47 authorization / security gate and
+does not move that reserved gate ahead of exact source revision resolution. If
+the early pre-check fails or authorization cannot be established, repository
+access and source resolution stop. The candidate remains an execution-ID-less
+pre-execution rejection under the existing Phase 46-2 semantics:
+
+```text
+lifecycle target = Needs Human
+outcome = eligibility_failed
+execution_id = not allocated
+Agent Running = not written
+Agent = not started
+```
+
+The early pre-check must consume the repository identity already established by
+Phase 46. It must not redefine or re-normalize that runtime identity. Concrete
+repository-access / allowlist policy is owned by Phase 47.
+
 This source-resolution contract does not grant repository authorization. Phase
 47 owns repository allowlist, authorization, credentials, and security policy.
 Phase 46-3 requires only that the execution source has already been reduced to an

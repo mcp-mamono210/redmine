@@ -21,9 +21,21 @@ Phase 47-1 establishes the initial contract for:
 - repository allowlist representation and comparison rules; and
 - preservation of the Phase 46 `execution_id` allocation boundary.
 
-Later Phase 47 tickets extend this same canonical contract with credential
-isolation, sandbox / filesystem boundaries, network / resource / timeout policy,
-secret-handling rules, and final Phase 46 / Phase 48 compatibility verification.
+Phase 47-2 extends the same canonical contract with:
+
+- Controller ownership of repository-access / source-checkout credentials;
+- read-only, minimum-privilege repository credential capability;
+- prohibition on credential use before the early allowlist pre-check succeeds;
+- isolation of repository, Redmine Writer, and Controller credentials from the
+  Agent execution environment;
+- prohibition on persisting credential values as execution identity, durable
+  execution state, artifact identity, diagnostics, or logs; and
+- preservation of the Phase 46 repository / exact-source identity across
+  credential handling and later checkout.
+
+Later Phase 47 tickets extend this same canonical contract with sandbox /
+filesystem boundaries, network / resource / timeout policy, secret-handling
+rules, and final Phase 46 / Phase 48 compatibility verification.
 
 Phase 47 does not redefine the v0.3.0 approval handoff, the Phase 45 execution
 Source-of-Truth / lifecycle ownership model, or the Phase 46 execution-input
@@ -402,3 +414,226 @@ Phase 48 Controller / Worker runtime implementation
 The later Phase 47 tickets extend this same canonical contract without silently
 redefining the Phase 46 execution-input identity or the authorization semantics
 established here.
+
+## Phase 47-2 Source Checkout Credential Ownership
+
+Repository access used for exact-source resolution and later source checkout is
+a Controller responsibility. The repository credential is owned and applied by
+the Controller-side repository-access boundary, not by the Agent process or the
+Agent sandbox.
+
+The logical ownership path is:
+
+```text
+Controller
+    |
+    v
+read-only repository credential
+    |
+    v
+early allowlist pre-check passed repository only
+    |
+    +--> exact source revision resolution, when repository access is required
+    |
+    +--> later checkout of the already-fixed exact source revision
+```
+
+The Controller must not use the repository credential for a candidate until the
+early allowlist pre-check has positively authorized the unchanged Phase 46
+repository identity. An unauthorized, unknown, indeterminate, unavailable, or
+invalid allowlist result therefore prevents credentialed repository access.
+
+This ownership rule does not move actual source checkout earlier in the Phase 46
+/ Phase 48 ordering. Phase 47-2 defines who may hold and apply the credential;
+Phase 48 owns the concrete repository client, fetch / checkout sequence, and
+runtime placement of the checkout operation.
+
+## Repository Credential Capability
+
+The repository credential must be provisioned with the minimum capability needed
+to read the authorized repository and obtain the already-selected execution
+source. At the logical contract level, the required capability is limited to:
+
+```text
+read repository metadata needed by the repository client
+resolve refs when exact-source determination requires it
+fetch objects required for the selected source
+checkout the already-fixed exact source revision
+```
+
+The credential must not require or intentionally grant repository write or
+administrative capability, including:
+
+```text
+Git push
+branch creation or update
+tag creation or update
+repository administration
+repository settings changes
+webhook administration
+permission administration
+```
+
+"Read-only" is a capability requirement, not a particular provider-specific
+scope name. Phase 47-2 does not choose GitHub, GitLab, SSH, HTTPS, a token type,
+or a secret-backend product. Deployment-specific credentials must be mapped to
+the provider's least-privilege read capability.
+
+If the configured credential is missing, unavailable, invalid, cannot establish
+the required read capability, or is known to require write / administrative
+privilege for the configured access path, the system must fail closed rather
+than broaden the credential silently.
+
+## Agent Credential Isolation
+
+The repository credential used by the Controller must not be inherited by or
+mounted into the Agent execution environment. The Agent must not receive or be
+able to read any of the following through environment inheritance, files,
+mounts, helper configuration, credential stores, or equivalent mechanisms:
+
+```text
+Git remote write credential
+Controller repository-access credential
+Redmine Writer credential
+Controller control-plane credential
+unrelated repository credential
+host credential store
+```
+
+The Agent may receive only credentials that a later explicit contract identifies
+as necessary for Agent execution. Phase 47-2 does not implicitly authorize any
+such credential and does not treat Controller credential availability as Agent
+credential availability.
+
+Repository access for source preparation therefore follows the preferred
+boundary:
+
+```text
+Controller authenticates to repository
+    |
+    v
+Controller prepares task-scoped source / workspace
+    |
+    v
+Agent receives the prepared execution workspace
+
+Agent does not receive the Controller repository credential
+```
+
+This contract does not require the Agent to perform authenticated remote Git
+operations during normal v0.4.0 execution.
+
+## Credential Persistence Boundary
+
+Credential values are secret-bearing runtime inputs, not execution identity and
+not durable execution state. A credential value, token, password, private key,
+signed repository URL, or equivalent secret material must not be written into:
+
+```text
+execution input identity
+immutable execution input snapshot
+Redmine execution / rejection record
+artifact identity or artifact reference
+diagnostic text
+logs intended for durable or external persistence
+```
+
+The durable repository identity remains the non-secret Phase 46 canonical
+repository identity. A credential-bearing clone URL must not be substituted for
+that identity in Redmine or an artifact record.
+
+Phase 47-2 does not define the concrete secret backend, environment-variable
+name, file path, token format, or credential rotation mechanism. Those are
+deployment / implementation concerns subject to this non-exposure boundary and
+the later Phase 47 secret-handling contract.
+
+## Exact Source Preservation Across Credential Handling
+
+Credential handling must not reinterpret or replace the Phase 46 repository
+identity. The same unchanged repository identity that passed the early pre-check
+and formal gate remains the repository identity for the execution.
+
+Before the formal gate, a Controller-side repository read may resolve a moving
+source selector to the exact source revision only as permitted by the Phase 46
+exact-source contract. After the exact source revision is fixed and the formal
+gate succeeds, later credential use and actual checkout must use that fixed
+identity:
+
+```text
+Phase 46 repository identity
++
+fixed exact source revision
+    |
+    v
+formal Phase 47 gate passed
+    |
+    v
+later Controller checkout uses the same repository + exact revision
+```
+
+The later checkout must not re-resolve `main`, another branch, a tag, `HEAD`, or
+a mutable convenience reference and silently substitute a different source
+revision. Credential refresh, credential rotation, repository-client retry, or
+checkout retry is not permission to retarget the execution.
+
+## Repository Access / Checkout Failure Boundary
+
+Repository access failure must never be converted into permission to start the
+Agent.
+
+Failures that occur while exact source revision is still being established are
+pre-execution failures under the existing Phase 46 contract. Examples include:
+
+```text
+repository credential unavailable
+repository authentication failure
+required read permission unavailable
+repository cannot be read safely
+exact source revision cannot be resolved from the authorized repository
+```
+
+When such a failure occurs before the Phase 47 formal gate / `execution_id`
+allocation boundary, the existing pre-execution routing remains authoritative:
+
+```text
+Agent = not started
+lifecycle target = Needs Human
+outcome = eligibility_failed
+execution_id = not allocated
+```
+
+Actual source checkout is a Phase 48 runtime responsibility. If a later checkout
+fails after an execution attempt has already crossed the `execution_id` /
+`Agent Running` boundary, Phase 47-2 still requires that the Agent process not be
+started with missing, partial, ambiguous, or differently resolved source. That
+case must not be rewritten as an execution-ID-less pre-execution rejection.
+Phase 48 owns the concrete started-execution failure / recovery handling under
+the existing Phase 45 outcome taxonomy.
+
+Phase 47-2 adds no new durable outcome identity for repository-client,
+credential, or checkout failure. If implementation later requires a new durable
+outcome, the existing Phase 45 / Phase 46 contract and ADR review boundary
+applies.
+
+## Phase 47-2 Scope Boundary
+
+Phase 47-2 fixes credential ownership, minimum privilege, non-exposure,
+persistence, source-identity preservation, and no-Agent-start safety semantics.
+It deliberately does not implement or choose:
+
+```text
+actual repository client implementation
+actual fetch / checkout implementation
+credential backend or secret-backend product
+provider-specific token / key type
+Agent invocation
+Git remote push
+Controller runtime implementation
+sandbox mount implementation
+runtime retry / recovery implementation
+```
+
+Those implementation choices remain downstream, primarily Phase 48, and must
+consume the credential contract defined here without weakening the Phase 47-1
+authorization boundary or Phase 46 execution-input identity.
+

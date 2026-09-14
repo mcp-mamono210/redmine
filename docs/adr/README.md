@@ -85,6 +85,10 @@ Agent Runner execution architecture / lifecycle / Source of Truth facts
 Agent Runner execution input / identity / execution record facts
   -> docs/contracts/agent-runner-execution-input-contract.md
 
+Agent Runner authorization / repository access / credential isolation /
+sandbox / filesystem / network / resource / timeout / secret facts
+  -> docs/contracts/agent-runner-security-sandbox-contract.md
+
 CI change-classification facts
   -> docs/contracts/ci-change-classification-contract.md
 

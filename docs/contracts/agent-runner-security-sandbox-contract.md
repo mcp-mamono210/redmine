@@ -58,8 +58,12 @@ Phase 47-4 extends the same canonical contract with:
   artifact metadata; and
 - a deterministic non-production secret fixture contract for Phase 50.
 
-Phase 47-5 performs the final Phase 46 handoff / Phase 48 entry consistency
-verification for this canonical contract.
+Phase 47-5 finalizes the same canonical contract by cross-checking the Phase 46
+handoff invariants, the separation between the early repository-access pre-check
+and the formal authorization / security gate, the complete Phase 47 security
+boundary, and the implementation responsibilities handed to Phase 48. It does
+not introduce a new architecture decision, execution-input identity, mandatory
+pre-start step, or durable outcome.
 
 Phase 47 does not redefine the v0.3.0 approval handoff, the Phase 45 execution
 Source-of-Truth / lifecycle ownership model, or the Phase 46 execution-input
@@ -1226,4 +1230,342 @@ artifact content / persistence contract. Phase 50 owns deterministic regression
 coverage. No Phase 47-4 rule changes the Phase 46 immutable execution-input
 identity, the Phase 47 authorization ordering, the Phase 47-2 credential
 isolation boundary, or the Phase 47-3 sandbox / mount boundary.
+
+## Phase 47-5 Final Contract Verification
+
+Phase 47 is complete only when the authorization, credential, sandbox, network,
+resource, timeout, and secret contracts can be consumed together without
+changing the upstream Phase 45 / Phase 46 execution architecture.
+
+The Phase 47 canonical contract therefore preserves all of the following Phase
+46 identities and boundaries unchanged:
+
+```text
+Ready for Agent handoff semantics
+requirements fingerprint semantics
+repository identity
+exact source revision semantics
+execution_id allocation boundary
+immutable execution input identity
+pre-execution rejection semantics
+Redmine durable execution-state Source of Truth
+Agent Running durable mutation boundary
+```
+
+The repository-access compatibility clarification in the Phase 46 execution-input
+contract is intentionally narrow. It permits the Phase 47 early allowlist
+pre-check before credentialed repository access when exact-source resolution
+needs repository access, but it does not move the formal Phase 47 gate or
+redefine the runtime repository identity.
+
+A change that would alter one of the identities or ordering boundaries above is
+not a Phase 47 implementation detail. It requires explicit review of the relevant
+Phase 45 / Phase 46 canonical contract and a new ADR only when a genuinely new
+architecture decision is introduced.
+
+## Repository Access / Formal Gate Separation
+
+Phase 47 has two distinct authorization points with different responsibilities.
+The complete repository-access path is:
+
+```text
+Phase 46 repository identity resolved
+    |
+    v
+Phase 47 early allowlist pre-check
+    |
+    v
+authorized repository access only
+    |
+    v
+exact source revision fixed
+    |
+    v
+Phase 47 formal authorization / security gate
+    |
+    v
+execution preparation entered
+    |
+    v
+execution_id allocated
+```
+
+The early pre-check exists solely to prevent credentialed access to an
+unauthorized repository before exact-source resolution. Its success does not
+establish an execution attempt, allocate an `execution_id`, write `Agent
+Running`, or authorize Agent start.
+
+An early pre-check failure, unknown result, indeterminate result, or unavailable /
+invalid allowlist state remains the existing Phase 46 pre-execution rejection:
+
+```text
+repository access = denied
+exact source resolution = not continued
+lifecycle target = Needs Human
+outcome = eligibility_failed
+execution_id = not allocated
+Agent Running = not written
+Agent = not started
+```
+
+The formal Phase 47 gate is separate. It consumes the already-established Phase
+46 repository identity and exact source revision after exact-source resolution is
+complete. Unknown or indeterminate formal authorization is not success.
+
+## Final Pre-start Ordering
+
+The mandatory ordering from validated handoff through Agent start remains:
+
+```text
+Phase 46 handoff / eligibility validation passed
+    |
+    v
+requirements are current
+    |
+    v
+exact source revision fixed
+    |
+    v
+Phase 47 formal authorization / security gate passed
+    |
+    v
+execution preparation entered
+    |
+    v
+execution_id allocated
+    |
+    v
+immutable execution input snapshot established
+    |
+    v
+required logical execution record prepared
+    |
+    v
+durable Redmine mutation: Agent Running + start facts
+    |
+    v
+Agent start
+```
+
+Phase 47 does not insert `read-back verification` or another new named mandatory
+step into this ordering. The existing Phase 46 safety rule remains authoritative:
+if successful durable completion of the `Agent Running` mutation cannot be
+established, the Agent must not start. Phase 48 owns the concrete success-
+confirmation mechanism that implements that already-established rule.
+
+Formal-gate failure or an unknown / indeterminate result remains:
+
+```text
+lifecycle target = Needs Human
+outcome = eligibility_failed
+execution_id = not allocated
+Agent Running = not written
+Agent = not started
+```
+
+No Phase 47 ticket adds a new durable authorization outcome implicitly.
+
+## Consolidated Security Boundary
+
+Phase 47 establishes the following combined security invariants for v0.4.0:
+
+```text
+unknown repository
+  -> fail closed
+
+unauthorized repository
+  -> no credentialed repository access
+  -> Needs Human + eligibility_failed
+
+repository access credential
+  -> Controller responsibility
+  -> read-only / minimum privilege
+
+Agent Git remote write credential
+  -> unavailable
+
+Agent Redmine Writer credential
+  -> unavailable
+
+Controller credential
+  -> unavailable to Agent
+
+host credential store
+  -> unavailable to Agent
+
+Docker / container-engine control socket
+  -> unavailable to Agent
+
+host-backed writable mount outside the task-scoped workspace
+  -> unavailable to Agent
+
+shared mutable execution sandbox / workspace
+  -> unavailable across execution attempts
+```
+
+One execution attempt uses one fresh ephemeral sandbox / container. The sandbox
+and its task-scoped workspace must remain disposable after every one of these
+classes:
+
+```text
+success
+failure
+timeout
+interruption
+```
+
+Sandbox survival, a leftover workspace, a process identifier, a container label,
+or another transient runtime artifact never becomes durable execution authority.
+Redmine remains the only durable execution-lifecycle / current execution-state
+Source of Truth.
+
+## Consolidated Network / Resource / Secret Boundary
+
+The outbound endpoint categories remain:
+
+```text
+Agent provider
+package registry
+required runtime dependency
+source repository
+other external endpoint
+```
+
+Each category resolves through the Phase 47-4 classification contract and no
+unresolved security-sensitive network configuration falls back to unrestricted
+egress. Source-repository access remains primarily Controller-side and retains
+the Phase 47-1 allowlist and Phase 47-2 credential boundaries.
+
+Execution safety resources remain bounded and configurable, including:
+
+```text
+execution timeout
+output capture
+diagnostic capture
+workspace disk usage
+container lifecycle
+```
+
+Phase 45 already defines the canonical `timeout` outcome. Phase 47 reuses that
+identity and does not create a replacement timeout outcome. If that canonical
+identity is later absent, changed, or indeterminate, the Phase 45 contract /
+outcome taxonomy and any required ADR must be reviewed explicitly instead of
+silently extending the taxonomy in Phase 47 or Phase 48.
+
+Secret protection preserves two layers:
+
+```text
+primary defense
+  = do not expose unnecessary credentials / secrets to the Agent
+
+secondary persistence defense
+  = redact potentially secret-bearing output / log / diagnostic / artifact
+    metadata before external or durable persistence
+```
+
+Phase 50 can verify this boundary deterministically using a synthetic fixture
+secret. A real repository token, Redmine key, provider credential, cloud
+credential, private key, password, or copied production secret is not required or
+permitted as the deterministic fixture.
+
+## Phase 48 Entry / Responsibility Boundary
+
+Phase 48 may begin implementation without adding another security architecture
+layer. It consumes the following Phase 47 decisions as fixed input:
+
+```text
+early repository allowlist pre-check
+formal authorization / security decision
+repository allowlist semantics
+repository access credential ownership
+credential isolation
+sandbox identity / isolation policy
+sandbox lifecycle / disposal policy
+filesystem mount policy
+outbound network policy
+resource / timeout policy
+secret non-exposure / redaction boundary
+```
+
+Phase 48 owns the concrete runtime implementation for at least:
+
+```text
+Controller
+Worker
+local duplicate-prevention lock
+repository client / repository access
+exact-source fetch and source checkout implementation
+sandbox / container lifecycle implementation
+filesystem mount enforcement
+network-policy enforcement
+resource-limit enforcement
+Agent Adapter
+Agent invocation
+Agent Running success-confirmation implementation
+timeout / process termination / interruption handling
+workspace / container / orphan cleanup
+startup reconciliation
+runtime retry / recovery behavior where later contracts permit it
+```
+
+Phase 47 deliberately does not select the concrete container runtime, firewall,
+proxy, secret backend, repository client, Agent provider CLI, timer mechanism,
+process-kill mechanism, cleanup command, local-lock implementation, or startup-
+reconciliation algorithm.
+
+Those implementation choices must consume the Phase 45 / Phase 46 / Phase 47
+contracts without changing their identities or ordering. In particular, Phase 48
+must not:
+
+```text
+use an unauthorized repository before the early pre-check
+allocate execution_id before the formal Phase 47 gate
+re-resolve a mutable source selector after exact source is fixed
+start the Agent before durable Agent Running success is established
+expose Controller / Redmine Writer / Git write credentials to the Agent
+turn Workspace / container / local lock into a durable execution-state SoT
+fall back to unrestricted network access when policy is unknown or invalid
+silently invent a new execution outcome
+```
+
+## Documentation Precedence Boundary
+
+The canonical ownership for Phase 47 facts is:
+
+```text
+Agent Runner authorization / repository access / credential isolation /
+sandbox / filesystem / network / resource / timeout / secret facts
+  -> docs/contracts/agent-runner-security-sandbox-contract.md
+```
+
+Architecture rationale remains in the relevant ADRs. Phase 47 introduces no new
+ADR because the completed Phase 47 work does not create a new architecture
+decision beyond ADR-024 through ADR-027 and the upstream canonical contracts.
+Implementation and regression tests must implement this contract rather than
+becoming a second authoritative definition of the same security boundary.
+
+## Phase 47 Completion Boundary
+
+The completed Phase 47 contract establishes the security architecture needed for
+Phase 48 implementation while preserving these release boundaries:
+
+```text
+Phase 45
+  = execution architecture / lifecycle / durable Source of Truth
+
+Phase 46
+  = handoff eligibility / exact source / execution identity / immutable snapshot /
+    logical and physical execution record / Agent Running start boundary
+
+Phase 47
+  = repository authorization / credential isolation / sandbox / filesystem /
+    network / resource / timeout / secret security contract
+
+Phase 48
+  = concrete Controller / Worker / checkout / sandbox / Agent runtime /
+    success-confirmation / timeout / interruption / reconciliation implementation
+```
+
+The Phase 47 completion boundary does not include Git remote push, CI feedback,
+automatic Agent retry, Pull Request creation, merge, or deployment automation.
 

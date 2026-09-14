@@ -46,9 +46,20 @@ Phase 47-3 extends the same canonical contract with:
   and
 - mechanically verifiable filesystem / mount isolation requirements.
 
-Later Phase 47 tickets extend this same canonical contract with network /
-resource / timeout policy, secret-handling rules, and final Phase 46 / Phase 48
-compatibility verification.
+Phase 47-4 extends the same canonical contract with:
+
+- explicit outbound-network endpoint categories and classification semantics;
+- fail-closed handling for security-sensitive network configuration;
+- bounded, configurable execution timeout and resource-capture limits;
+- reuse of the existing Phase 45 `timeout` outcome without implicit taxonomy
+  extension;
+- secret non-exposure as the primary protection boundary;
+- redaction before external persistence of output, logs, diagnostics, and
+  artifact metadata; and
+- a deterministic non-production secret fixture contract for Phase 50.
+
+Phase 47-5 performs the final Phase 46 handoff / Phase 48 entry consistency
+verification for this canonical contract.
 
 Phase 47 does not redefine the v0.3.0 approval handoff, the Phase 45 execution
 Source-of-Truth / lifecycle ownership model, or the Phase 46 execution-input
@@ -872,4 +883,347 @@ sandbox creation and cleanup mechanics, while later Phase 47 work owns network,
 resource, timeout, and secret-handling policy. No Phase 47-3 rule changes the
 Phase 46 execution-input identity, Phase 47 authorization ordering, or Phase
 47-2 credential-isolation boundary.
+
+## Phase 47-4 Outbound Network Boundary
+
+Agent Runner must not treat unrestricted outbound network access as an implicit
+runtime capability. Every outbound endpoint used by the Controller, Worker,
+Agent sandbox, Agent Adapter, or related execution path must be covered by an
+explicit endpoint-category policy before the relevant component is permitted to
+use it.
+
+The minimum endpoint categories are exactly:
+
+```text
+Agent provider
+package registry
+required runtime dependency
+source repository
+other external endpoint
+```
+
+Each category must resolve to exactly one of these logical classifications:
+
+```text
+required
+allowed
+denied
+configuration-driven
+```
+
+The classifications mean:
+
+- `required`: the declared endpoint set is necessary for the selected execution
+  mode; inability to use the declared endpoint prevents the dependent operation
+  from proceeding;
+- `allowed`: the declared endpoint set may be used but is not required for every
+  execution;
+- `denied`: the category is not permitted outbound access in that execution
+  context; and
+- `configuration-driven`: deployment / execution-mode configuration must resolve
+  the category to an explicit bounded endpoint policy before use. Missing,
+  invalid, ambiguous, or unresolved configuration is not authorization.
+
+For v0.4.0, the logical baseline is:
+
+| Endpoint category | Baseline classification | Boundary |
+| --- | --- | --- |
+| `Agent provider` | `configuration-driven` | only explicitly configured provider endpoints may be used by the component that owns provider invocation |
+| `package registry` | `configuration-driven` | access is permitted only when explicitly required / allowed by the selected runtime or task policy |
+| `required runtime dependency` | `configuration-driven` | only explicitly declared runtime dependencies may receive network access |
+| `source repository` | `configuration-driven` | repository access is primarily Controller-side and remains subject to Phase 47-1 allowlist and Phase 47-2 credential boundaries |
+| `other external endpoint` | `denied` | no catch-all external access is granted by default |
+
+`configuration-driven` is not equivalent to `allowed`. It is a requirement to
+resolve an explicit policy. An unresolved category fails closed rather than
+falling back to unrestricted egress.
+
+The endpoint set for an allowed / required category must itself be bounded and
+explicit enough to enforce mechanically. A wildcard that effectively means
+"the public Internet" does not satisfy this contract merely because it appears
+in configuration.
+
+### Source repository network boundary
+
+Normal source-repository authentication, ref resolution, fetch, and exact-source
+checkout are Controller-side responsibilities under the Phase 47-1 / Phase 47-2
+contracts. The Agent sandbox does not gain repository network access merely
+because the Controller is allowed to access the source repository.
+
+If a later execution mode needs Agent-side source-repository access, that access
+must be introduced as an explicit policy change with its own authorization,
+credential, and network classification. Phase 47-4 does not grant it
+implicitly.
+
+Repository network handling must continue to preserve all upstream invariants:
+
+```text
+early allowlist pre-check before credentialed repository access
+exact source revision fixed before the formal Phase 47 gate
+no mutable-ref re-resolution after the formal gate
+Controller repository credential not exposed to the Agent
+```
+
+## Network Fail-closed Boundary
+
+Security-sensitive network policy is fail closed.
+
+At minimum, the following conditions must not produce unrestricted outbound
+access:
+
+```text
+network policy configuration is missing
+network policy configuration is unreadable
+network policy configuration is syntactically invalid
+endpoint classification is unknown or ambiguous
+configuration-driven category cannot be resolved
+endpoint set is empty when a required endpoint is needed
+endpoint set expands to an unbounded / unrestricted destination set
+network-policy evaluation fails
+```
+
+A failure to establish the intended network policy is not permission to start or
+continue with open egress. Phase 47-4 defines this policy invariant only. The
+actual firewall, proxy, container-network, DNS, egress-filter, or equivalent
+enforcement implementation belongs to Phase 48.
+
+This network boundary does not create a new durable execution outcome. Runtime
+failures must use the existing Phase 45 outcome taxonomy unless an explicit
+Phase 45 contract / ADR change is approved.
+
+## Resource Boundary
+
+Execution resources must be bounded and configurable. The canonical contract
+requires at least the following independent limits:
+
+```text
+execution timeout
+bounded output capture
+bounded diagnostic capture
+bounded workspace disk usage
+container lifecycle limit
+```
+
+Phase 47-4 fixes the properties of those limits, not arbitrary production
+numbers. The contract therefore does not hard-code a timeout duration, byte
+count, disk quota, or container lifetime without an operational basis.
+
+### Execution timeout
+
+The execution timeout must resolve to a finite positive configured value before a
+started Agent execution depends on it. Production configuration may provide a
+default, project-specific value, or bounded policy range, but an invalid,
+unbounded, or indeterminate timeout must not silently become "no timeout".
+
+The timeout is an execution safety limit, not an execution identity input. It
+must not alter the Phase 46 repository, source revision, Brief identity,
+requirements fingerprint, or `execution_id` semantics.
+
+### Output and diagnostic capture
+
+Execution output capture and diagnostic capture must each have an explicit
+finite bound. An implementation may bound bytes, characters, records, events,
+or another mechanically enforceable unit, but it must not retain unbounded
+Agent output in memory or durable storage merely because the Agent continues to
+produce data.
+
+When content exceeds the configured capture boundary, downstream implementation
+must preserve a bounded representation and an observable truncation / limit
+fact rather than pretending that the capture was complete. Concrete
+serialization is a Phase 48 / Phase 49 implementation concern.
+
+### Workspace disk boundary
+
+The task-scoped workspace defined by Phase 47-3 must have a finite disk-usage
+boundary or an equivalent mechanically enforceable storage limit. The limit may
+be deployment-configurable, but "consume host disk until exhaustion" is not a
+valid default policy.
+
+The disk boundary must preserve the Phase 47-3 invariant that only the
+execution-scoped workspace is Agent-writable host-backed storage. A larger quota
+must not widen the mount boundary.
+
+### Container lifecycle limit
+
+A sandbox / container must have a bounded execution lifecycle and must not be
+permitted to remain an indefinitely running execution resource merely because a
+cleanup path failed or no result was produced.
+
+The configured lifecycle limit may account for execution, termination, and
+cleanup phases, but the exact timer model and grace periods are Phase 48
+implementation details. The durable meaning of the execution remains in
+Redmine, not in the continued existence of a container.
+
+## Timeout Outcome Compatibility
+
+The current Phase 45 canonical execution boundary contract was re-checked during
+Phase 47-4 and already contains `timeout` in the canonical execution outcome
+identity set:
+
+```text
+changes_ready
+no_changes
+stale_requirements
+eligibility_failed
+interrupted
+timeout
+agent_start_failed
+agent_failed
+artifact_persistence_failed
+```
+
+Phase 47-4 therefore reuses the existing `timeout` outcome. It does not add a
+Phase 47-specific timeout outcome and does not extend the Phase 45 taxonomy
+implicitly.
+
+If, at implementation or later verification time, `timeout` is absent, its
+meaning has changed, or the canonical taxonomy cannot be established, work must
+stop at the contract boundary and explicitly review / update, as applicable:
+
+```text
+Phase 45 canonical execution boundary contract
+Phase 45 execution outcome taxonomy
+required ADR / architecture decision
+```
+
+A local runtime implementation must not invent a substitute outcome to bypass
+that review.
+
+Phase 47-4 defines only the timeout / resource contract. Phase 48 owns the
+concrete runtime behavior, including:
+
+```text
+timer implementation
+process termination / process kill
+container termination and cleanup
+workspace cleanup / orphan handling
+Redmine result mutation
+retry / recovery behavior
+```
+
+## Secret Non-exposure Boundary
+
+The primary secret-protection mechanism is non-exposure, not redaction after the
+fact:
+
+```text
+do not provide credentials / secrets to the Agent unless they are explicitly
+required and authorized for that execution boundary
+```
+
+Phase 47-2 already forbids exposing Controller repository credentials, Redmine
+Writer credentials, Controller control-plane credentials, unrelated repository
+credentials, and host credential stores to the Agent. Phase 47-4 preserves and
+extends that principle to any other secret-bearing runtime value.
+
+A secret needed by one trusted component does not become an Agent-visible secret
+merely because both components participate in the same execution. Availability
+must remain component-scoped and least-privilege.
+
+Phase 47-4 does not authorize a new Agent-visible secret category and does not
+select a production secret-management product or credential backend.
+
+## Redaction Before External Persistence
+
+Defense in depth requires a redaction boundary before potentially secret-bearing
+text or metadata is persisted outside the transient execution boundary.
+
+At minimum, the redaction boundary covers:
+
+```text
+execution output
+exported / durable log content
+diagnostic content
+artifact metadata
+```
+
+The detailed Phase 49 artifact-content contract remains out of scope here.
+Phase 47-4 only requires that metadata and exported textual capture crossing an
+external persistence boundary be processed by the defined redaction boundary.
+
+Redaction must occur before writing the affected representation to an external
+or durable sink such as Redmine, private S3 metadata, or an external log sink.
+Persisting the raw secret-bearing representation first and redacting a later copy
+does not satisfy this contract.
+
+Redaction is not permission to expose secrets broadly. Non-exposure remains the
+primary defense, and redaction is a secondary persistence boundary. If a
+potentially secret-bearing representation cannot be processed under the active
+redaction policy, the implementation must not fall back to persisting the raw
+representation. Concrete failure routing belongs to the downstream runtime /
+artifact implementation and must reuse existing outcome contracts unless those
+contracts are explicitly changed.
+
+## Deterministic Secret Fixture Contract
+
+Phase 50 must be able to verify the secret boundary deterministically without any
+real credential and without requiring a live external AI provider.
+
+The minimum deterministic fixture flow is:
+
+```text
+known non-production fixture secret
+    |
+    v
+fixture is intentionally made visible to the deterministic test Agent / adapter
+    |
+    v
+Agent-visible or generated output contains the fixture secret
+    |
+    v
+output / log / diagnostic / artifact-metadata persistence boundary
+    |
+    v
+redaction
+    |
+    v
+externally persisted representation does not contain the fixture secret
+```
+
+The fixture secret must be a synthetic value reserved for tests. It must not be a
+real repository token, Redmine API key, provider credential, cloud credential,
+password, private key, or copied production secret.
+
+Phase 50 regression coverage must be able to assert at least that:
+
+```text
+the exact fixture secret is absent from every tested externally persisted
+representation after the redaction boundary
+```
+
+The deterministic adapter / fixture may deliberately echo the synthetic secret
+in controlled test output so the regression proves the redaction boundary rather
+than merely proving that the fixture was never present.
+
+This fixture contract defines the observable security property. It does not
+mandate a particular redaction library, pattern engine, secret scanner, or
+production credential store.
+
+## Phase 47-4 Scope Boundary
+
+Phase 47-4 fixes network classification, fail-closed network policy, bounded
+resource / timeout semantics, existing `timeout` outcome compatibility, secret
+non-exposure, persistence redaction, and deterministic secret-fixture semantics.
+It deliberately does not implement or choose:
+
+```text
+network enforcement implementation
+firewall / proxy / container-network implementation
+timer implementation
+process termination / process-kill implementation
+container cleanup implementation
+workspace cleanup / orphan cleanup implementation
+Redmine result mutation implementation
+external AI provider use in normal CI
+artifact content contract details
+production secret-management product or credential backend
+redaction library / scanner implementation
+```
+
+Those implementation choices remain downstream. Phase 48 owns runtime
+enforcement and timeout / termination mechanics. Phase 49 owns the detailed
+artifact content / persistence contract. Phase 50 owns deterministic regression
+coverage. No Phase 47-4 rule changes the Phase 46 immutable execution-input
+identity, the Phase 47 authorization ordering, the Phase 47-2 credential
+isolation boundary, or the Phase 47-3 sandbox / mount boundary.
 

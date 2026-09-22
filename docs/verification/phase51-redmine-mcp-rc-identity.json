@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "recordType": "redmine-mcp-rc-identity",
+  "generation": 1,
+  "generationId": "sha256:99bc113d088b94db664bb707ed4c972a55b13b64aef3920fd88296aa15dfa9a9",
+  "current": {
+    "componentVersion": "0.3.0",
+    "exactSourceRevision": "2b2bd1c42f1caaf876da02da0adc67dd698ddff4",
+    "latestReleasedIdentity": {
+      "tag": "v0.3.0",
+      "componentVersion": "0.3.0",
+      "sourceRevision": "020f1fe20706b5943c234bcf85b47ebcea8ca96d"
+    },
+    "runtimeArtifactComparison": {
+      "baselineRevision": "020f1fe20706b5943c234bcf85b47ebcea8ca96d",
+      "result": "UNCHANGED",
+      "changedPaths": []
+    },
+    "publicContractComparison": {
+      "baselineRevision": "020f1fe20706b5943c234bcf85b47ebcea8ca96d",
+      "result": "UNCHANGED",
+      "changedPaths": []
+    },
+    "versionDecision": "REUSE_RELEASED_VERSION",
+    "decisionRationale": "No runtime artifact or Redmine MCP externally observable component contract changed relative to the latest released component identity; Phase 51 changes are documentation, architecture/CI, tests, or verification support.",
+    "requiredContractIdentities": [
+      {
+        "contractId": "agent-brief-release-handoff",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/agent-brief-release-handoff-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "5bec79e9198913fee8823d49bce8095899e93861"
+      },
+      {
+        "contractId": "agent-brief-lifecycle",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/agent-brief-lifecycle-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "438cc4c6fcd346e7eef355e030fb844f2f1a6157"
+      },
+      {
+        "contractId": "agent-brief-redmine-mapping",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/agent-brief-redmine-mapping-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "1fc06a63664456b69466c3a5e6c14c48c3c4e80c"
+      },
+      {
+        "contractId": "agent-brief-requirements-fingerprint",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/agent-brief-requirements-fingerprint-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "b1cca0a47e8c5a6960f11e5bbdb882b15bd3e723"
+      },
+      {
+        "contractId": "agent-runner-execution-boundary",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/agent-runner-execution-boundary-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "1aa58f442627419e34e6acfce0376c57d614f0f9"
+      },
+      {
+        "contractId": "agent-runner-execution-input",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/agent-runner-execution-input-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "10203a9c998fbe4f23c6830148d33aba561dbbb7"
+      },
+      {
+        "contractId": "agent-runner-security-sandbox",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/agent-runner-security-sandbox-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "d86afc0acbbd608b5a7c9b36a8c701e58ee634b9"
+      },
+      {
+        "contractId": "phase49-artifact",
+        "repository": "mcp-mamono210/ai-agent-runner",
+        "path": "docs/contracts/phase49-artifact-contract.md",
+        "semanticRevision": 1,
+        "sourceRevision": "15e2683ecd3a6571930d79bcabbfbf6d95d628c2",
+        "sourceBlobSha": "69989af90c7066e00a5c87e85735128c57b159a2"
+      },
+      {
+        "contractId": "system-release-compatibility",
+        "repository": "mcp-mamono210/redmine",
+        "path": "docs/contracts/system-release-compatibility-contract.md",
+        "semanticRevision": 2,
+        "sourceRevision": "ff271835f57b2c947c2dbe291cc247574dee8a2d",
+        "sourceBlobSha": "74a46f4740d53d2b12f51e3ea30be692e0a5e321"
+      }
+    ]
+  },
+  "history": [],
+  "supersedes": null
+}

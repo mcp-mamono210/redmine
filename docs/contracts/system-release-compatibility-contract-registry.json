@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "contractId": "agent-brief-release-handoff",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/agent-brief-release-handoff-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "sourceBlobSha": "5bec79e9198913fee8823d49bce8095899e93861",
+      "owningPhase": "43-1",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "agent-brief-lifecycle",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/agent-brief-lifecycle-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "sourceBlobSha": "438cc4c6fcd346e7eef355e030fb844f2f1a6157",
+      "owningPhase": "38-1",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "agent-brief-redmine-mapping",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/agent-brief-redmine-mapping-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "sourceBlobSha": "1fc06a63664456b69466c3a5e6c14c48c3c4e80c",
+      "owningPhase": "38-2",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "agent-brief-requirements-fingerprint",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/agent-brief-requirements-fingerprint-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "sourceBlobSha": "b1cca0a47e8c5a6960f11e5bbdb882b15bd3e723",
+      "owningPhase": "39-1",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "agent-runner-execution-boundary",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/agent-runner-execution-boundary-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "sourceBlobSha": "1aa58f442627419e34e6acfce0376c57d614f0f9",
+      "owningPhase": "45",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "agent-runner-execution-input",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/agent-runner-execution-input-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "sourceBlobSha": "10203a9c998fbe4f23c6830148d33aba561dbbb7",
+      "owningPhase": "46",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "agent-runner-security-sandbox",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/agent-runner-security-sandbox-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "sourceBlobSha": "d86afc0acbbd608b5a7c9b36a8c701e58ee634b9",
+      "owningPhase": "47",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "phase49-artifact",
+      "repository": "mcp-mamono210/ai-agent-runner",
+      "path": "docs/contracts/phase49-artifact-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": "15e2683ecd3a6571930d79bcabbfbf6d95d628c2",
+      "sourceBlobSha": "69989af90c7066e00a5c87e85735128c57b159a2",
+      "owningPhase": "49-1",
+      "normative": true,
+      "registrationState": "committed"
+    },
+    {
+      "contractId": "system-release-compatibility",
+      "repository": "mcp-mamono210/redmine",
+      "path": "docs/contracts/system-release-compatibility-contract.md",
+      "semanticRevision": 1,
+      "sourceRevision": null,
+      "sourceBlobSha": "e5e8be89ca010d80475cfcc89633a46f13cfcd3e",
+      "owningPhase": "51-1",
+      "normative": true,
+      "registrationState": "pending-first-commit"
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mcp-mamono210.invalid/schemas/system-release-handoff-profile.schema.json",
+  "title": "Phase 51 canonical Ready-for-Agent handoff profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "profileId", "lifecycle", "approval", "customFieldSemantics",
+    "handoffIdentity", "requirementsFingerprint", "constraints", "contractReferences"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "profileId": { "const": "ready-for-agent-handoff-v1" },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fieldName", "readyForAgentValue"],
+      "properties": {
+        "fieldName": { "const": "Agent Brief Lifecycle" },
+        "readyForAgentValue": { "const": "Ready for Agent" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approvedBy", "approvedAt", "approvedBriefRevision", "approvedPersistedRevision", "approvedRequirementsFingerprint"],
+      "properties": {
+        "approvedBy": { "$ref": "#/$defs/fieldConstraint" },
+        "approvedAt": { "$ref": "#/$defs/fieldConstraint" },
+        "approvedBriefRevision": { "$ref": "#/$defs/fieldConstraint" },
+        "approvedPersistedRevision": { "$ref": "#/$defs/fieldConstraint" },
+        "approvedRequirementsFingerprint": { "$ref": "#/$defs/fieldConstraint" }
+      }
+    },
+    "customFieldSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scalarRequired", "uniqueExactNameRequired"],
+      "properties": {
+        "scalarRequired": { "const": true },
+        "uniqueExactNameRequired": { "const": true }
+      }
+    },
+    "handoffIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredFields"],
+      "properties": {
+        "requiredFields": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "requirementsFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractId", "format", "inputFormatVersion", "canonicalizationSemantics"],
+      "properties": {
+        "contractId": { "const": "agent-brief-requirements-fingerprint" },
+        "format": { "type": "string", "minLength": 1 },
+        "inputFormatVersion": { "const": 1 },
+        "canonicalizationSemantics": { "type": "string", "minLength": 1 }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redmine-principal-v1",
+        "rfc3339-offset-timestamp-v1",
+        "positive-safe-base10-integer-v1",
+        "nonblank-opaque-string-v1",
+        "sha256-lowercase-hex-v1"
+      ],
+      "properties": {
+        "redmine-principal-v1": { "$ref": "#/$defs/vectorSet" },
+        "rfc3339-offset-timestamp-v1": { "$ref": "#/$defs/vectorSet" },
+        "positive-safe-base10-integer-v1": { "$ref": "#/$defs/vectorSet" },
+        "nonblank-opaque-string-v1": { "$ref": "#/$defs/vectorSet" },
+        "sha256-lowercase-hex-v1": { "$ref": "#/$defs/vectorSet" }
+      }
+    },
+    "contractReferences": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contractId", "semanticRevision"],
+        "properties": {
+          "contractId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "semanticRevision": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fieldConstraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fieldName", "constraint"],
+      "properties": {
+        "fieldName": { "type": "string", "minLength": 1 },
+        "constraint": { "$ref": "#/$defs/constraint" }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["constraintId", "valueType", "required", "representation", "allowEmpty"],
+      "properties": {
+        "constraintId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "valueType": { "const": "string" },
+        "required": { "const": true },
+        "representation": { "type": "string", "minLength": 1 },
+        "format": { "type": "string", "minLength": 1 },
+        "pattern": { "type": "string", "minLength": 1 },
+        "minimum": { "type": "integer", "minimum": 1 },
+        "maximum": { "type": "integer", "minimum": 1 },
+        "allowEmpty": { "const": false }
+      }
+    },
+    "vectorSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valueType", "positive", "negative"],
+      "properties": {
+        "valueType": { "const": "string" },
+        "positive": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "negative": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    }
+  }
+}

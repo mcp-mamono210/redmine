@@ -235,11 +235,25 @@ function gitShowBlob(root, revision, path) {
   return execFileSync("git", ["-C", root, "show", `${revision}:${path}`], { encoding: null, stdio: ["ignore", "pipe", "pipe"] });
 }
 
+function gitRevisionIsAncestor(root, revision) {
+  try {
+    execFileSync("git", ["-C", root, "merge-base", "--is-ancestor", revision, "HEAD"], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function validateLocalCommittedBlobs(root, registry, mode) {
   if (mode !== "strict") return;
   for (const entry of registry.contracts) {
     if (entry.registrationState !== "committed") continue;
     if (entry.repository !== "mcp-mamono210/redmine") continue;
+    if (!gitRevisionIsAncestor(root, entry.sourceRevision)) {
+      fail(`committed contract sourceRevision is not in current history: ${entry.contractId} at ${entry.sourceRevision}`);
+    }
     let bytes;
     try {
       bytes = gitShowBlob(root, entry.sourceRevision, entry.path);
@@ -326,6 +340,16 @@ export function runNegativeControls({ root }) {
     () => { const x = structuredClone(registry); x.contracts.push(structuredClone(x.contracts[0])); validateSchema(x, registrySchema); validateRegistrySemantics(x, profile, "staging"); },
     () => { const x = structuredClone(registry); x.contracts[0].semanticRevision = 0; validateSchema(x, registrySchema); },
     () => { const x = structuredClone(registry); x.contracts[0].sourceBlobSha = "bad"; validateSchema(x, registrySchema); },
+    () => { const x = structuredClone(registry); x.contracts[0].registrationState = "commited"; validateSchema(x, registrySchema); },
+    () => {
+      const x = structuredClone(registry);
+      const entry = x.contracts.find((candidate) => candidate.contractId === "system-release-compatibility");
+      if (!entry) fail("system-release-compatibility registry entry is required");
+      entry.registrationState = "pending-first-commit";
+      entry.sourceRevision = null;
+      validateSchema(x, registrySchema);
+      validateRegistrySemantics(x, profile, "strict");
+    },
     () => { const x = structuredClone(profile); delete x.lifecycle.readyForAgentValue; validateSchema(x, profileSchema); },
     () => { const x = structuredClone(profile); x.approval.approvedBy.constraint.constraintId = "unknown-v1"; validateSchema(x, profileSchema); validateConstraintVectors(x); },
     () => { const x = structuredClone(profile); x.lifecycle.readyForAgentValue = null; validateSchema(x, profileSchema); },

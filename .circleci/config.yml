@@ -38,6 +38,22 @@ jobs:
           command: npm ci
 
       - run:
+          name: Ensure contract source revisions are available
+          command: |
+            if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+              git fetch --unshallow origin
+            else
+              git fetch origin --prune
+            fi
+
+      - run:
+          name: Enforce Phase 51 contract registry strict state
+          command: |
+            node scripts/phase51/validate-system-release-compatibility.mjs \
+              --mode strict \
+              --negative-controls
+
+      - run:
           name: Build CI routing implementation
           command: npm run build
 

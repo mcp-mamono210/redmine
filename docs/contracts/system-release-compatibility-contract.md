@@ -2,7 +2,7 @@
 
 Status: canonical Phase 51 release-preparation contract  
 Target milestone: v0.4.0  
-Semantic revision: `1`  
+Semantic revision: `2`  
 Owner: `mcp-mamono210/redmine`
 
 ## Purpose
@@ -55,21 +55,76 @@ sourceBlobSha
 
 A Git commit or blob change alone does not imply a semantic revision.
 
-Semantic changes include:
+### Change classification and compatibility impact
 
-- normative invariant changes;
-- required-field or schema changes;
-- identity-semantic changes;
-- lifecycle or outcome-semantic changes;
-- ownership changes;
-- authorization or security requirement changes;
-- artifact compatibility requirement changes; and
-- mandatory ordering changes.
+Contract changes are classified on two independent axes.
 
-Editorial changes include typo, formatting, heading/link, non-normative example,
-and wording corrections that provably do not change normative meaning.
+```text
+changeClassification:
+  editorial
+  operational-normative
+  compatibility-semantic
 
-Unknown semantic impact fails closed. It must not be guessed to be editorial.
+compatibilityImpact:
+  none
+  affected
+  unknown
+```
+
+`editorial` covers typo, formatting, heading/link, non-normative example, and
+wording clarification that provably does not change normative meaning. It does
+not increment `semanticRevision`.
+
+`operational-normative` covers normative release-operation rules such as
+registry finalization, evidence finalization, release-Gate operation, and
+verification ordering when producer/consumer compatibility semantics are
+unchanged. It increments `semanticRevision`.
+
+`compatibility-semantic` covers changes to compatibility-facing invariants,
+required fields/schemas, identity semantics, lifecycle/outcome semantics,
+ownership, authorization/security requirements, artifact compatibility, or
+producer/consumer handoff semantics. It increments `semanticRevision`.
+
+Compatibility re-execution is controlled by `compatibilityImpact`, not by the
+semantic revision alone:
+
+```text
+compatibilityImpact = none
+  -> record why cross-component semantics are unchanged
+  -> full Phase 51-4 re-run is not required
+
+compatibilityImpact = affected
+  -> dependent compatibility evidence is invalid
+  -> Phase 51-4 re-run is required
+
+compatibilityImpact = unknown
+  -> fail closed
+  -> dependent compatibility evidence is invalid
+  -> Phase 51-4 re-run is required
+```
+
+`operational-normative + compatibilityImpact = none` is allowed only when the
+change is shown not to alter the Ready-for-Agent handoff profile,
+producer/consumer semantics, artifact semantics, or lifecycle/outcome
+semantics.
+
+A classification/invalidation-rule change is not outside this model. It is
+`operational-normative`; if `compatibilityImpact = none` cannot be demonstrated,
+its impact is `unknown` and fails closed. If a compatibility PASS already exists
+when such a rule changes, reuse of that PASS must be re-evaluated under the new
+rule and the decision recorded.
+
+Semantic revision 2 introduces the registry finalization, validation-mode, and
+history-preservation rules below. It is classified
+`operational-normative / compatibilityImpact = none` because it changes how the
+canonical registry identity is finalized and guarded without changing the
+Ready-for-Agent profile, producer/consumer semantics, artifact semantics, or
+lifecycle/outcome semantics. At the time of this revision Phase 51-4 has not
+produced a compatibility PASS to invalidate.
+
+Unknown impact must never be guessed to be editorial or impact-free.
+
+### Registry state and blob closure
 
 Every required registry entry is checked mechanically:
 
@@ -79,19 +134,78 @@ actual Git blob(repository, sourceRevision, path)
 registry.sourceBlobSha
 ```
 
-A newly introduced contract cannot know the Git commit that will contain itself
-before that commit exists. Therefore Phase 51-1 permits exactly one staging
-state for the new `system-release-compatibility` registry entry:
+`registrationState` is required and closed to:
+
+```text
+committed
+pending-first-commit
+```
+
+Unknown values are schema errors.
+
+A contract whose source revision cannot exist until its changed bytes have been
+committed may temporarily use:
 
 ```text
 registrationState = pending-first-commit
 sourceRevision = null
 ```
 
-The blob identity is still fixed before the first commit. After that commit,
-`scripts/phase51/finalize-contract-registry.mjs <commit>` must replace the
-pending state with the exact source revision. Strict validation rejects any
-remaining pending entry.
+This is a staging state only. It is not release-valid.
+
+### Registry finalization responsibility
+
+A source-identity refresh uses two commits with distinct responsibilities.
+
+```text
+A: contract-content commit
+   - fixes the exact contract bytes
+   - fixes semanticRevision
+   - fixes sourceBlobSha
+   - records registrationState = pending-first-commit
+   - records sourceRevision = null
+
+B: registry-finalization commit
+   - reads the contract at exact revision A
+   - verifies actualBlobSha == registry.sourceBlobSha
+   - sets registrationState = committed only after the equality passes
+   - sets sourceRevision = A
+```
+
+The registry-finalization commit must not replace A as the contract
+`sourceRevision`. The exact concrete script or command used to perform this
+mechanism is non-normative operational documentation; script/function names are
+not contract identity.
+
+The contract-content commit referenced by `sourceRevision` must remain
+retrievable from the main-branch history. A merge strategy that removes that
+commit from the resulting main history is invalid for this source-identity
+finalization flow.
+
+### Staging and strict validation modes
+
+`staging` mode exists only for a work branch while source identity is being
+finalized. It may accept the single allowed `pending-first-commit` state. Staging
+output must not be used as release evidence and is not an acceptable final PR or
+main-branch state.
+
+`strict` mode is required for:
+
+```text
+final PR state
+main branch
+release-quality CI gate
+Phase 51-4
+Phase 51-5
+Phase 51-6
+```
+
+Strict validation rejects every remaining `pending-first-commit` entry and
+verifies committed local contract source revisions and blob identities.
+
+The main branch must enforce strict registry validation mechanically in CI.
+This Gate is authoritative even if a merge strategy is chosen incorrectly: a
+missing `sourceRevision` commit or blob mismatch must make the pipeline fail.
 
 ## Canonical evidence layout
 
@@ -194,7 +308,7 @@ fingerprint contracts. It is not derived by blessing the current producer or
 consumer implementation.
 
 Semantic constraints are structured identities rather than free-form text.
-Phase 51 revision 1 defines at least:
+The current canonical handoff profile defines at least:
 
 ```text
 redmine-principal-v1
@@ -331,15 +445,33 @@ verification support before the candidate source revision is frozen.
 
 ## Re-entry and defect ownership
 
-Normal corrective Phase 51 re-entry does not automatically reopen a completed
-51-2 or 51-3 ticket. A Phase 51 blocking defect owns the implementation fix,
-identity refresh, verification refresh, compatibility re-run, and downstream
-evidence refresh.
+Phase 51 Redmine re-entry uses three categories.
 
-A completed child is reopened only if its original completion was itself
-incorrect.
+### Corrective re-entry
 
-Defect ownership is determined as follows:
+A newly discovered implementation or contract defect is owned by a Phase 51
+blocking defect. That defect owns correction, identity refresh, verification
+refresh, required compatibility re-run, and downstream evidence refresh.
+Completed child tickets normally remain closed.
+
+### Original completion defect
+
+If a child ticket was closed while its own completion condition was not actually
+satisfied, that child ticket is reopened.
+
+### Post-close follow-up
+
+If the original completion was valid but later review identifies missing proof,
+negative control, guardrail, or operational clarification, the original child
+remains closed and a `Phase 51 follow-up` is created under the Phase 51 parent.
+Open Phase 51 follow-ups block the Phase 51 Final Gate.
+
+A post-close follow-up must not be used to avoid reopening an incorrect original
+completion. If follow-up investigation shows that the original completion
+condition was false, reclassify it as an original completion defect and reopen
+the original child.
+
+Defect ownership remains:
 
 ```text
 canonical contract correct + one implementation differs
@@ -352,14 +484,31 @@ ownership unresolved
   -> do not guess Target Repository
 ```
 
-Source-revision change invalidates the corresponding RC verification and any
-compatibility result derived from it. Semantic contract revision change
-invalidates dependent evidence and the handoff profile where applicable.
-A manifest created from an invalidated combination is stale and cannot be used
-for release.
+Source-revision changes invalidate the corresponding RC verification and any
+compatibility result derived from that component revision.
 
-Latest canonical verification result has precedence over historical Redmine
-ticket status.
+For a contract semantic-revision change, first evaluate `changeClassification`
+and `compatibilityImpact`:
+
+```text
+compatibilityImpact = none
+  -> record impact-none rationale
+  -> full Phase 51-4 re-run not required
+  -> refresh manifest/final evidence to the current contract identity as needed
+
+compatibilityImpact = affected | unknown
+  -> dependent compatibility evidence invalid
+  -> Phase 51-4 re-run required
+  -> regenerate downstream manifest after PASS
+```
+
+If the canonical expected handoff profile does not reference the changed
+contract, the profile is not revised merely because that unrelated contract's
+semantic revision changed.
+
+A manifest created from an invalidated combination is stale and cannot be used
+for release. Latest canonical verification evidence has precedence over
+historical Redmine ticket status.
 
 ## Real infrastructure boundary
 

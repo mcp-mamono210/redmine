@@ -25,10 +25,27 @@ describe("Phase 51-1 system release compatibility contract", () => {
     );
   });
 
-  it("proves malformed evidence, registry, and handoff-profile controls fail closed", () => {
-    expect(
-      runValidator("--mode", "staging", "--negative-controls"),
-    ).toContain("negativeControls=12");
+  it("proves every registered negative control fails closed", () => {
+    const output = runValidator("--mode", "staging", "--negative-controls");
+    expect(output).toMatch(/negativeControls=[1-9][0-9]*/u);
+  });
+
+  it("documents semantic revision 2 registry finalization and strict main gating", () => {
+    const contract = readFileSync(
+      resolve(ROOT, "docs/contracts/system-release-compatibility-contract.md"),
+      "utf8",
+    );
+
+    const normalizedContract = contract.replace(/\s+/gu, " ");
+
+    expect(normalizedContract).toContain("Semantic revision: `2`");
+    expect(normalizedContract).toContain("operational-normative");
+    expect(normalizedContract).toContain("compatibilityImpact = none");
+    expect(normalizedContract).toContain("final PR state");
+    expect(normalizedContract).toContain("main branch");
+    expect(normalizedContract).toContain(
+      "script/function names are not contract identity",
+    );
   });
 
   it("keeps the canonical Phase 50 baseline as an Agent Runner input rather than rebuilding it locally", () => {

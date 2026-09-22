@@ -93,12 +93,12 @@
       "contractId": "system-release-compatibility",
       "repository": "mcp-mamono210/redmine",
       "path": "docs/contracts/system-release-compatibility-contract.md",
-      "semanticRevision": 1,
-      "sourceRevision": "c8ef923ef1ede4350e9195c298a54f8fc98d4b62",
-      "sourceBlobSha": "e5e8be89ca010d80475cfcc89633a46f13cfcd3e",
+      "semanticRevision": 2,
+      "sourceRevision": null,
+      "sourceBlobSha": "74a46f4740d53d2b12f51e3ea30be692e0a5e321",
       "owningPhase": "51-1",
       "normative": true,
-      "registrationState": "committed"
+      "registrationState": "pending-first-commit"
     }
   ]
 }

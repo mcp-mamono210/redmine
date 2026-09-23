@@ -31,6 +31,7 @@ describe("Phase 51-4 cross-component compatibility support", () => {
     expect(output).toContain('"sameDirectionDriftDetected": true');
     expect(output).toContain('"contractDerivedFixture": "PASS"');
     expect(output).toContain('"generationId": "PASS"');
+    expect(output).toContain('"sourceBlobConventions": "PASS"');
   });
 
   it("binds the orchestrator to exact RC checkouts and canonical Phase 51 evidence", () => {

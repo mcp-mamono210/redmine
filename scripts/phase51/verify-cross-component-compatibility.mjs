@@ -297,16 +297,31 @@ function repositoryRoot(repository, redmineRoot, runnerRoot) {
   fail(`Unknown repository identity in Phase 51 evidence: ${repository}`);
 }
 
+function declaredSourceBlobSha(source) {
+  return source.blobSha ?? source.sourceBlobSha;
+}
+
 function verifySourceIdentity(source, redmineRoot, runnerRoot, drifts, idPrefix) {
   const root = repositoryRoot(source.repository, redmineRoot, runnerRoot);
   const actual = gitBlobSha(root, source.sourceRevision, source.path);
-  if (actual !== source.blobSha) {
+  const declaredBlobSha = declaredSourceBlobSha(source);
+  if (!SHA1.test(declaredBlobSha ?? "")) {
     addDrift(
       drifts,
       `${idPrefix}.${source.path}`,
       "documentation drift",
       source.repository,
-      `Declared blob ${source.blobSha} differs from actual Git blob ${actual} for ${source.path}`,
+      `Declared blob identity is missing or invalid for ${source.path}`,
+    );
+    return;
+  }
+  if (actual !== declaredBlobSha) {
+    addDrift(
+      drifts,
+      `${idPrefix}.${source.path}`,
+      "documentation drift",
+      source.repository,
+      `Declared blob ${declaredBlobSha} differs from actual Git blob ${actual} for ${source.path}`,
     );
   }
 }
@@ -747,6 +762,15 @@ function runSelfTest(root) {
   if (expectedRunnerValidation(fixture).ok !== true) {
     fail("self-test: expected Runner validation fixture is not positive");
   }
+  const registryBlob = "a".repeat(40);
+  const fingerprintBlob = "b".repeat(40);
+  if (declaredSourceBlobSha({ sourceBlobSha: registryBlob }) !== registryBlob) {
+    fail("self-test: registry sourceBlobSha convention is not supported");
+  }
+  if (declaredSourceBlobSha({ blobSha: fingerprintBlob }) !== fingerprintBlob) {
+    fail("self-test: fingerprint blobSha convention is not supported");
+  }
+
   const id = canonicalGenerationId(RECORD_TYPE, 1, { result: "PASS" });
   if (!/^sha256:[0-9a-f]{64}$/u.test(id)) {
     fail("self-test: generationId is not canonical sha256 lowercase-hex");
@@ -756,6 +780,7 @@ function runSelfTest(root) {
     sameDirectionDriftDetected: true,
     contractDerivedFixture: "PASS",
     generationId: "PASS",
+    sourceBlobConventions: "PASS",
   };
 }
 

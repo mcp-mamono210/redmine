@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "recordType": "phase51-final-verification",
+  "generation": 1,
+  "generationId": "sha256:9517f735b432470336a396abc18c86bf98f359b2bd4bf62a5f3bc1fc3892c090",
+  "current": {
+    "componentVersions": {
+      "redmineMcp": "0.3.0",
+      "agentRunner": "0.0.0"
+    },
+    "componentSourceRevisions": {
+      "redmineMcp": "2b2bd1c42f1caaf876da02da0adc67dd698ddff4",
+      "agentRunner": "bc4e58a2f9986b88a7eb84b191d85824c926f9f7"
+    },
+    "componentEvidenceGenerations": {
+      "redmineMcp": {
+        "rcIdentity": {
+          "generation": 1,
+          "generationId": "sha256:99bc113d088b94db664bb707ed4c972a55b13b64aef3920fd88296aa15dfa9a9"
+        },
+        "rcVerification": {
+          "generation": 1,
+          "generationId": "sha256:b88c05bfa39fbece863acfad3fe99114cad80a5ff04d926e3a94dedd1cbcc37f"
+        }
+      },
+      "agentRunner": {
+        "rcIdentity": {
+          "generation": 1,
+          "generationId": "sha256:a565aaf9a4ff364ca8e2d028ab3b9e8bf115abe403efa6843277be8e42666262"
+        },
+        "rcVerification": {
+          "generation": 1,
+          "generationId": "sha256:6c47a1bd8acd5651e311879c322c31b0d2877e995418957625192eae70292a1c"
+        },
+        "realInfrastructureDecision": {
+          "generation": 1,
+          "generationId": "sha256:368cc2823edc43553e1cd0871b35a29ad0f2f846389ea3eaf35f4eca7d542594"
+        }
+      },
+      "crossComponentCompatibility": {
+        "generation": 1,
+        "generationId": "sha256:91684deb7e5b50bbf946f467a8c9998c89b12a1d16a9818c7f09c91b7debdcfa"
+      },
+      "releaseCompatibilityManifest": {
+        "generation": 1,
+        "generationId": "sha256:c9a5d2bb2aa1ecca741fa41eae8665822c63744592214210c6e44ccbf5f78eeb"
+      }
+    },
+    "componentEvidenceGenerationIds": {
+      "redmineMcpRcIdentity": "sha256:99bc113d088b94db664bb707ed4c972a55b13b64aef3920fd88296aa15dfa9a9",
+      "redmineMcpRcVerification": "sha256:b88c05bfa39fbece863acfad3fe99114cad80a5ff04d926e3a94dedd1cbcc37f",
+      "agentRunnerRcIdentity": "sha256:a565aaf9a4ff364ca8e2d028ab3b9e8bf115abe403efa6843277be8e42666262",
+      "agentRunnerRcVerification": "sha256:6c47a1bd8acd5651e311879c322c31b0d2877e995418957625192eae70292a1c",
+      "agentRunnerRealInfrastructureDecision": "sha256:368cc2823edc43553e1cd0871b35a29ad0f2f846389ea3eaf35f4eca7d542594",
+      "crossComponentCompatibility": "sha256:91684deb7e5b50bbf946f467a8c9998c89b12a1d16a9818c7f09c91b7debdcfa",
+      "releaseCompatibilityManifest": "sha256:c9a5d2bb2aa1ecca741fa41eae8665822c63744592214210c6e44ccbf5f78eeb"
+    },
+    "contractSemanticRevisions": {
+      "agent-brief-lifecycle": 1,
+      "agent-brief-redmine-mapping": 1,
+      "agent-brief-release-handoff": 1,
+      "agent-brief-requirements-fingerprint": 1,
+      "agent-runner-execution-boundary": 1,
+      "agent-runner-execution-input": 1,
+      "agent-runner-security-sandbox": 1,
+      "phase49-artifact": 1,
+      "system-release-compatibility": 2
+    },
+    "contractSourceRevisions": {
+      "agent-brief-lifecycle": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "agent-brief-redmine-mapping": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "agent-brief-release-handoff": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "agent-brief-requirements-fingerprint": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "agent-runner-execution-boundary": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "agent-runner-execution-input": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "agent-runner-security-sandbox": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "phase49-artifact": "15e2683ecd3a6571930d79bcabbfbf6d95d628c2",
+      "system-release-compatibility": "ff271835f57b2c947c2dbe291cc247574dee8a2d"
+    },
+    "contractBlobIdentities": {
+      "agent-brief-lifecycle": "438cc4c6fcd346e7eef355e030fb844f2f1a6157",
+      "agent-brief-redmine-mapping": "1fc06a63664456b69466c3a5e6c14c48c3c4e80c",
+      "agent-brief-release-handoff": "5bec79e9198913fee8823d49bce8095899e93861",
+      "agent-brief-requirements-fingerprint": "b1cca0a47e8c5a6960f11e5bbdb882b15bd3e723",
+      "agent-runner-execution-boundary": "1aa58f442627419e34e6acfce0376c57d614f0f9",
+      "agent-runner-execution-input": "10203a9c998fbe4f23c6830148d33aba561dbbb7",
+      "agent-runner-security-sandbox": "d86afc0acbbd608b5a7c9b36a8c701e58ee634b9",
+      "phase49-artifact": "69989af90c7066e00a5c87e85735128c57b159a2",
+      "system-release-compatibility": "74a46f4740d53d2b12f51e3ea30be692e0a5e321"
+    },
+    "expectedHandoffProfileIdentity": {
+      "path": "docs/contracts/system-release-handoff-profile.json",
+      "schemaVersion": 1,
+      "profileId": "ready-for-agent-handoff-v1",
+      "contractReferences": [
+        {
+          "contractId": "agent-brief-release-handoff",
+          "semanticRevision": 1
+        },
+        {
+          "contractId": "agent-brief-lifecycle",
+          "semanticRevision": 1
+        },
+        {
+          "contractId": "agent-brief-redmine-mapping",
+          "semanticRevision": 1
+        },
+        {
+          "contractId": "agent-brief-requirements-fingerprint",
+          "semanticRevision": 1
+        }
+      ]
+    },
+    "phase51ChildStatus": [
+      {
+        "issueId": 5434,
+        "subject": "Phase 51-1: Release Compatibility Contract / Canonical Evidence Layout / Compatibility Verification Method を確定する",
+        "classification": "Phase 51 child",
+        "statusId": 5,
+        "statusName": "終了",
+        "doneRatio": 100,
+        "closed": true
+      },
+      {
+        "issueId": 5435,
+        "subject": "Phase 51-2: Redmine MCP Release Candidate Identity / Documentation Readiness を確定する",
+        "classification": "Phase 51 child",
+        "statusId": 5,
+        "statusName": "終了",
+        "doneRatio": 100,
+        "closed": true
+      },
+      {
+        "issueId": 5436,
+        "subject": "Phase 51-3: Agent Runner Release Candidate Identity / Documentation / Environment Readiness を確定する",
+        "classification": "Phase 51 child",
+        "statusId": 5,
+        "statusName": "終了",
+        "doneRatio": 100,
+        "closed": true
+      },
+      {
+        "issueId": 5437,
+        "subject": "Phase 51-4: Redmine MCP / Agent Runner Cross-component Compatibility を検証する",
+        "classification": "Phase 51 child",
+        "statusId": 5,
+        "statusName": "終了",
+        "doneRatio": 100,
+        "closed": true
+      },
+      {
+        "issueId": 5438,
+        "subject": "Phase 51-5: v0.4.0 Release Compatibility Manifest を生成・固定する",
+        "classification": "Phase 51 child",
+        "statusId": 5,
+        "statusName": "終了",
+        "doneRatio": 100,
+        "closed": true
+      },
+      {
+        "issueId": 5440,
+        "subject": "Phase 51-1-F1: registrationState strict negative control / registry re-entry finalization を固定する",
+        "classification": "Phase 51 follow-up",
+        "statusId": 5,
+        "statusName": "終了",
+        "doneRatio": 100,
+        "closed": true
+      }
+    ],
+    "redmineMcpRcVerificationResult": "PASS",
+    "agentRunnerRcVerificationResult": "PASS",
+    "realInfrastructureDecisionResult": "NOT_REQUIRED_WITH_REASON",
+    "layerACompatibilityResult": "PASS",
+    "producerConstraintConformanceResult": "PASS",
+    "consumerConstraintConformanceResult": "PASS",
+    "fingerprintSourceBindingResult": "PASS",
+    "layerBCompatibilityResult": "PASS",
+    "requirementsFingerprintCompatibilityResult": "PASS",
+    "phase50GoldenBaselineResult": "PASS",
+    "crossComponentCompatibilityResult": "PASS",
+    "manifestValidationResult": "PASS",
+    "contractRegistryValidationResult": "PASS",
+    "contractBlobVerificationResult": "PASS",
+    "fingerprintSourceBlobVerificationResult": "PASS",
+    "evidenceSchemaValidationResult": "PASS",
+    "documentationAlignmentResult": {
+      "roadmaps": "PASS",
+      "redmineMcpDocumentation": "PASS",
+      "agentRunnerDocumentation": "PASS",
+      "functionalBoundary": "PASS",
+      "outOfScopeBoundary": "PASS"
+    },
+    "blockingDefectCount": 0,
+    "openPhase51FollowUpCount": 0,
+    "blockingIncompatibilityCount": 0,
+    "staleEvidenceCount": 0,
+    "phase52MandatoryGates": [
+      {
+        "checkId": "real-private-s3-system-release-gate",
+        "command": "npm run verify:phase49:s3",
+        "requiredEnvironment": [
+          "private S3 bucket reachable with the release Controller IAM boundary",
+          "AWS credential provider available to the Agent Runner verification process",
+          "AGENT_RUNNER_ARTIFACT_S3_REGION",
+          "AGENT_RUNNER_ARTIFACT_S3_BUCKET",
+          "AGENT_RUNNER_ARTIFACT_S3_PREFIX (optional; canonical default allowed)",
+          "AGENT_RUNNER_ARTIFACT_S3_EXPECTED_BUCKET_OWNER (optional)",
+          "PHASE49_REAL_S3_VERIFICATION_RECORD",
+          "PHASE49_REAL_S3_TESTED_GIT_REVISION",
+          "PHASE49_REAL_S3_REPOSITORY",
+          "PHASE49_REAL_S3_ISSUE_ID",
+          "PHASE49_REAL_S3_RETENTION_DAYS",
+          "PHASE49_REAL_S3_IAM_BOUNDARY_CONFIRMED=yes"
+        ],
+        "passCondition": "npm run verify:phase49:s3 exits 0 and persists a PASS record for the exact release source revision with required S3 semantics",
+        "evidenceLocation": "docs/verification/phase50-real-infrastructure-policy.json",
+        "blockingBehavior": "blocks Phase 52 system release until PASS"
+      },
+      {
+        "checkId": "sandbox-environment-conformance-system-release-gate",
+        "command": "npm run verify:phase50:environment",
+        "requiredEnvironment": [
+          "Agent Runner Phase 50 production-equivalent container / sandbox prerequisites",
+          "real S3 configuration required by the environment-conformance route",
+          "no unresolved incompatible / unsupported / contract-affecting environment finding"
+        ],
+        "passCondition": "npm run verify:phase50:environment exits 0 and environment conformance is PASS with no unresolved mandatory coverage gap",
+        "evidenceLocation": "docs/verification/phase50-real-infrastructure-policy.json",
+        "blockingBehavior": "blocks Phase 52 system release until PASS"
+      }
+    ],
+    "knownLimitations": [
+      "production concurrency baseline remains one Controller / one Worker / one execution",
+      "real private S3 verification remains a system-release gate rather than a normal deterministic test dependency",
+      "external AI provider is not required by the deterministic Phase 50 gate"
+    ],
+    "outOfScopeBoundary": [
+      "Git remote push",
+      "CircleCI feedback loop",
+      "CI failure feedback to Agent",
+      "Agent correction loop",
+      "automatic Agent retry",
+      "Pull Request automation",
+      "automatic merge",
+      "deployment automation",
+      "multiple Workers",
+      "multiple Runner instances",
+      "distributed claim / lease / heartbeat / queue"
+    ],
+    "result": "PASS",
+    "verifiedAt": "2026-09-23T12:06:39.585Z"
+  },
+  "history": [],
+  "supersedes": null
+}

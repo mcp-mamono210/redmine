@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "recordType": "release-compatibility-manifest",
+  "generation": 1,
+  "generationId": "sha256:c9a5d2bb2aa1ecca741fa41eae8665822c63744592214210c6e44ccbf5f78eeb",
+  "current": {
+    "platformMilestone": "0.4.0",
+    "redmineMcp": {
+      "componentVersion": "0.3.0",
+      "exactSourceRevision": "2b2bd1c42f1caaf876da02da0adc67dd698ddff4",
+      "rcIdentityEvidence": {
+        "path": "docs/verification/phase51-redmine-mcp-rc-identity.json",
+        "generation": 1,
+        "generationId": "sha256:99bc113d088b94db664bb707ed4c972a55b13b64aef3920fd88296aa15dfa9a9"
+      }
+    },
+    "agentRunner": {
+      "componentVersion": "0.0.0",
+      "exactSourceRevision": "bc4e58a2f9986b88a7eb84b191d85824c926f9f7",
+      "rcIdentityEvidence": {
+        "path": "docs/verification/phase51-agent-runner-rc-identity.json",
+        "generation": 1,
+        "generationId": "sha256:a565aaf9a4ff364ca8e2d028ab3b9e8bf115abe403efa6843277be8e42666262"
+      }
+    },
+    "contracts": [
+      {
+        "contractId": "agent-brief-lifecycle",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "438cc4c6fcd346e7eef355e030fb844f2f1a6157"
+      },
+      {
+        "contractId": "agent-brief-redmine-mapping",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "1fc06a63664456b69466c3a5e6c14c48c3c4e80c"
+      },
+      {
+        "contractId": "agent-brief-release-handoff",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "5bec79e9198913fee8823d49bce8095899e93861"
+      },
+      {
+        "contractId": "agent-brief-requirements-fingerprint",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "b1cca0a47e8c5a6960f11e5bbdb882b15bd3e723"
+      },
+      {
+        "contractId": "agent-runner-execution-boundary",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "1aa58f442627419e34e6acfce0376c57d614f0f9"
+      },
+      {
+        "contractId": "agent-runner-execution-input",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "10203a9c998fbe4f23c6830148d33aba561dbbb7"
+      },
+      {
+        "contractId": "agent-runner-security-sandbox",
+        "semanticRevision": 1,
+        "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+        "sourceBlobSha": "d86afc0acbbd608b5a7c9b36a8c701e58ee634b9"
+      },
+      {
+        "contractId": "phase49-artifact",
+        "semanticRevision": 1,
+        "sourceRevision": "15e2683ecd3a6571930d79bcabbfbf6d95d628c2",
+        "sourceBlobSha": "69989af90c7066e00a5c87e85735128c57b159a2"
+      },
+      {
+        "contractId": "system-release-compatibility",
+        "semanticRevision": 2,
+        "sourceRevision": "ff271835f57b2c947c2dbe291cc247574dee8a2d",
+        "sourceBlobSha": "74a46f4740d53d2b12f51e3ea30be692e0a5e321"
+      }
+    ],
+    "expectedHandoffProfile": {
+      "path": "docs/contracts/system-release-handoff-profile.json",
+      "schemaVersion": 1,
+      "profileId": "ready-for-agent-handoff-v1",
+      "contractReferences": [
+        {
+          "contractId": "agent-brief-release-handoff",
+          "semanticRevision": 1
+        },
+        {
+          "contractId": "agent-brief-lifecycle",
+          "semanticRevision": 1
+        },
+        {
+          "contractId": "agent-brief-redmine-mapping",
+          "semanticRevision": 1
+        },
+        {
+          "contractId": "agent-brief-requirements-fingerprint",
+          "semanticRevision": 1
+        }
+      ]
+    },
+    "verification": {
+      "phase50FinalVerification": {
+        "repository": "mcp-mamono210/ai-agent-runner",
+        "sourceRevision": "bc4e58a2f9986b88a7eb84b191d85824c926f9f7",
+        "path": "docs/verification/phase50-final-verification-20260921.json",
+        "testedGitRevision": "6619b5e11ee12757e38efc1f3250f0fc2166b5bd",
+        "evidenceCommitRevision": "ee59371604529a1971fc1e3c2c01accb02e5e771",
+        "result": "PASS"
+      },
+      "redmineMcpRcVerification": {
+        "path": "docs/verification/phase51-redmine-mcp-rc-verification.json",
+        "generation": 1,
+        "generationId": "sha256:b88c05bfa39fbece863acfad3fe99114cad80a5ff04d926e3a94dedd1cbcc37f",
+        "result": "PASS"
+      },
+      "agentRunnerRcVerification": {
+        "path": "docs/verification/phase51-agent-runner-rc-verification.json",
+        "generation": 1,
+        "generationId": "sha256:6c47a1bd8acd5651e311879c322c31b0d2877e995418957625192eae70292a1c",
+        "result": "PASS"
+      },
+      "agentRunnerRealInfrastructureDecision": {
+        "path": "docs/verification/phase51-agent-runner-real-infrastructure-decision.json",
+        "generation": 1,
+        "generationId": "sha256:368cc2823edc43553e1cd0871b35a29ad0f2f846389ea3eaf35f4eca7d542594",
+        "result": "NOT_REQUIRED_WITH_REASON"
+      },
+      "crossComponentCompatibility": {
+        "path": "docs/verification/phase51-cross-component-compatibility.json",
+        "generation": 1,
+        "generationId": "sha256:91684deb7e5b50bbf946f467a8c9998c89b12a1d16a9818c7f09c91b7debdcfa",
+        "result": "PASS"
+      }
+    },
+    "remainingReleaseOnlyChecks": [
+      {
+        "checkId": "real-private-s3-system-release-gate",
+        "policy": "mandatory-per-system-release",
+        "command": "npm run verify:phase49:s3",
+        "evidenceLocation": "docs/verification/phase50-real-infrastructure-policy.json",
+        "blockingBehavior": "blocks Phase 52 system release until PASS"
+      },
+      {
+        "checkId": "sandbox-environment-conformance-system-release-gate",
+        "policy": "mandatory-environment-conformance-per-system-release",
+        "command": "npm run verify:phase50:environment",
+        "evidenceLocation": "docs/verification/phase50-real-infrastructure-policy.json",
+        "blockingBehavior": "blocks Phase 52 system release until PASS"
+      }
+    ],
+    "knownLimitations": [
+      "production concurrency baseline remains one Controller / one Worker / one execution",
+      "real private S3 verification remains a system-release gate rather than a normal deterministic test dependency",
+      "external AI provider is not required by the deterministic Phase 50 gate"
+    ],
+    "outOfScopeBoundary": [
+      "Git remote push",
+      "CircleCI feedback loop",
+      "CI failure feedback to Agent",
+      "Agent correction loop",
+      "automatic Agent retry",
+      "Pull Request automation",
+      "automatic merge",
+      "deployment automation",
+      "multiple Workers",
+      "multiple Runner instances",
+      "distributed claim / lease / heartbeat / queue"
+    ],
+    "result": "PASS",
+    "generatedAt": "2026-09-23T11:04:48.636Z"
+  },
+  "history": [],
+  "supersedes": null
+}

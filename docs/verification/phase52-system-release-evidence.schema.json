@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mcp-mamono210.invalid/schemas/phase52-system-release-evidence.schema.json",
+  "title": "Phase 52 system release evidence envelope",
+  "$comment": "release-evidence-only; non-runtime; non-cross-component-contract. Domain-specific current fields are owned by Phase 52-1 through Phase 52-4 and are intentionally not redefined by Phase 52-0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordType",
+    "generation",
+    "generationId",
+    "current",
+    "history",
+    "supersedes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "recordType": {
+      "type": "string",
+      "enum": [
+        "phase52-real-s3-system-release-gate",
+        "phase52-environment-conformance-system-release-gate",
+        "v0.4.0-system-release"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generationId": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "current": {
+      "type": "object"
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/historyEntry"
+      }
+    },
+    "supersedes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "historyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation",
+        "generationId",
+        "snapshot",
+        "invalidatedAt",
+        "invalidationReason",
+        "invalidatingDefectIssueId"
+      ],
+      "properties": {
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generationId": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "snapshot": {
+          "type": "object"
+        },
+        "invalidatedAt": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "invalidationReason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "invalidatingDefectIssueId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

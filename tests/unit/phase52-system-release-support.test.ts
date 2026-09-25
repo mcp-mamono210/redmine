@@ -22,6 +22,14 @@ const SYSTEM_RELEASE_GENERATOR = resolve(
   ROOT,
   "scripts/phase52/generate-system-release-evidence.mjs",
 );
+const SYSTEM_RELEASE_FINALIZER = resolve(
+  ROOT,
+  "scripts/phase52/finalize-system-release.mjs",
+);
+const SYSTEM_RELEASE_PUBLICATION_VERIFIER = resolve(
+  ROOT,
+  "scripts/phase52/verify-system-release-publication.mjs",
+);
 const SCHEMA = resolve(
   ROOT,
   "docs/verification/phase52-system-release-evidence.schema.json",
@@ -45,6 +53,8 @@ describe("Phase 52-0 system release verification support", () => {
       REAL_S3_RUNNER,
       ENVIRONMENT_RUNNER,
       SYSTEM_RELEASE_GENERATOR,
+      SYSTEM_RELEASE_FINALIZER,
+      SYSTEM_RELEASE_PUBLICATION_VERIFIER,
     ]) {
       expect(() =>
         execFileSync(process.execPath, ["--check", script], { encoding: "utf8" }),
@@ -122,11 +132,32 @@ describe("Phase 52-0 system release verification support", () => {
     expect(output).toContain('"dryRunOnlyBoundary": "PASS"');
   });
 
-  it("owns tested revisions, output paths, AWS privacy, IAM denial, release-freeze, and Phase 52-3 closure in source", () => {
+  it("finalizes Phase 52-4 with FAIL/PASS lineage and an explicit publication boundary", () => {
+    const output = runSelfTest(SYSTEM_RELEASE_FINALIZER);
+    expect(output).toContain('"result": "PASS"');
+    expect(output).toContain('"failGenerationPreserved": "PASS"');
+    expect(output).toContain('"passSupersedesFail": "PASS"');
+    expect(output).toContain('"singleResultField": "PASS"');
+    expect(output).toContain('"prePublicationDocumentationGuard": "PASS"');
+    expect(output).toContain('"prematureReleasedGuard": "PASS"');
+  });
+
+  it("verifies tag, documentation, generationId, and component identity after publication", () => {
+    const output = runSelfTest(SYSTEM_RELEASE_PUBLICATION_VERIFIER);
+    expect(output).toContain('"result": "PASS"');
+    expect(output).toContain('"releasedDocumentationContract": "PASS"');
+    expect(output).toContain('"generationIdTraceability": "PASS"');
+    expect(output).toContain('"componentIdentityTraceability": "PASS"');
+    expect(output).toContain('"dedicatedGceAcceptanceGuard": "PASS"');
+  });
+
+  it("owns tested revisions, output paths, AWS privacy, IAM denial, release-freeze, Phase 52-3 closure, and Phase 52-4 publication in source", () => {
     const common = readFileSync(COMMON, "utf8");
     const realS3 = readFileSync(REAL_S3_RUNNER, "utf8");
     const environment = readFileSync(ENVIRONMENT_RUNNER, "utf8");
     const generator = readFileSync(SYSTEM_RELEASE_GENERATOR, "utf8");
+    const finalizer = readFileSync(SYSTEM_RELEASE_FINALIZER, "utf8");
+    const publication = readFileSync(SYSTEM_RELEASE_PUBLICATION_VERIFIER, "utf8");
 
     expect(common).toContain("PHASE49_REAL_S3_TESTED_GIT_REVISION must be unset");
     expect(common).toContain("PHASE50_TESTED_GIT_REVISION must be unset");
@@ -148,5 +179,11 @@ describe("Phase 52-0 system release verification support", () => {
     expect(generator).toContain("agentProcessLaunchSiteCount: 0");
     expect(generator).toContain("design-and-implementation-separation-only");
     expect(generator).toContain("canonicalRecordWritten: false");
+    expect(finalizer).toContain("requires explicit --finalize");
+    expect(finalizer).toContain("openPhase52BlockingDefectCount");
+    expect(finalizer).toContain("publicationAllowed");
+    expect(publication).toContain("exact canonical record commit");
+    expect(publication).toContain("system-v0.4.0");
+    expect(publication).toContain("v0.3.0");
   });
 });

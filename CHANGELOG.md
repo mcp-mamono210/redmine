@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Prepared Phase 52-3 documentation for the v0.4.0 system milestone without changing the Redmine MCP component version or declaring the system milestone Released.
-- Clarified that the Redmine/MCP repository remains the approval/control plane and does not spawn Agent or Agent Runner processes.
-- Clarified that dedicated GCE production-service deployment acceptance is deferred while the separate-GCE architecture boundary remains unchanged.
-- Clarified that v0.4.0 credential acceptance covers design / implementation ownership and non-exposure separation; deployment-time credential / principal identity separation and deployment-host environment conformance remain later Deployment / Operations responsibilities.
+- Published the `v0.4.0` system milestone as `system-v0.4.0` using canonical system release evidence generation `sha256:b1ffbad2e092b371d0ce1e9c1d8dfc0c144104b382243a031e8e9b73181d658a`.
+- Recorded the compatible Redmine MCP component identity as `0.3.0` at `2b2bd1c42f1caaf876da02da0adc67dd698ddff4` and Agent Runner identity as `0.0.0` at `bc4e58a2f9986b88a7eb84b191d85824c926f9f7` without changing either component-version model.
+- Kept the final functional boundary at `Ready for Independent Verification` and kept dedicated GCE production-service deployment acceptance deferred while preserving the separate-GCE architecture boundary.
+- Kept deployment-time Redmine/MCP versus Agent Runner credential / principal identity separation and deployment-host Environment Conformance rerun as later Deployment / Operations responsibilities.
 
 ## [0.3.0] - 2026-09-09
 

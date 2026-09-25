@@ -8,20 +8,36 @@ The project is designed around predictable MCP contracts, structured output, det
 
 Current package version: `0.3.0`
 
-Current release: v0.3.0.
+Current component release: v0.3.0.
 
 The v0.3.0 functional boundary ends at `Ready for Agent`: one human-reviewed,
 versioned Agent Brief has passed Handler Validation and has complete approval
 metadata suitable for later handoff. v0.3.0 does not claim, provision, execute,
 orchestrate, or retry an Agent.
 
-### v0.4.0 system milestone preparation
+### v0.4.0 system milestone release
 
 The Redmine MCP component remains released as `0.3.0`; `v0.4.0` is a
 system-level milestone and does not change the Redmine MCP component version.
 
-Phase 52-3 has prepared and dry-run validated the exact v0.4.0 release
-combination. The system functional boundary remains:
+The `v0.4.0` system milestone is Released as `system-v0.4.0`.
+
+Canonical system release evidence:
+
+```text
+record: docs/verification/v0.4.0-system-release.json
+generationId: sha256:b1ffbad2e092b371d0ce1e9c1d8dfc0c144104b382243a031e8e9b73181d658a
+
+Redmine MCP:
+  componentVersion: 0.3.0
+  exactSourceRevision: 2b2bd1c42f1caaf876da02da0adc67dd698ddff4
+
+Agent Runner:
+  componentVersion: 0.0.0
+  exactSourceRevision: bc4e58a2f9986b88a7eb84b191d85824c926f9f7
+```
+
+The system functional boundary is unchanged:
 
 ```text
 Ready for Agent
@@ -31,23 +47,23 @@ Ready for Agent
 ```
 
 The Redmine/MCP repository remains the approval/control plane and does not spawn
-Agent or Agent Runner processes. The current Agent Runner RC has runtime
-composition and production dependency assembly for the one-shot execution path,
-but v0.4.0 does not certify a resident production-service deployment.
-Executable Controller startup, process lifecycle / signal handling, service
-supervision / deployment definition, and dedicated GCE deployment acceptance
-are deferred to a later Deployment / Operations release.
+Agent or Agent Runner processes. The current Agent Runner release combination
+contains the runtime composition and dependency assembly used by the one-shot
+execution path, but `v0.4.0` is not a resident production-service deployment
+release. Executable Controller startup, process lifecycle / signal handling,
+service supervision / deployment definition, and dedicated GCE deployment
+acceptance remain deferred to a later Deployment / Operations release.
 
-The separate-GCE architecture boundary remains unchanged. For v0.4.0,
-credential acceptance covers design / implementation ownership and non-exposure
-separation. Deployment-time Redmine/MCP versus Agent Runner credential /
-principal identity separation, including credential source / injection evidence
-and an Environment Conformance Gate rerun on the actual deployment host, is
-deferred to that later release.
+The separate-GCE architecture boundary remains unchanged. v0.4.0 credential
+acceptance covers design / implementation ownership and non-exposure separation;
+deployment-time Redmine/MCP versus Agent Runner credential / principal identity
+separation and an Environment Conformance Gate rerun on the actual deployment
+host remain deferred responsibilities.
 
-Phase 52-3 does not declare `v0.4.0 = Released`, write the canonical final PASS
-system-release record, or create `system-v0.4.0`; those publication actions
-belong to Phase 52-4.
+Phase 52-4 published `system-v0.4.0` from the exact Redmine commit containing the
+canonical generation 3 PASS system-release record. The component tag `v0.3.0`
+remains a separate Redmine MCP component identity, and Agent Runner has no
+system-milestone tag.
 
 The published MCP Tool Registry is read-only by default. When write publication
 is explicitly enabled and the Agent Brief approval storage configuration is

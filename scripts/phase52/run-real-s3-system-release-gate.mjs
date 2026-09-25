@@ -142,6 +142,28 @@ function readVerifierRecord(path) {
   }
 }
 
+function assertVerifierRecord(record, testedSourceRevision) {
+  if (typeof record !== "object" || record === null || Array.isArray(record)) {
+    fail("Phase 49 verifier record must be an object");
+  }
+  if (record.result !== "PASS") {
+    fail(`Phase 49 verifier result must be PASS, got ${String(record.result)}`);
+  }
+  if (record.testedGitRevision !== testedSourceRevision) {
+    fail(
+      `Phase 49 verifier testedGitRevision mismatch: expected ${testedSourceRevision}, got ${String(record.testedGitRevision)}`,
+    );
+  }
+  return record;
+}
+
+function sanitizeFailureMessage(message) {
+  return String(message)
+    .replace(/arn:[^\s"']+/giu, "[REDACTED_AWS_ARN]")
+    .replace(/\b\d{12}\b/gu, "[REDACTED_AWS_ACCOUNT]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[REDACTED_EMAIL]");
+}
+
 export function runRealS3Gate(options, adapters = {}) {
   const run = adapters.run ?? defaultRun;
   const env = { ...process.env, ...(adapters.env ?? {}) };
@@ -161,43 +183,62 @@ export function runRealS3Gate(options, adapters = {}) {
   }
 
   const expectedRevision = readExpectedAgentRunnerRevision(options.handoff);
-  const testedSourceRevision = assertDetachedCleanCheckout({
-    repositoryRoot: options.runnerRoot,
-    expectedRevision,
-    run,
-  });
-  const nodeVersion = assertNodeVersionMatchesNvmrc({ repositoryRoot: options.runnerRoot, run });
-
-  if (!options.skipNpmCi) {
-    runNpmCi({ repositoryRoot: options.runnerRoot, env, run });
-  }
-
-  const executionHost = captureExecutionHost({
-    cwd: options.runnerRoot,
-    env,
-    run,
-    requireDocker: false,
-  });
-  const awsPrincipal = readSanitizedAwsPrincipal({ cwd: options.runnerRoot, run });
-  const iamNegativeVerification = runIamNegativeProbes({
-    cwd: options.runnerRoot,
-    env,
-    run,
-    now,
-    uuid,
-  });
-
-  const verifierRecordPath = buildVerifierRecordPath(options.recordOutput);
-  assertOutputOutsideCheckout({ checkoutRoot: options.runnerRoot, outputPath: verifierRecordPath });
-  assertRawRecordPathIsNew(verifierRecordPath);
-
-  const gateEnv = {
-    ...env,
-    PHASE49_REAL_S3_TESTED_GIT_REVISION: testedSourceRevision,
-    PHASE49_REAL_S3_VERIFICATION_RECORD: verifierRecordPath,
+  const state = {
+    stage: "exact-checkout",
+    testedSourceRevision: null,
+    executionHost: null,
+    awsPrincipal: null,
+    iamNegativeVerification: null,
+    phase49VerifierRecord: null,
+    phase49VerifierRecordSha256: null,
   };
+  const verifierRecordPath = buildVerifierRecordPath(options.recordOutput);
 
   try {
+    state.testedSourceRevision = assertDetachedCleanCheckout({
+      repositoryRoot: options.runnerRoot,
+      expectedRevision,
+      run,
+    });
+
+    state.stage = "node-version";
+    const nodeVersion = assertNodeVersionMatchesNvmrc({ repositoryRoot: options.runnerRoot, run });
+
+    state.stage = "npm-ci";
+    if (!options.skipNpmCi) {
+      runNpmCi({ repositoryRoot: options.runnerRoot, env, run });
+    }
+
+    state.stage = "execution-host";
+    state.executionHost = captureExecutionHost({
+      cwd: options.runnerRoot,
+      env,
+      run,
+      requireDocker: false,
+    });
+
+    state.stage = "aws-principal";
+    state.awsPrincipal = readSanitizedAwsPrincipal({ cwd: options.runnerRoot, run });
+
+    state.stage = "iam-negative-verification";
+    state.iamNegativeVerification = runIamNegativeProbes({
+      cwd: options.runnerRoot,
+      env,
+      run,
+      now,
+      uuid,
+    });
+
+    state.stage = "phase49-verifier";
+    assertOutputOutsideCheckout({ checkoutRoot: options.runnerRoot, outputPath: verifierRecordPath });
+    assertRawRecordPathIsNew(verifierRecordPath);
+
+    const gateEnv = {
+      ...env,
+      PHASE49_REAL_S3_TESTED_GIT_REVISION: state.testedSourceRevision,
+      PHASE49_REAL_S3_VERIFICATION_RECORD: verifierRecordPath,
+    };
+
     runNpmScript({
       repositoryRoot: options.runnerRoot,
       script: "verify:phase49:s3",
@@ -205,34 +246,81 @@ export function runRealS3Gate(options, adapters = {}) {
       run,
     });
 
-    const verifierRecord = readVerifierRecord(verifierRecordPath);
-    const verifierRecordSha256 = sha256File(verifierRecordPath);
+    state.phase49VerifierRecord = assertVerifierRecord(
+      readVerifierRecord(verifierRecordPath),
+      state.testedSourceRevision,
+    );
+    state.phase49VerifierRecordSha256 = `sha256:${sha256File(verifierRecordPath)}`;
+
+    state.stage = "post-run-clean-checkout";
     assertCleanCheckout({ repositoryRoot: options.runnerRoot, run });
 
     const record = {
       schemaVersion: 1,
       recordType: "phase52-real-s3-system-release-gate-raw",
-      testedSourceRevision,
+      testedSourceRevision: state.testedSourceRevision,
       executionHost: {
-        ...executionHost,
+        ...state.executionHost,
         nodeVersion,
       },
-      awsPrincipal,
-      iamAttestationResult:
-        String(gateEnv.PHASE49_REAL_S3_IAM_BOUNDARY_CONFIRMED ?? "").toLowerCase() === "yes"
-          ? "PASS"
-          : "FAIL",
-      iamNegativeVerification,
+      awsPrincipal: state.awsPrincipal,
+      iamAttestationResult: "PASS",
+      iamNegativeVerification: state.iamNegativeVerification,
       phase49VerifierRecord: {
-        sha256: `sha256:${verifierRecordSha256}`,
-        record: verifierRecord,
+        sha256: state.phase49VerifierRecordSha256,
+        record: state.phase49VerifierRecord,
       },
+      checkoutClean: true,
       result: "PASS",
       verifiedAt: now.toISOString(),
     };
 
     writeJsonExclusive(options.recordOutput, record);
     return record;
+  } catch (error) {
+    const message = sanitizeFailureMessage(error instanceof Error ? error.message : String(error));
+    let checkoutClean = null;
+    try {
+      assertCleanCheckout({ repositoryRoot: options.runnerRoot, run });
+      checkoutClean = true;
+    } catch {
+      checkoutClean = false;
+    }
+
+    const failRecord = {
+      schemaVersion: 1,
+      recordType: "phase52-real-s3-system-release-gate-raw",
+      testedSourceRevision: state.testedSourceRevision,
+      executionHost: state.executionHost,
+      awsPrincipal: state.awsPrincipal,
+      iamAttestationResult:
+        String(env.PHASE49_REAL_S3_IAM_BOUNDARY_CONFIRMED ?? "").toLowerCase() === "yes"
+          ? "PASS"
+          : "FAIL",
+      iamNegativeVerification: state.iamNegativeVerification,
+      phase49VerifierRecord:
+        state.phase49VerifierRecord === null
+          ? null
+          : {
+              sha256: state.phase49VerifierRecordSha256,
+              record: state.phase49VerifierRecord,
+            },
+      failure: {
+        stage: state.stage,
+        message,
+      },
+      checkoutClean,
+      result: "FAIL",
+      verifiedAt: now.toISOString(),
+    };
+
+    try {
+      assertRawRecordPathIsNew(options.recordOutput);
+      writeJsonExclusive(options.recordOutput, failRecord);
+    } catch {
+      // Do not replace an existing evidence file while reporting a failure.
+    }
+    throw error;
   } finally {
     rmSync(verifierRecordPath, { force: true });
   }
@@ -366,6 +454,48 @@ function runSelfTest() {
   }
   if (!noSuchBucketGuard) fail("self-test: NoSuchBucket was not rejected");
 
+  let verifierIdentityGuard = false;
+  try {
+    assertVerifierRecord(
+      { result: "PASS", testedGitRevision: "c".repeat(40) },
+      expectedRevision,
+    );
+  } catch {
+    verifierIdentityGuard = true;
+  }
+  if (!verifierIdentityGuard) fail("self-test: verifier testedGitRevision mismatch was not rejected");
+
+  const failOutput = resolve(outDir, "phase52-real-s3-system-release-20260925T000003Z.json");
+  const failingRun = (command, args, options = {}) => {
+    const joined = `${command} ${args.join(" ")}`;
+    if (joined === "aws s3api delete-object --bucket phase52-selftest-bucket --key phase49/artifacts/phase52-iam-negative/20260925T000000Z-00000000-0000-4000-8000-000000000000.probe --output json") {
+      return { status: 0, stdout: "{}\n", stderr: "" };
+    }
+    return fakeRun(command, args, options);
+  };
+  let failEvidenceWritten = false;
+  try {
+    runRealS3Gate(
+      {
+        root: redmineRoot,
+        runnerRoot,
+        handoff: handoffPath,
+        recordOutput: failOutput,
+        skipNpmCi: true,
+      },
+      {
+        run: failingRun,
+        env,
+        now: new Date("2026-09-25T00:00:00Z"),
+        uuid: "00000000-0000-4000-8000-000000000000",
+      },
+    );
+  } catch {
+    const failed = JSON.parse(readFileSync(failOutput, "utf8"));
+    failEvidenceWritten = failed.result === "FAIL" && failed.failure?.stage === "iam-negative-verification";
+  }
+  if (!failEvidenceWritten) fail("self-test: FAIL raw evidence generation was not preserved");
+
   rmSync(temp, { recursive: true, force: true });
   return {
     result: "PASS",
@@ -375,6 +505,8 @@ function runSelfTest() {
     awsPrincipalSanitization: "PASS",
     iamAccessDeniedVerification: "PASS",
     noSuchBucketNegativeControl: "PASS",
+    verifierIdentityValidation: "PASS",
+    failRawEvidenceGeneration: "PASS",
     rawOutputOutsideCheckout: "PASS",
   };
 }

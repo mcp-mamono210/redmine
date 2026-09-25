@@ -46,6 +46,22 @@ describe("Phase 52-1 real private S3 system-release Gate", () => {
     expect(output).toContain('"rawOutputOutsideCheckout": "PASS"');
   });
 
+  it("isolates the self-test from host real-S3 environment variables", () => {
+    const output = execFileSync(process.execPath, [REAL_S3_RUNNER, "--self-test"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        AGENT_RUNNER_ARTIFACT_S3_EXPECTED_BUCKET_OWNER: "123456789012",
+        PHASE49_REAL_S3_TESTED_GIT_REVISION: "f".repeat(40),
+        PHASE49_REAL_S3_VERIFICATION_RECORD: "/tmp/phase49-host-record.json",
+      },
+    });
+
+    expect(output).toContain('"result": "PASS"');
+    expect(output).toContain('"failRawEvidenceGeneration": "PASS"');
+  });
+
   it("finalizes immutable Agent Runner evidence into canonical Phase 52 envelope", () => {
     const output = runNode(REAL_S3_FINALIZER, "--self-test");
     expect(output).toContain('"result": "PASS"');
@@ -67,6 +83,9 @@ describe("Phase 52-1 real private S3 system-release Gate", () => {
     expect(runner).toContain('record.result !== "PASS"');
     expect(runner).toContain("record.testedGitRevision !== testedSourceRevision");
     expect(runner).toContain("sanitizeFailureMessage");
+    expect(runner).toContain('AGENT_RUNNER_ARTIFACT_S3_EXPECTED_BUCKET_OWNER: ""');
+    expect(runner).toContain('PHASE49_REAL_S3_TESTED_GIT_REVISION: ""');
+    expect(runner).toContain('args[1] === "delete-object"');
     expect(runner).toContain('result: "FAIL"');
 
     expect(finalizer).toContain("assertEvidenceRevisionReachableFromMain");

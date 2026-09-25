@@ -393,6 +393,9 @@ function runSelfTest() {
     AGENT_RUNNER_ARTIFACT_S3_BUCKET: "phase52-selftest-bucket",
     AGENT_RUNNER_ARTIFACT_S3_REGION: "us-east-1",
     AGENT_RUNNER_ARTIFACT_S3_PREFIX: "phase49/artifacts",
+    AGENT_RUNNER_ARTIFACT_S3_EXPECTED_BUCKET_OWNER: "",
+    PHASE49_REAL_S3_TESTED_GIT_REVISION: "",
+    PHASE49_REAL_S3_VERIFICATION_RECORD: "",
     PHASE49_REAL_S3_IAM_BOUNDARY_CONFIRMED: "yes",
     PHASE52_HOST_PROVIDER: "self-test",
   };
@@ -467,8 +470,18 @@ function runSelfTest() {
 
   const failOutput = resolve(outDir, "phase52-real-s3-system-release-20260925T000003Z.json");
   const failingRun = (command, args, options = {}) => {
-    const joined = `${command} ${args.join(" ")}`;
-    if (joined === "aws s3api delete-object --bucket phase52-selftest-bucket --key phase49/artifacts/phase52-iam-negative/20260925T000000Z-00000000-0000-4000-8000-000000000000.probe --output json") {
+    const bucketIndex = args.indexOf("--bucket");
+    const keyIndex = args.indexOf("--key");
+    if (
+      command === "aws"
+      && args[0] === "s3api"
+      && args[1] === "delete-object"
+      && bucketIndex >= 0
+      && args[bucketIndex + 1] === "phase52-selftest-bucket"
+      && keyIndex >= 0
+      && args[keyIndex + 1]
+        === "phase49/artifacts/phase52-iam-negative/20260925T000000Z-00000000-0000-4000-8000-000000000000.probe"
+    ) {
       return { status: 0, stdout: "{}\n", stderr: "" };
     }
     return fakeRun(command, args, options);

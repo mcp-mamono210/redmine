@@ -18,6 +18,10 @@ const ENVIRONMENT_RUNNER = resolve(
   ROOT,
   "scripts/phase52/run-environment-conformance-system-release-gate.mjs",
 );
+const SYSTEM_RELEASE_GENERATOR = resolve(
+  ROOT,
+  "scripts/phase52/generate-system-release-evidence.mjs",
+);
 const SCHEMA = resolve(
   ROOT,
   "docs/verification/phase52-system-release-evidence.schema.json",
@@ -35,7 +39,13 @@ function runSelfTest(script: string): string {
 
 describe("Phase 52-0 system release verification support", () => {
   it("keeps every Phase 52 verification script syntactically valid", () => {
-    for (const script of [COMMON, VALIDATOR, REAL_S3_RUNNER, ENVIRONMENT_RUNNER]) {
+    for (const script of [
+      COMMON,
+      VALIDATOR,
+      REAL_S3_RUNNER,
+      ENVIRONMENT_RUNNER,
+      SYSTEM_RELEASE_GENERATOR,
+    ]) {
       expect(() =>
         execFileSync(process.execPath, ["--check", script], { encoding: "utf8" }),
       ).not.toThrow();
@@ -101,10 +111,22 @@ describe("Phase 52-0 system release verification support", () => {
     expect(output).toContain('"phase50EvidenceOverwriteGuard": "PASS"');
   });
 
-  it("owns tested revisions, output paths, AWS privacy, IAM denial, and release-freeze classification in source", () => {
+  it("prepares the Phase 52-3 system release candidate without publishing the canonical release record", () => {
+    const output = runSelfTest(SYSTEM_RELEASE_GENERATOR);
+    expect(output).toContain('"result": "PASS"');
+    expect(output).toContain('"handoffParsing": "PASS"');
+    expect(output).toContain('"policyReferenceInterpretation": "PASS"');
+    expect(output).toContain('"canonicalGitProcessClassification": "PASS"');
+    expect(output).toContain('"noncanonicalProcessDetection": "PASS"');
+    expect(output).toContain('"singleResultField": "PASS"');
+    expect(output).toContain('"dryRunOnlyBoundary": "PASS"');
+  });
+
+  it("owns tested revisions, output paths, AWS privacy, IAM denial, release-freeze, and Phase 52-3 closure in source", () => {
     const common = readFileSync(COMMON, "utf8");
     const realS3 = readFileSync(REAL_S3_RUNNER, "utf8");
     const environment = readFileSync(ENVIRONMENT_RUNNER, "utf8");
+    const generator = readFileSync(SYSTEM_RELEASE_GENERATOR, "utf8");
 
     expect(common).toContain("PHASE49_REAL_S3_TESTED_GIT_REVISION must be unset");
     expect(common).toContain("PHASE50_TESTED_GIT_REVISION must be unset");
@@ -119,5 +141,12 @@ describe("Phase 52-0 system release verification support", () => {
     expect(realS3).toContain("list-objects-v2");
     expect(environment).toContain("PHASE50_ENVIRONMENT_CONFORMANCE_RECORD");
     expect(environment).toContain("verify:phase50:environment");
+    expect(generator).toContain("validate-system-release-compatibility.mjs");
+    expect(generator).toContain("--validate-only");
+    expect(generator).toContain("policyReference");
+    expect(generator).toContain("assertNoReleaseFreezeViolations");
+    expect(generator).toContain("agentProcessLaunchSiteCount: 0");
+    expect(generator).toContain("design-and-implementation-separation-only");
+    expect(generator).toContain("canonicalRecordWritten: false");
   });
 });

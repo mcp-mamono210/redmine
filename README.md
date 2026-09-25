@@ -15,6 +15,40 @@ versioned Agent Brief has passed Handler Validation and has complete approval
 metadata suitable for later handoff. v0.3.0 does not claim, provision, execute,
 orchestrate, or retry an Agent.
 
+### v0.4.0 system milestone preparation
+
+The Redmine MCP component remains released as `0.3.0`; `v0.4.0` is a
+system-level milestone and does not change the Redmine MCP component version.
+
+Phase 52-3 has prepared and dry-run validated the exact v0.4.0 release
+combination. The system functional boundary remains:
+
+```text
+Ready for Agent
+-> safe one-shot Agent execution
+-> durable immutable artifact
+-> Ready for Independent Verification
+```
+
+The Redmine/MCP repository remains the approval/control plane and does not spawn
+Agent or Agent Runner processes. The current Agent Runner RC has runtime
+composition and production dependency assembly for the one-shot execution path,
+but v0.4.0 does not certify a resident production-service deployment.
+Executable Controller startup, process lifecycle / signal handling, service
+supervision / deployment definition, and dedicated GCE deployment acceptance
+are deferred to a later Deployment / Operations release.
+
+The separate-GCE architecture boundary remains unchanged. For v0.4.0,
+credential acceptance covers design / implementation ownership and non-exposure
+separation. Deployment-time Redmine/MCP versus Agent Runner credential /
+principal identity separation, including credential source / injection evidence
+and an Environment Conformance Gate rerun on the actual deployment host, is
+deferred to that later release.
+
+Phase 52-3 does not declare `v0.4.0 = Released`, write the canonical final PASS
+system-release record, or create `system-v0.4.0`; those publication actions
+belong to Phase 52-4.
+
 The published MCP Tool Registry is read-only by default. When write publication
 is explicitly enabled and the Agent Brief approval storage configuration is
 provided, the registry additionally exposes the narrow

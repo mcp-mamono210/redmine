@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "recordType": "phase52-environment-conformance-system-release-gate",
+  "generation": 1,
+  "generationId": "sha256:3877875fe652ab7b1fc8b5d64face69bbdbb4cbc686f7193236771c1e40fbab4",
+  "current": {
+    "testedSourceRevision": "bc4e58a2f9986b88a7eb84b191d85824c926f9f7",
+    "evidenceRepository": "mcp-mamono210/ai-agent-runner",
+    "evidenceRevision": "6407f0166cae46b1df0d8e03cdaaf4d8176293e6",
+    "evidencePath": "docs/verification/phase52-environment-conformance-system-release-20260925T043129Z.json",
+    "evidenceBlobSha": "61f9f9a41c21a0dc2fd98de8b4bce22cf5a05f40",
+    "rawRecordSha256": "sha256:7db0de1eae5f83c6e8d7c247c8c1f27a8d623cf4368690e7b1052130fcbcb844",
+    "executionHost": {
+      "hostProvider": "local-macos",
+      "uname": {
+        "sysname": "Darwin",
+        "kernelRelease": "24.6.0",
+        "machine": "x86_64"
+      },
+      "nodeVersion": "24.19.0",
+      "npmVersion": "11.17.0",
+      "awsCliVersion": "aws-cli/2.34.30 Python/3.14.4 Darwin/24.6.0 exe/x86_64",
+      "dockerClientVersion": "29.7.2",
+      "dockerServerVersion": "29.5.2"
+    },
+    "environmentConformanceResult": "PASS",
+    "findingClassificationCounts": {
+      "compatible": 12,
+      "different-contract-neutral": 2,
+      "different-contract-affecting": 1
+    },
+    "unresolvedIncompatibleFindingCount": 0,
+    "unresolvedUnsupportedFindingCount": 0,
+    "unresolvedContractAffectingDifferenceCount": 0,
+    "missingMandatoryAlternateCoverageCount": 0,
+    "unresolvedMandatoryCoverageGapCount": 0,
+    "phase50VerifierRecordSha256": "sha256:9cf632788ac915ddf91148b9a884e4da151e32cc148803640b20b4ef38536d07",
+    "productionDeploymentCertification": false,
+    "failure": null,
+    "checkoutClean": true,
+    "result": "PASS",
+    "verifiedAt": "2026-09-25T04:32:23.035Z"
+  },
+  "history": [],
+  "supersedes": null
+}

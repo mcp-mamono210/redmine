@@ -25,7 +25,8 @@ const REAL_S3_GATE_PATH = "docs/verification/phase52-real-s3-system-release-gate
 const ENVIRONMENT_GATE_PATH = "docs/verification/phase52-environment-conformance-system-release-gate.json";
 const REGISTRY_PATH = "docs/contracts/system-release-compatibility-contract-registry.json";
 const SYSTEM_RECORD_TYPE = "v0.4.0-system-release";
-const SYSTEM_MILESTONE = "v0.4.0";
+const PLATFORM_MILESTONE = "0.4.0";
+const SYSTEM_MILESTONE = `v${PLATFORM_MILESTONE}`;
 const RUNNER_PRODUCTION_RUNTIME_PATH = "src/controller/phase49-5-runtime.ts";
 const RUNNER_SANDBOX_RUNTIME_PATH = "src/sandbox/docker-runtime.ts";
 const RUNNER_PHASE50_SECURITY_EVIDENCE_PATH = "docs/verification/phase50-7-artifact-restore-security-resource-regression.md";
@@ -150,7 +151,7 @@ function assertSame(label, actual, expected) {
 function assertPhase51InputClosure({ handoff, finalVerification, manifest }) {
   if (finalVerification?.current?.result !== "PASS") fail("Phase 51 final verification is not PASS");
   if (manifest?.current?.result !== "PASS") fail("release compatibility manifest is not PASS");
-  if (manifest?.current?.platformMilestone !== SYSTEM_MILESTONE) fail("release compatibility manifest milestone mismatch");
+  if (manifest?.current?.platformMilestone !== PLATFORM_MILESTONE) fail("release compatibility manifest milestone mismatch");
 
   const finalComponents = {
     redmineMcp: {
@@ -381,17 +382,32 @@ function literalFirstArgument(callText) {
 
 function scanImportedChildProcessBindings(content) {
   const bindings = [];
-  const named = /import\s*\{([^}]+)\}\s*from\s*["'](?:node:)?child_process["']/gu;
-  for (const match of content.matchAll(named)) {
+  const namespaces = [];
+
+  const namedImport = /import\s*\{([^}]+)\}\s*from\s*["'](?:node:)?child_process["']/gu;
+  for (const match of content.matchAll(namedImport)) {
     for (const raw of match[1].split(",")) {
       const token = raw.trim();
       const alias = token.match(/^(execFileSync|execFile|execSync|exec|spawnSync|spawn|fork)(?:\s+as\s+([A-Za-z_$][\w$]*))?$/u);
       if (alias) bindings.push({ api: alias[1], local: alias[2] ?? alias[1] });
     }
   }
-  const namespaces = [];
-  const namespace = /import\s*\*\s*as\s*([A-Za-z_$][\w$]*)\s*from\s*["'](?:node:)?child_process["']/gu;
-  for (const match of content.matchAll(namespace)) namespaces.push(match[1]);
+
+  const namespaceImport = /import\s*\*\s*as\s*([A-Za-z_$][\w$]*)\s*from\s*["'](?:node:)?child_process["']/gu;
+  for (const match of content.matchAll(namespaceImport)) namespaces.push(match[1]);
+
+  const destructuredRequire = /(?:const|let|var)\s*\{([^}]+)\}\s*=\s*require\s*\(\s*["'](?:node:)?child_process["']\s*\)/gu;
+  for (const match of content.matchAll(destructuredRequire)) {
+    for (const raw of match[1].split(",")) {
+      const token = raw.trim();
+      const alias = token.match(/^(execFileSync|execFile|execSync|exec|spawnSync|spawn|fork)(?:\s*:\s*([A-Za-z_$][\w$]*))?$/u);
+      if (alias) bindings.push({ api: alias[1], local: alias[2] ?? alias[1] });
+    }
+  }
+
+  const namespaceRequire = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*require\s*\(\s*["'](?:node:)?child_process["']\s*\)/gu;
+  for (const match of content.matchAll(namespaceRequire)) namespaces.push(match[1]);
+
   return { bindings, namespaces };
 }
 
@@ -437,8 +453,8 @@ function scanProcessLaunchSitesInText(path, content) {
     }
   }
 
-  const requirePattern = /(?:require\s*\(\s*["'](?:node:)?child_process["']\s*\)|[A-Za-z_$][\w$]*)\s*\.\s*(execFileSync|execFile|execSync|exec|spawnSync|spawn|fork)\s*\(/gu;
-  for (const match of content.matchAll(requirePattern)) {
+  const directRequirePattern = /require\s*\(\s*["'](?:node:)?child_process["']\s*\)\s*\.\s*(execFileSync|execFile|execSync|exec|spawnSync|spawn|fork)\s*\(/gu;
+  for (const match of content.matchAll(directRequirePattern)) {
     const api = match[1];
     addSite(api, match[0].slice(0, -1).trim(), match.index, content.slice(match.index + match[0].length));
   }
@@ -777,6 +793,22 @@ function runSelfTest() {
     fail("self-test: noncanonical process launch was not detected");
   }
 
+  const regexExecOnly = scanProcessLaunchSitesInText(
+    "src/agent-brief/contract.ts",
+    `const match = /^x$/u.exec("x");\n`,
+  );
+  if (regexExecOnly.length !== 0) {
+    fail("self-test: RegExp.exec must not be classified as a process launch");
+  }
+
+  const commonJsLaunch = scanProcessLaunchSitesInText(
+    "src/index.js",
+    `const childProcess = require("node:child_process");\nchildProcess.spawn("agent-runner", []);\n`,
+  );
+  if (commonJsLaunch.length !== 1 || commonJsLaunch[0].api !== "spawn") {
+    fail("self-test: CommonJS child_process launch was not detected");
+  }
+
   const prospective = makeInitialEvidenceRecord(SYSTEM_RECORD_TYPE, {
     systemMilestone: SYSTEM_MILESTONE,
     phase51GatePolicyReferences: handoff.phase51GatePolicyReferences,
@@ -792,6 +824,8 @@ function runSelfTest() {
     policyReferenceInterpretation: "PASS",
     canonicalGitProcessClassification: "PASS",
     noncanonicalProcessDetection: "PASS",
+    regexExecIgnored: "PASS",
+    commonJsProcessDetection: "PASS",
     singleResultField: "PASS",
     dryRunOnlyBoundary: "PASS",
   };

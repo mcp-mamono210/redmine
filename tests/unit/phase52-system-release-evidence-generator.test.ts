@@ -32,6 +32,8 @@ describe("Phase 52-3 system release evidence preparation", () => {
     expect(output).toContain('"policyReferenceInterpretation": "PASS"');
     expect(output).toContain('"canonicalGitProcessClassification": "PASS"');
     expect(output).toContain('"noncanonicalProcessDetection": "PASS"');
+    expect(output).toContain('"regexExecIgnored": "PASS"');
+    expect(output).toContain('"commonJsProcessDetection": "PASS"');
     expect(output).toContain('"singleResultField": "PASS"');
     expect(output).toContain('"dryRunOnlyBoundary": "PASS"');
   });
@@ -81,6 +83,8 @@ describe("Phase 52-3 system release evidence preparation", () => {
     expect(source).toContain("spawn");
     expect(source).toContain("fork");
     expect(source).toContain("unknown / unresolved process-launch site found");
+    expect(source).toContain("directRequirePattern");
+    expect(source).toContain("RegExp.exec must not be classified as a process launch");
     expect(source).toContain("Agent Brief persistence Git process");
     expect(source).toContain("agentProcessLaunchSiteCount: 0");
     expect(source).toContain("agentRunnerProcessLaunchSiteCount: 0");
@@ -102,6 +106,16 @@ describe("Phase 52-3 system release evidence preparation", () => {
     expect(source).toContain("packageBinPresent");
     expect(source).toContain("system-v0.4.0");
     expect(source).toContain("v0.3.0 unchanged");
+  });
+
+  it("distinguishes the platform milestone from the system milestone label", () => {
+    const source = readFileSync(GENERATOR, "utf8");
+
+    expect(source).toContain('const PLATFORM_MILESTONE = "0.4.0"');
+    expect(source).toContain('const SYSTEM_MILESTONE = `v${PLATFORM_MILESTONE}`');
+    expect(source).toContain(
+      "manifest?.current?.platformMilestone !== PLATFORM_MILESTONE",
+    );
   });
 
   it("uses one result field for the prospective system release record", () => {

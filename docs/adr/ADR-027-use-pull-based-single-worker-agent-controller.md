@@ -138,3 +138,37 @@ system later introduces multiple Runner instances, multiple Workers, or multiple
 independent execution entry points, distributed coordination can be evaluated
 as a separate architecture change rather than being embedded prematurely in the
 v0.4.0 contract.
+
+## Phase 53 Addendum (2026-09-27, refs #5450)
+
+The original Accepted Decision above remains unchanged. Phase 53 records a
+bounded defect correction discovered after v0.4.0 rather than replacing the
+pull-based single-worker architecture.
+
+The implementation evidence from Phase 53-1 / 53-2 requires the following
+clarifications within the existing decision:
+
+- automatic discovery uses the exact requested project, excludes subprojects,
+  requires `Ready for Agent`, and requires an empty execution lifecycle;
+- a list-response predicate mismatch is a query-integrity failure that stops
+  polling rather than a candidate-level skip;
+- a valid-list candidate that changes after the local lock / re-fetch may be
+  diagnosed and skipped within a bounded scan;
+- bounded-scan exhaustion is fail-closed and must not become silent repeated
+  polling;
+- both `Agent Running` and pre-execution rejection writers re-read durable state
+  immediately before mutation and refuse to clear / overwrite an existing
+  execution or rejection record;
+- writer guard failure performs no durable mutation and does not start an Agent;
+  and
+- startup reconciliation verifies exact project plus `Agent Running` on the
+  response side and stops startup without reconciliation writes or ordinary
+  polling on predicate mismatch.
+
+The Phase 53 scan bound of 100, ID ordering, page size, helper names, and private
+data structures remain implementation / regression details. They are not added
+to the portable architecture decision.
+
+This addendum does not authorize distributed claim / lease, automatic same-Issue
+Agent retry, another execution writer, or a second durable execution Source of
+Truth. Those remain separate architecture changes if needed later.

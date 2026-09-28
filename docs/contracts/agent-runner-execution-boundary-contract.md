@@ -1,7 +1,10 @@
 # Agent Runner Execution Boundary Contract
 
-Status: Draft for unreleased v0.4.0  
-Target release: v0.4.0
+Status: Active canonical contract
+
+Initial release: v0.4.0
+
+Current semantic revision: 2 (Phase 53 bounded defect correction)
 
 ## Purpose / Scope
 
@@ -851,3 +854,154 @@ recorded in:
 - `docs/adr/ADR-025-use-redmine-as-durable-execution-source-of-truth.md`
 - `docs/adr/ADR-026-separate-approval-and-execution-lifecycle-writers.md`
 - `docs/adr/ADR-027-use-pull-based-single-worker-agent-controller.md`
+
+## Phase 53 Semantic Revision 2 - Bounded Execution Defect Correction
+
+Phase 53-1 / 53-2 corrected candidate discovery, post-lock eligibility, durable
+writer guarding, and startup-reconciliation behavior after the v0.4.0 system
+release. This section is normative and refines the polling / startup / durable
+mutation rules above. Where earlier wording such as `status = Ready for Agent`
+is less precise than this section, this semantic revision 2 rule is authoritative.
+
+The corrected one-shot invariant is:
+
+```text
+One Issue = at most one Agent execution attempt
+```
+
+An automatic candidate is eligible only when all of the following are true:
+
+```text
+exact requested project
+subprojects excluded
+Agent Brief Lifecycle = Ready for Agent
+Agent Execution Lifecycle = empty
+execution / rejection durable record = pristine
+```
+
+`Brief Ready` is not execution permission. Phase 53 does not change the existing
+approval-side meaning of `Ready for Agent`.
+
+### Query Integrity and Candidate Progression
+
+Candidate discovery uses an exact project query and excludes subprojects. The
+list response must expose enough identity to verify the requested project and
+lifecycle predicates independently of Redmine's filter implementation.
+
+A list-response predicate mismatch is a query-integrity failure:
+
+```text
+list-response predicate mismatch
+  -> operator-visible diagnostic
+  -> fail closed
+  -> stop polling
+```
+
+It must not be reclassified as a skippable candidate.
+
+After a valid list response, the Controller acquires its transient local lock
+and re-fetches the Issue. A post-list state change is a different condition:
+
+```text
+valid list response
+  -> local lock
+  -> Issue re-fetch
+  -> project / Brief lifecycle / Execution Lifecycle / pristine changed
+  -> bounded diagnostic
+  -> skip this candidate
+  -> continue within the same bounded scan
+```
+
+The distinction is normative:
+
+```text
+list-response predicate mismatch = query failure / stop
+post-list state change            = diagnostic / bounded skip
+```
+
+Candidate progression must use a bounded scan. If the bound is exhausted
+without an executable candidate while additional candidates may exist, the
+Controller must emit an operator-visible exhaustion diagnostic and stop polling.
+It must not enter silent repeated polling that can starve later work.
+
+The Phase 53 implementation uses a scan bound of `100` and deterministic ID
+ordering. Those values, private helper names, page-size choices, and internal
+data structures are implementation / regression requirements, not portable
+contract constants. The portable contract requires only a bounded scan and
+fail-closed exhaustion behavior.
+
+### Pre-write Durable State Guard
+
+The Issue must be re-read immediately before either execution-side durable
+mutation path.
+
+Before the `Agent Running` write, the Controller must require:
+
+```text
+exact allowed project
+Agent Execution Lifecycle = empty
+execution record = pristine
+rejection record = pristine
+```
+
+Before a pre-execution rejection write, the same durable execution / rejection
+pristine boundary applies. Existing durable execution or rejection data must
+not be cleared or overwritten to make a new write fit.
+
+For either writer, guard failure means:
+
+```text
+no Redmine mutation
+no Agent invocation
+```
+
+The writer pre-read is an additional race boundary after the post-lock
+re-fetch; it does not replace that earlier eligibility check.
+
+### Startup Reconciliation Query Integrity
+
+Startup reconciliation queries durable `Agent Running` state using:
+
+```text
+exact requested project
+subprojects excluded
+Agent Execution Lifecycle = Agent Running
+```
+
+Every list response item must be checked again for the requested project and
+`Agent Running` predicate. A mismatch is fail-closed startup failure:
+
+```text
+query predicate mismatch
+  -> startup stops
+  -> no reconciliation write
+  -> no ordinary polling
+```
+
+The Controller must not skip only the mismatched item and declare startup
+successful.
+
+### Compatibility Classification
+
+This semantic revision is classified as `compatibility-semantic`.
+`compatibilityImpact = none` is valid only because Phase 53-1 / 53-2 preserve
+all of the following identities and semantics:
+
+```text
+Ready-for-Agent handoff identity
+producer / consumer field semantics
+requirements fingerprint semantics
+approval semantics
+Agent lifecycle / execution outcome identity
+writer ownership identity
+Phase 49 artifact format
+Phase 50 golden baseline
+```
+
+If an implementation change cannot preserve all of those boundaries, the
+compatibility impact must not remain `none`; the existing compatibility contract
+must classify it as `unknown` or `affected` as appropriate.
+
+Semantic revision 2 intentionally does not introduce distributed claim / lease,
+same-Issue Agent retry, a second durable Runner Source of Truth, a new approval
+state, a new execution outcome identity, or a new artifact format.

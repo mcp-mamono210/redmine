@@ -65,7 +65,14 @@
   "targetRepositoryField": {
     "id": 25,
     "name": "Target Repository",
-    "requiredFieldFormat": "list",
-    "requiredAllowedValue": "php"
+    "supportedExistingFormats": [
+      "string",
+      "list"
+    ],
+    "multiple": false,
+    "requiredAllowedValue": {
+      "value": "php",
+      "appliesWhenFieldFormat": "list"
+    }
   }
 }

@@ -4,6 +4,7 @@ require "json"
 require "digest"
 require "time"
 require "fileutils"
+require_relative "target-repository-policy"
 
 module Phase53_4RedmineAdministrativeProvisioning
   TICKET = 5451
@@ -82,6 +83,11 @@ module Phase53_4RedmineAdministrativeProvisioning
     fail!("unexpected spec schemaVersion") unless spec["schemaVersion"] == 1
     fail!("unexpected spec ticket") unless spec["ticket"] == TICKET
     fail!("briefFields must contain six definitions") unless Array(spec["briefFields"]).length == 6
+    target = spec.fetch("targetRepositoryField")
+    fail!("Target Repository supported formats must include string and list") unless target.fetch("supportedExistingFormats") == %w[string list]
+    fail!("Target Repository must remain single-valued") unless target.fetch("multiple") == false
+    required = target.fetch("requiredAllowedValue")
+    fail!("Target Repository required allowed value applies only to list") unless required == { "value" => "php", "appliesWhenFieldFormat" => "list" }
   end
 
   def assert_config!(config)
@@ -505,25 +511,37 @@ module Phase53_4RedmineAdministrativeProvisioning
       blockers << "#{expected_name} exact-name binding is ambiguous or does not match CF#{expected_id}"
       return
     end
-    if by_id.field_format != definition.fetch("requiredFieldFormat")
-      blockers << "CF#{expected_id} type is #{by_id.field_format}; changing Target Repository field type is a separate decision"
-      return
+    policy = target_repository_policy(by_id, definition)
+    blockers.concat(policy.fetch("blockers"))
+    return unless policy.fetch("blockers").empty?
+
+    policy.fetch("actions").each do |action|
+      actions << action.merge(
+        "fieldId" => by_id.id,
+        "field" => by_id.name
+      )
     end
 
-    required_value = definition.fetch("requiredAllowedValue")
-    unless Array(by_id.possible_values).include?(required_value)
-      actions << {
-        "action" => "append_target_repository_value",
-        "fieldId" => by_id.id,
-        "field" => by_id.name,
-        "before" => Array(by_id.possible_values),
-        "append" => required_value,
-        "after" => Array(by_id.possible_values) + [required_value]
-      }
+    if by_id.multiple? != definition.fetch("multiple")
+      # The pure policy above reports this as a blocker; this guard keeps the
+      # schema comparison explicit at the Rails boundary as well.
+      blockers << "CF#{expected_id} multiplicity mismatch; no multiplicity conversion is performed"
+      return
     end
 
     plan_scope(context, by_id, actions)
     plan_visibility(by_id, visibility_policy, visibility_roles, actions)
+  end
+
+  def target_repository_policy(field, definition)
+    target = definition.fetch("requiredAllowedValue")
+    Phase53TargetRepositoryPolicy.evaluate(
+      field_format: field.field_format,
+      multiple: field.multiple?,
+      possible_values: field.possible_values,
+      supported_formats: definition.fetch("supportedExistingFormats"),
+      required_allowed_value: target.fetch("value")
+    )
   end
 
   def stored_values(field)
@@ -627,13 +645,17 @@ module Phase53_4RedmineAdministrativeProvisioning
     field = IssueCustomField.find_by(id: definition.fetch("id"))
     fail!("Target Repository field disappeared") if field.nil?
     fail!("Target Repository name changed") unless field.name == definition.fetch("name")
-    unless field.field_format == definition.fetch("requiredFieldFormat")
-      fail!("Target Repository type changed; separate decision required")
-    end
+    fields_by_name = IssueCustomField.where(name: definition.fetch("name")).order(:id).to_a
+    fail!("Target Repository exact-name binding is ambiguous or does not match CF#{definition.fetch("id")}") unless fields_by_name.length == 1 && fields_by_name.first.id == field.id
 
-    required_value = definition.fetch("requiredAllowedValue")
-    values = Array(field.possible_values)
-    field.possible_values = values + [required_value] unless values.include?(required_value)
+    policy = target_repository_policy(field, definition)
+    fail!(policy.fetch("blockers").join("; ")) unless policy.fetch("blockers").empty?
+
+    if field.field_format == "list"
+      required_value = definition.fetch("requiredAllowedValue").fetch("value")
+      values = Array(field.possible_values)
+      field.possible_values = values + [required_value] unless values.include?(required_value)
+    end
 
     policy = config.dig("visibility", "targetRepository")
     roles = roles_for_apply(policy)
@@ -717,9 +739,12 @@ module Phase53_4RedmineAdministrativeProvisioning
     target_field = IssueCustomField.find_by(id: target.fetch("id"))
     fail!("post-apply Target Repository is missing") if target_field.nil?
     fail!("post-apply Target Repository name mismatch") unless target_field.name == target.fetch("name")
-    fail!("post-apply Target Repository type mismatch") unless target_field.field_format == target.fetch("requiredFieldFormat")
-    unless Array(target_field.possible_values).include?(target.fetch("requiredAllowedValue"))
-      fail!("post-apply Target Repository is missing required php value")
+    target_fields_by_name = IssueCustomField.where(name: target.fetch("name")).order(:id).to_a
+    fail!("post-apply Target Repository exact-name binding is ambiguous") unless target_fields_by_name.length == 1 && target_fields_by_name.first.id == target_field.id
+    target_policy = target_repository_policy(target_field, target)
+    fail!("post-apply Target Repository policy mismatch: #{target_policy.fetch("blockers").join("; ")}") unless target_policy.fetch("blockers").empty?
+    if target_field.field_format == "list" && target_policy.fetch("actions").any?
+      fail!("post-apply Target Repository is missing required #{target.fetch("requiredAllowedValue").fetch("value")} value")
     end
     assert_scope!(context, target_field)
     assert_visibility!(target_field, config.dig("visibility", "targetRepository"))

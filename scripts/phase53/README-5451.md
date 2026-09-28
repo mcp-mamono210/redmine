@@ -37,7 +37,9 @@ apply     -> mutation, only after exact plan digest approval
 - an exact field name is duplicated or has a case-insensitive collision;
 - an existing Brief field has the wrong type or multiplicity;
 - `Target Repository` is not CF25 with the exact expected name;
-- CF25 is not a list field;
+- CF25 has multiplicity other than single;
+- CF25 has a field format other than the supported existing `string` or `list`
+  formats;
 - `Agent Brief Lifecycle` contains stored non-canonical values that would be
   invalidated by narrowing the list domain;
 - a role selected for restricted visibility does not resolve exactly once; or
@@ -187,9 +189,13 @@ field schema or visibility policy.
 For CF25 `Target Repository`, the tool:
 
 - requires exact ID 25 and exact name `Target Repository`;
-- records actual type and multiplicity;
-- refuses to change the field type;
+- records the actual type and multiplicity;
+- accepts an existing `string` or `list` type and refuses to change the field
+  type;
+- requires single-value multiplicity and refuses multiplicity conversion;
 - when it is a list field, appends `php` only if missing;
+- when it is a string field, treats `php` as a normal future string value and
+  does not mutate `possible_values`;
 - preserves every existing allowed value;
 - adds project/tracker scope without removing existing scope; and
 - applies only the explicitly approved visibility policy.

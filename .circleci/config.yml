@@ -54,6 +54,13 @@ jobs:
               --negative-controls
 
       - run:
+          name: Enforce Phase 53 execution-boundary registry closure
+          command: |
+            node scripts/phase53/verify-agent-runner-execution-boundary-registry-closure.mjs \
+              --mode pre-merge \
+              --negative-controls
+
+      - run:
           name: Build CI routing implementation
           command: npm run build
 

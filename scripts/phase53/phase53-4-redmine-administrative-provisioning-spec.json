@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "ticket": 5451,
+  "project": {
+    "id": 414,
+    "identifier": "mcp_redmine"
+  },
+  "tracker": {
+    "id": 2,
+    "name": "\u6a5f\u80fd"
+  },
+  "briefFields": [
+    {
+      "name": "Agent Brief Lifecycle",
+      "fieldFormat": "list",
+      "multiple": false,
+      "required": false,
+      "filter": true,
+      "possibleValues": [
+        "Brief Draft",
+        "Brief Ready",
+        "Ready for Agent"
+      ]
+    },
+    {
+      "name": "Brief Approved By",
+      "fieldFormat": "string",
+      "multiple": false,
+      "required": false,
+      "filter": false
+    },
+    {
+      "name": "Brief Approved At",
+      "fieldFormat": "string",
+      "multiple": false,
+      "required": false,
+      "filter": false
+    },
+    {
+      "name": "Approved Brief Revision",
+      "fieldFormat": "int",
+      "multiple": false,
+      "required": false,
+      "filter": false
+    },
+    {
+      "name": "Approved Persisted Revision",
+      "fieldFormat": "string",
+      "multiple": false,
+      "required": false,
+      "filter": false
+    },
+    {
+      "name": "Approved Req Fingerprint",
+      "fieldFormat": "string",
+      "multiple": false,
+      "required": false,
+      "filter": false
+    }
+  ],
+  "executionLifecycleField": {
+    "name": "Agent Execution Lifecycle",
+    "filter": true
+  },
+  "targetRepositoryField": {
+    "id": 25,
+    "name": "Target Repository",
+    "requiredFieldFormat": "list",
+    "requiredAllowedValue": "php"
+  }
+}

@@ -102,3 +102,25 @@ npm run test:e2e
 ```
 
 Do not weaken or remove a regression assertion only to make a change pass.
+
+## Git and agent execution safety
+
+Before making changes:
+
+- run `git status`
+- preserve unrelated user changes
+- do not reset, discard, overwrite, or modify unrelated files
+- do not push, merge to `main`, rebase, squash, or force-push unless explicitly requested
+
+When a ticket requires multiple commits whose identities are part of the contract:
+
+- preserve those commits separately
+- never invent or manually guess commit SHAs or Git blob SHAs
+- derive Git identities mechanically
+- do not rewrite away a commit referenced by `sourceRevision`
+
+If validation fails:
+
+- investigate the failure
+- do not weaken tests, validators, or contract assertions merely to make them pass
+- do not create the next required commit until the current Gate is satisfied

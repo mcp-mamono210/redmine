@@ -130,6 +130,12 @@ jobs:
     steps:
       - setup_docker_node
       - run:
+        name: Install Ruby runtime for Phase 53 policy tests
+        command: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ruby
+          ruby --version
+      - run:
           name: Run unit tests
           command: npm run test:unit
 

@@ -49,9 +49,9 @@
       "contractId": "agent-runner-execution-boundary",
       "repository": "mcp-mamono210/redmine",
       "path": "docs/contracts/agent-runner-execution-boundary-contract.md",
-      "semanticRevision": 1,
-      "sourceRevision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
-      "sourceBlobSha": "1aa58f442627419e34e6acfce0376c57d614f0f9",
+      "semanticRevision": 2,
+      "sourceRevision": "7085773075912029f7cefd50584284079febba76",
+      "sourceBlobSha": "efeae50d914ee49b127b58be6c1da0d118001c08",
       "owningPhase": "45",
       "normative": true,
       "registrationState": "committed"

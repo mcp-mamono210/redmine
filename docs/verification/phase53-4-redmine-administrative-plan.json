@@ -1,0 +1,433 @@
+{
+  "schemaVersion": 1,
+  "ticket": 5451,
+  "project": {
+    "id": 414,
+    "identifier": "mcp_redmine",
+    "name": "Redmine"
+  },
+  "tracker": {
+    "id": 2,
+    "name": "機能"
+  },
+  "specSha256": "sha256:7298d0279426acfa04ca00dfca01182c72961c436e13f7f2cc65c7aebd7c019a",
+  "configuration": {
+    "schemaVersion": 1,
+    "ticket": 5451,
+    "visibility": {
+      "briefFields": {
+        "mode": "all",
+        "requiredRoleNames": []
+      },
+      "targetRepository": {
+        "mode": "all",
+        "requiredRoleNames": []
+      }
+    },
+    "administrativeBoundary": {
+      "normalProcessAdminCredentialMustRemainUnset": true,
+      "principalVerificationTicket": 5453
+    }
+  },
+  "before": {
+    "schemaVersion": 1,
+    "recordType": "phase53-4-redmine-administrative-inventory",
+    "ticket": 5451,
+    "project": {
+      "id": 414,
+      "identifier": "mcp_redmine",
+      "name": "Redmine"
+    },
+    "tracker": {
+      "id": 2,
+      "name": "機能"
+    },
+    "briefFields": [
+      {
+        "name": "Agent Brief Lifecycle",
+        "exactMatchCount": 0,
+        "caseInsensitiveCollisionCount": 0,
+        "caseInsensitiveCollisions": [],
+        "fields": []
+      },
+      {
+        "name": "Brief Approved By",
+        "exactMatchCount": 0,
+        "caseInsensitiveCollisionCount": 0,
+        "caseInsensitiveCollisions": [],
+        "fields": []
+      },
+      {
+        "name": "Brief Approved At",
+        "exactMatchCount": 0,
+        "caseInsensitiveCollisionCount": 0,
+        "caseInsensitiveCollisions": [],
+        "fields": []
+      },
+      {
+        "name": "Approved Brief Revision",
+        "exactMatchCount": 0,
+        "caseInsensitiveCollisionCount": 0,
+        "caseInsensitiveCollisions": [],
+        "fields": []
+      },
+      {
+        "name": "Approved Persisted Revision",
+        "exactMatchCount": 0,
+        "caseInsensitiveCollisionCount": 0,
+        "caseInsensitiveCollisions": [],
+        "fields": []
+      },
+      {
+        "name": "Approved Req Fingerprint",
+        "exactMatchCount": 0,
+        "caseInsensitiveCollisionCount": 0,
+        "caseInsensitiveCollisions": [],
+        "fields": []
+      }
+    ],
+    "executionLifecycleField": {
+      "name": "Agent Execution Lifecycle",
+      "exactMatchCount": 1,
+      "caseInsensitiveCollisionCount": 0,
+      "caseInsensitiveCollisions": [],
+      "fields": [
+        {
+          "id": 11,
+          "name": "Agent Execution Lifecycle",
+          "fieldFormat": "list",
+          "multiple": false,
+          "required": false,
+          "filter": false,
+          "forAllProjects": false,
+          "visibleToAllRoles": true,
+          "possibleValues": [
+            "Agent Running",
+            "Ready for Independent Verification",
+            "Needs Human"
+          ],
+          "roles": [],
+          "trackers": [
+            {
+              "id": 1,
+              "name": "バグ"
+            },
+            {
+              "id": 2,
+              "name": "機能"
+            },
+            {
+              "id": 3,
+              "name": "サポート"
+            },
+            {
+              "id": 4,
+              "name": "リファクタリング"
+            },
+            {
+              "id": 10,
+              "name": "修正"
+            },
+            {
+              "id": 11,
+              "name": "ドキュメント"
+            }
+          ],
+          "projects": [
+            {
+              "id": 413,
+              "identifier": "mcp"
+            },
+            {
+              "id": 414,
+              "identifier": "mcp_redmine"
+            }
+          ],
+          "nonblankStoredValueCount": 1,
+          "nonblankStoredValues": [
+            "Ready for Independent Verification"
+          ]
+        }
+      ]
+    },
+    "targetRepositoryField": {
+      "expectedId": 25,
+      "expectedName": "Target Repository",
+      "fieldAtExpectedId": {
+        "id": 25,
+        "name": "Target Repository",
+        "fieldFormat": "string",
+        "multiple": false,
+        "required": false,
+        "filter": false,
+        "forAllProjects": false,
+        "visibleToAllRoles": true,
+        "possibleValues": [],
+        "roles": [],
+        "trackers": [
+          {
+            "id": 1,
+            "name": "バグ"
+          },
+          {
+            "id": 2,
+            "name": "機能"
+          },
+          {
+            "id": 3,
+            "name": "サポート"
+          },
+          {
+            "id": 4,
+            "name": "リファクタリング"
+          },
+          {
+            "id": 10,
+            "name": "修正"
+          },
+          {
+            "id": 11,
+            "name": "ドキュメント"
+          }
+        ],
+        "projects": [
+          {
+            "id": 413,
+            "identifier": "mcp"
+          },
+          {
+            "id": 414,
+            "identifier": "mcp_redmine"
+          }
+        ],
+        "nonblankStoredValueCount": 2
+      },
+      "exactNameMatchCount": 1,
+      "fieldsByExactName": [
+        {
+          "id": 25,
+          "name": "Target Repository",
+          "fieldFormat": "string",
+          "multiple": false,
+          "required": false,
+          "filter": false,
+          "forAllProjects": false,
+          "visibleToAllRoles": true,
+          "possibleValues": [],
+          "roles": [],
+          "trackers": [
+            {
+              "id": 1,
+              "name": "バグ"
+            },
+            {
+              "id": 2,
+              "name": "機能"
+            },
+            {
+              "id": 3,
+              "name": "サポート"
+            },
+            {
+              "id": 4,
+              "name": "リファクタリング"
+            },
+            {
+              "id": 10,
+              "name": "修正"
+            },
+            {
+              "id": 11,
+              "name": "ドキュメント"
+            }
+          ],
+          "projects": [
+            {
+              "id": 413,
+              "identifier": "mcp"
+            },
+            {
+              "id": 414,
+              "identifier": "mcp_redmine"
+            }
+          ],
+          "nonblankStoredValueCount": 2
+        }
+      ]
+    },
+    "credentialMaterialRecorded": false,
+    "principalVerificationOwnedByTicket": 5453
+  },
+  "actions": [
+    {
+      "action": "create_brief_field",
+      "field": "Agent Brief Lifecycle",
+      "after": {
+        "name": "Agent Brief Lifecycle",
+        "fieldFormat": "list",
+        "multiple": false,
+        "required": false,
+        "filter": true,
+        "possibleValues": [
+          "Brief Draft",
+          "Brief Ready",
+          "Ready for Agent"
+        ],
+        "project": {
+          "id": 414,
+          "identifier": "mcp_redmine",
+          "name": "Redmine"
+        },
+        "tracker": {
+          "id": 2,
+          "name": "機能"
+        },
+        "visibility": {
+          "visibleToAllRoles": true,
+          "roleIds": []
+        }
+      }
+    },
+    {
+      "action": "create_brief_field",
+      "field": "Brief Approved By",
+      "after": {
+        "name": "Brief Approved By",
+        "fieldFormat": "string",
+        "multiple": false,
+        "required": false,
+        "filter": false,
+        "possibleValues": [],
+        "project": {
+          "id": 414,
+          "identifier": "mcp_redmine",
+          "name": "Redmine"
+        },
+        "tracker": {
+          "id": 2,
+          "name": "機能"
+        },
+        "visibility": {
+          "visibleToAllRoles": true,
+          "roleIds": []
+        }
+      }
+    },
+    {
+      "action": "create_brief_field",
+      "field": "Brief Approved At",
+      "after": {
+        "name": "Brief Approved At",
+        "fieldFormat": "string",
+        "multiple": false,
+        "required": false,
+        "filter": false,
+        "possibleValues": [],
+        "project": {
+          "id": 414,
+          "identifier": "mcp_redmine",
+          "name": "Redmine"
+        },
+        "tracker": {
+          "id": 2,
+          "name": "機能"
+        },
+        "visibility": {
+          "visibleToAllRoles": true,
+          "roleIds": []
+        }
+      }
+    },
+    {
+      "action": "create_brief_field",
+      "field": "Approved Brief Revision",
+      "after": {
+        "name": "Approved Brief Revision",
+        "fieldFormat": "int",
+        "multiple": false,
+        "required": false,
+        "filter": false,
+        "possibleValues": [],
+        "project": {
+          "id": 414,
+          "identifier": "mcp_redmine",
+          "name": "Redmine"
+        },
+        "tracker": {
+          "id": 2,
+          "name": "機能"
+        },
+        "visibility": {
+          "visibleToAllRoles": true,
+          "roleIds": []
+        }
+      }
+    },
+    {
+      "action": "create_brief_field",
+      "field": "Approved Persisted Revision",
+      "after": {
+        "name": "Approved Persisted Revision",
+        "fieldFormat": "string",
+        "multiple": false,
+        "required": false,
+        "filter": false,
+        "possibleValues": [],
+        "project": {
+          "id": 414,
+          "identifier": "mcp_redmine",
+          "name": "Redmine"
+        },
+        "tracker": {
+          "id": 2,
+          "name": "機能"
+        },
+        "visibility": {
+          "visibleToAllRoles": true,
+          "roleIds": []
+        }
+      }
+    },
+    {
+      "action": "create_brief_field",
+      "field": "Approved Req Fingerprint",
+      "after": {
+        "name": "Approved Req Fingerprint",
+        "fieldFormat": "string",
+        "multiple": false,
+        "required": false,
+        "filter": false,
+        "possibleValues": [],
+        "project": {
+          "id": 414,
+          "identifier": "mcp_redmine",
+          "name": "Redmine"
+        },
+        "tracker": {
+          "id": 2,
+          "name": "機能"
+        },
+        "visibility": {
+          "visibleToAllRoles": true,
+          "roleIds": []
+        }
+      }
+    },
+    {
+      "action": "set_attribute",
+      "fieldId": 11,
+      "field": "Agent Execution Lifecycle",
+      "attribute": "filter",
+      "before": false,
+      "after": true
+    }
+  ],
+  "blockers": [],
+  "warnings": [
+    "Actual principal visibility and permissions remain a Phase 53-6 responsibility (Redmine #5453).",
+    "This tool never configures an administrator API credential for Brief Helper, Approval MCP, or Runner processes."
+  ],
+  "recordType": "phase53-4-redmine-administrative-plan",
+  "generatedAt": "2026-09-28T16:14:39Z",
+  "planDigest": "sha256:82802a4fa2b2f3b4742b77b59dc02d20a9a0e1514d1ca7db95ad3817a2ce8b58"
+}

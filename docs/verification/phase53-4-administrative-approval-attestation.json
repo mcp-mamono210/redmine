@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "recordType": "phase53-4-administrative-approval-attestation",
+  "ticket": 5451,
+  "planDigest": "sha256:82802a4fa2b2f3b4742b77b59dc02d20a9a0e1514d1ca7db95ad3817a2ce8b58",
+  "approvedActionCount": 7,
+  "approvedBy": "redmine-user:3",
+  "approverLogin": "mamono210",
+  "approverAdminAtCheck": false,
+  "approverStatusAtCheck": 1,
+  "attestedAt": "2026-09-28T16:30:45.255429Z",
+  "originalEvidence": "/tmp/phase53-4-provisioning-evidence.json",
+  "note": "The original provisioning evidence recorded a placeholder approvedBy value. This supplemental attestation records the actual human approval identity. The original provisioning evidence is preserved unchanged."
+}
